@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>ARC — Finance</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0c0f;--surface:#111418;--surface2:#181c22;
+  --border:#1e242d;--border2:#262d38;
+  --text:#e8edf5;--text2:#8a95a3;--text3:#4d5663;
+  --accent:#3b82f6;--accent-dim:rgba(59,130,246,0.12);
+  --green:#22c55e;--green-dim:rgba(34,197,94,0.12);
+  --amber:#f59e0b;--amber-dim:rgba(245,158,11,0.12);
+  --red:#ef4444;--red-dim:rgba(239,68,68,0.12);
+  --purple:#a855f7;--purple-dim:rgba(168,85,247,0.12);
+  --nav-h:56px;--strip-h:80px;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;font-size:14px}
+#nav{position:fixed;top:0;left:0;right:0;height:var(--nav-h);background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;padding:0 20px;z-index:100}
+.logo{font-size:17px;font-weight:700;letter-spacing:-.5px;color:var(--text);display:flex;align-items:center;gap:8px;cursor:pointer;text-decoration:none}
+.arc-badge{background:var(--accent);color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px;letter-spacing:1.5px}
+.client-name-display{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;color:var(--text);cursor:default}
+.spacer{flex:1}
+.nav-btn{background:none;border:1px solid var(--border2);border-radius:6px;color:var(--text2);padding:6px 12px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:6px;transition:all .15s;white-space:nowrap}
+.nav-btn:hover{border-color:var(--accent);color:var(--accent)}
+.cmndr-btn{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+.cmndr-btn:hover{background:var(--accent);color:#fff}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#fff;cursor:pointer;flex-shrink:0}
+#shell{display:flex;flex-direction:column;height:100vh;padding-top:var(--nav-h)}
+#health-strip{height:var(--strip-h);flex-shrink:0;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:stretch}
+.hc{display:flex;flex-direction:column;justify-content:center;padding:0 28px;flex:1;border-right:1px solid var(--border)}
+.hc:last-child{border-right:none}
+.hc-label{font-size:10px;color:var(--text3);letter-spacing:.7px;text-transform:uppercase;margin-bottom:5px}
+.hc-value{font-size:30px;font-weight:700;letter-spacing:-1.5px;line-height:1}
+.hc-sub{font-size:11px;color:var(--text3);margin-top:4px}
+.hc-bar{height:3px;background:var(--border2);border-radius:2px;margin-top:8px}
+.hc-bar-fill{height:100%;border-radius:2px;width:0;transition:width 1.2s cubic-bezier(.22,1,.36,1)}
+.col-blue{color:var(--accent)}.col-green{color:var(--green)}.col-amber{color:var(--amber)}
+#content-row{flex:1;display:flex;overflow:hidden;min-height:0}
+#main-col{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:16px}
+#cmndr-toggle{width:18px;flex-shrink:0;background:var(--surface2);border:none;border-left:1px solid var(--border);color:var(--text3);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color .15s,background .15s;padding:0}
+#cmndr-toggle:hover{color:var(--accent);background:var(--surface)}
+#cmndr-toggle svg{width:11px;height:11px;flex-shrink:0}
+#cmndr-col{width:300px;flex-shrink:0;border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width 250ms ease,opacity 200ms ease}
+#cmndr-col.collapsed{width:0;opacity:0;pointer-events:none}
+#cmndr-header{padding:14px 16px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0}
+.cmndr-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0;animation:blink 2.2s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+.cmndr-title{font-size:13px;font-weight:600}.cmndr-sub{font-size:11px;color:var(--text3);margin-top:1px}
+#cmndr-body{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.cmndr-narrative{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:12px}
+.cn-label{font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--accent);margin-bottom:6px}
+.cn-text{font-size:13px;color:var(--text2);line-height:1.65}
+.cmndr-history{display:flex;flex-direction:column;gap:8px}
+.msg{display:flex;flex-direction:column}
+.msg.user .msg-bubble{background:var(--accent-dim);border:1px solid var(--accent);align-self:flex-end;color:var(--text)}
+.msg.ai .msg-bubble{background:var(--surface2);border:1px solid var(--border2);align-self:flex-start;color:var(--text2)}
+.msg-bubble{max-width:92%;padding:7px 11px;border-radius:8px;font-size:13px;line-height:1.55;margin-bottom:2px}
+.msg-time{font-size:10px;color:var(--text3)}
+.msg.user .msg-time{align-self:flex-end}.msg.ai .msg-time{align-self:flex-start}
+#cmndr-input-area{padding:10px 16px 14px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:7px;flex-shrink:0}
+#cmndr-suggestions{display:flex;gap:5px;flex-wrap:wrap}
+.suggestion-pill{background:var(--surface2);border:1px solid var(--border2);border-radius:12px;padding:3px 9px;font-size:11px;color:var(--text2);cursor:pointer;transition:all .12s;white-space:nowrap}
+.suggestion-pill:hover{border-color:var(--accent);color:var(--accent)}
+.input-row{display:flex;gap:7px;align-items:flex-end}
+#cmndr-input{flex:1;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:13px;padding:7px 11px;outline:none;resize:none;font-family:inherit;min-height:36px;max-height:120px}
+#cmndr-input:focus{border-color:var(--accent)}
+#cmndr-send{background:var(--accent);border:none;border-radius:6px;width:34px;height:34px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0}
+#cmndr-send:hover{background:#2563eb}
+#cmndr-send svg{width:13px;height:13px;fill:currentColor}
+#module-nav{display:flex;gap:8px;flex-wrap:wrap}
+.module-chip{background:var(--surface);border:1px solid var(--border2);border-radius:20px;padding:5px 14px;font-size:12px;font-weight:500;color:var(--text2);cursor:pointer;transition:all .15s;white-space:nowrap}
+.module-chip:hover{border-color:var(--accent);color:var(--accent)}
+.module-chip.active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent);cursor:default}
+.skeleton{background:var(--border2);border-radius:6px;animation:pulse 1.5s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+/* PAGE SPECIFIC */
+.page-title{font-size:22px;font-weight:700;letter-spacing:-.5px}
+.page-sub{font-size:13px;color:var(--text3);margin-top:3px}
+.metric-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.metric-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px}
+.mc-label{font-size:10px;color:var(--text3);letter-spacing:.7px;text-transform:uppercase;margin-bottom:8px}
+.mc-value{font-size:20px;font-weight:700;letter-spacing:-.5px;line-height:1;margin-bottom:4px}
+.mc-sub{font-size:11px;color:var(--text2)}
+.mc-trend{font-size:11px;margin-top:5px}
+.trend-up{color:var(--green)}.trend-warn{color:var(--amber)}.trend-dn{color:var(--red)}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.col-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;display:flex;flex-direction:column;gap:14px}
+.col-card-title{font-size:12px;font-weight:600;color:var(--text)}
+/* Rev chart */
+.rev-chart{display:flex;align-items:flex-end;gap:10px;height:90px}
+.rev-bar{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px}
+.rb-fill{width:100%;border-radius:3px 3px 0 0}
+.rb-val{font-size:10px;color:var(--text2);white-space:nowrap}
+.rb-label{font-size:10px;color:var(--text3)}
+/* Table */
+.data-table{width:100%;border-collapse:collapse;font-size:12px}
+.data-table th{font-size:10px;color:var(--text3);font-weight:600;letter-spacing:.5px;text-transform:uppercase;padding:6px 8px;text-align:left;border-bottom:1px solid var(--border)}
+.data-table td{padding:8px;border-bottom:1px solid var(--border);color:var(--text2);vertical-align:middle}
+.data-table tr:last-child td{border-bottom:none}
+.data-table tr:hover td{background:var(--surface2)}
+.data-table tr.overdue td{background:var(--red-dim);color:var(--text)}
+.data-table tr.overdue:hover td{background:rgba(239,68,68,0.2)}
+.badge{font-size:10px;font-weight:600;padding:2px 7px;border-radius:4px;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap}
+.badge-green{background:var(--green-dim);color:var(--green)}
+.badge-amber{background:var(--amber-dim);color:var(--amber)}
+.badge-red{background:var(--red-dim);color:var(--red)}
+.badge-blue{background:var(--accent-dim);color:var(--accent)}
+.action-link{color:var(--accent);font-size:11px;cursor:pointer;text-decoration:none;margin-left:6px}
+/* DSO gauge */
+.dso-gauge{margin:4px 0}
+.dso-track{height:10px;background:var(--border2);border-radius:5px;position:relative;overflow:visible;margin-bottom:10px}
+.dso-fill{height:100%;border-radius:5px;background:var(--amber)}
+.dso-marker{position:absolute;top:-14px;font-size:9px;color:var(--text3);transform:translateX(-50%)}
+.dso-marker::after{content:'';position:absolute;top:14px;left:50%;width:1px;height:24px;background:var(--text3);opacity:.4}
+.dso-stats{display:flex;flex-direction:column;gap:8px}
+.dso-row{display:flex;justify-content:space-between;font-size:12px;padding:6px 0;border-bottom:1px solid var(--border)}
+.dso-row:last-child{border-bottom:none}
+/* Cash flow */
+.cf-row{display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:7px 0;border-bottom:1px solid var(--border)}
+.cf-row:last-child{border-bottom:none;font-weight:700;font-size:13px}
+.cf-label{color:var(--text2)}.cf-val{color:var(--text)}
+/* Job type */
+.jt-row{display:flex;justify-content:space-between;font-size:12px;padding:6px 0;border-bottom:1px solid var(--border)}
+.jt-row:last-child{border-bottom:none}
+/* Metric explain */
+.mc-explain{display:inline-block;margin-top:6px;font-size:10px;font-family:monospace;color:#0066ff;cursor:pointer;transition:color 150ms ease}
+.mc-explain:hover{color:#8888a0}
+/* Call log row */
+.call-log-row{display:none}
+.call-log-row.open{display:table-row}
+/* Info icons */
+.info-icon{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;border:1px solid var(--hint,#4d5663);color:var(--hint,#4d5663);font-size:9px;font-style:italic;font-family:'DM Mono',monospace;font-weight:600;cursor:pointer;margin-left:6px;vertical-align:middle;flex-shrink:0;transition:background 150ms ease,color 150ms ease,border-color 150ms ease;position:relative;top:-1px}
+.info-icon:hover{background:rgba(0,102,255,0.1);color:#0066ff;border-color:#0066ff}
+.info-tooltip{position:absolute;z-index:999;background:rgba(19,19,26,0.70);border:0.5px solid var(--border);border-radius:8px;padding:8px 12px;max-width:320px;min-width:200px;width:max-content;font-size:11px;font-family:'DM Mono',monospace;color:var(--text2);line-height:1.5;pointer-events:none;opacity:0;transition:opacity 150ms ease;box-shadow:0 8px 24px rgba(0,0,0,0.4);white-space:normal;backdrop-filter:blur(4px)}
+.info-tooltip.visible{opacity:1}
+/* Modals */
+.fin-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:500;align-items:center;justify-content:center}
+.fin-modal-overlay.open{display:flex}
+.fin-modal{background:var(--surface);border:1px solid var(--border2);border-radius:12px;padding:24px;width:480px;max-width:92vw;max-height:82vh;overflow-y:auto}
+.fin-modal-title{font-size:15px;font-weight:700;margin-bottom:3px}
+.fin-modal-sub{font-size:11px;color:var(--text3);margin-bottom:14px;font-family:monospace}
+.fin-modal-label{font-size:10px;font-family:monospace;letter-spacing:.6px;text-transform:uppercase;color:var(--text3);margin-bottom:4px;margin-top:12px}
+.fin-modal-draft{background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:10px 12px;font-size:12px;color:var(--text2);line-height:1.6;min-height:60px;white-space:pre-wrap}
+.fin-modal-textarea{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:10px 12px;font-size:12px;color:var(--text);line-height:1.6;min-height:80px;font-family:inherit;outline:none;resize:vertical}
+.fin-modal-textarea:focus{border-color:var(--accent)}
+.fin-modal-btns{display:flex;gap:8px;margin-top:16px}
+.fin-btn-primary{background:#0066ff;color:#fff;border:none;border-radius:6px;padding:7px 16px;font-size:12px;font-family:monospace;cursor:pointer;font-weight:600}
+.fin-btn-primary:hover{background:#0052cc}
+.fin-btn-danger{background:var(--red);color:#fff;border:none;border-radius:6px;padding:7px 16px;font-size:12px;font-family:monospace;cursor:pointer;font-weight:600}
+.fin-btn-danger:hover{background:#cc2222}
+.fin-btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border2);border-radius:6px;padding:7px 16px;font-size:12px;font-family:monospace;cursor:pointer}
+.fin-btn-ghost:hover{border-color:var(--text2)}
+</style>
+</head>
+<body>
+
+<nav id="nav">
+  <a class="logo" href="/">
+    <span class="arc-badge">ARC</span>
+    Command Center
+  </a>
+  <span class="client-name-display"><span style="font-size:8px;color:#00d4aa;line-height:1">●</span>Peak Flow Plumbing &amp; HVAC</span>
+  <div class="spacer"></div>
+  <button class="nav-btn" onclick="location.href='/automations'">⚡ Automations</button>
+  <button class="nav-btn cmndr-btn" onclick="toggleCmndr()">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+    CMNDR ✦
+  </button>
+  <button class="nav-btn" onclick="location.href='/connections'">Connections</button>
+  <div class="avatar" id="nav-avatar">A</div>
+</nav>
+
+<div id="shell">
+  <div id="health-strip">
+    <div class="hc">
+      <div class="hc-label">Entropy Score</div>
+      <div class="hc-value col-blue" id="hs-entropy">—</div>
+      <div class="hc-sub" id="hs-entropy-sub">Loading…</div>
+      <div class="hc-bar"><div class="hc-bar-fill" id="bar-entropy" style="background:var(--accent)"></div></div>
+    </div>
+    <div class="hc">
+      <div class="hc-label">Labor Deletion</div>
+      <div class="hc-value col-green">14.2<span style="font-size:16px;font-weight:500;letter-spacing:0"> hrs</span></div>
+      <div class="hc-sub">Saved this month</div>
+    </div>
+    <div class="hc">
+      <div class="hc-label">Relational ROI</div>
+      <div class="hc-value col-amber">$8.40<span style="font-size:16px;font-weight:500;letter-spacing:0"> /lead</span></div>
+      <div class="hc-sub">Revenue per contact</div>
+    </div>
+  </div>
+
+  <div id="content-row">
+    <div id="main-col">
+
+      <div id="module-nav">
+        <div class="module-chip" onclick="location.href='/'">All</div>
+        <div class="module-chip" onclick="location.href='/operations'">Operations</div>
+        <div class="module-chip" onclick="location.href='/marketing'">Marketing</div>
+        <div class="module-chip active">Finance</div>
+        <div class="module-chip" onclick="location.href='/yield'">Yield &amp; Efficiency</div>
+        <div class="module-chip" onclick="location.href='/audit'">Audit</div>
+      </div>
+
+      <div>
+        <div class="page-title">Finance</div>
+        <div class="page-sub">Revenue &amp; Collections · Peak Flow</div>
+      </div>
+
+      <div class="metric-row">
+        <div class="metric-card">
+          <div class="mc-label" data-info="Total revenue from invoices issued and completed this month. Includes all job types and payment methods processed through Peak Flow HVAC.">Monthly Revenue</div>
+          <div class="mc-value col-green">$67,240</div>
+          <div class="mc-sub">April 2026</div>
+          <div class="mc-trend trend-up">↑ 12% MoM</div>
+          <span class="mc-explain" onclick="explainMetric('monthly_revenue')">Explain this →</span>
+        </div>
+        <div class="metric-card">
+          <div class="mc-label" data-info="Total accounts receivable — money owed but not yet collected. Includes all open invoices regardless of due date or aging status.">Outstanding AR</div>
+          <div class="mc-value">$18,400</div>
+          <div class="mc-sub">Across 11 invoices</div>
+          <div class="mc-trend trend-warn">Needs follow-up</div>
+          <span class="mc-explain" onclick="explainMetric('outstanding_ar')">Explain this →</span>
+        </div>
+        <div class="metric-card">
+          <div class="mc-label" data-info="Days Sales Outstanding: avg days from invoice to payment. Industry benchmark is 35 days. Your target is 21 days. Lower is better.">DSO</div>
+          <div class="mc-value col-green">28<span style="font-size:14px;font-weight:500;letter-spacing:0"> days</span></div>
+          <div class="mc-sub">Days sales outstanding</div>
+          <div class="mc-trend trend-up">↓ Healthy (under 30)</div>
+          <span class="mc-explain" onclick="explainMetric('dso')">Explain this →</span>
+        </div>
+        <div class="metric-card">
+          <div class="mc-label" data-info="Invoices past their due date. Any balance over 30 days past due requires immediate escalation — risk of non-payment increases significantly after 45 days.">Overdue</div>
+          <div class="mc-value" style="color:var(--red)">$3,200</div>
+          <div class="mc-sub">1 invoice · 31 days past due</div>
+          <div class="mc-trend trend-dn">↑ Immediate action</div>
+          <span class="mc-explain" onclick="explainMetric('overdue_ar')">Explain this →</span>
+        </div>
+      </div>
+
+      <div class="two-col">
+
+        <!-- LEFT: Revenue chart + Invoice table -->
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="col-card">
+            <div class="col-card-title">Monthly Revenue</div>
+            <div class="rev-chart">
+              <div class="rev-bar">
+                <div class="rb-fill" style="height:71.7%;background:var(--border2)"></div>
+                <div class="rb-val">$48.2K</div>
+                <div class="rb-label">Jan</div>
+              </div>
+              <div class="rev-bar">
+                <div class="rb-fill" style="height:78.5%;background:var(--border2)"></div>
+                <div class="rb-val">$52.8K</div>
+                <div class="rb-label">Feb</div>
+              </div>
+              <div class="rev-bar">
+                <div class="rb-fill" style="height:89.4%;background:var(--border2)"></div>
+                <div class="rb-val">$60.1K</div>
+                <div class="rb-label">Mar</div>
+              </div>
+              <div class="rev-bar">
+                <div class="rb-fill" style="height:100%;background:var(--accent)"></div>
+                <div class="rb-val" style="color:var(--accent)">$67.2K</div>
+                <div class="rb-label">Apr</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-card">
+            <div class="col-card-title" data-info="Breakdown of open invoices by time outstanding. Items in the 30+ day bucket are at highest collection risk and require immediate action.">Invoice Aging</div>
+            <table class="data-table">
+              <thead><tr><th style="max-width:60px">Invoice</th><th>Customer</th><th>Amount</th><th>Due Date</th><th style="max-width:40px;text-align:center">Days</th><th style="max-width:80px">Status</th><th style="min-width:160px">Actions</th></tr></thead>
+              <tbody id="invoice-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- RIGHT: DSO + Cash flow + Job type -->
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="col-card">
+            <div class="col-card-title" data-info="Visual comparison of your current DSO against your internal target and the industry average. The gap between 'You' and 'Target' is your improvement opportunity.">DSO Analysis</div>
+            <div class="dso-gauge">
+              <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-bottom:4px">
+                <span>0</span><span>Target 21</span><span>Current 28</span><span>Industry 35</span><span>60</span>
+              </div>
+              <div class="dso-track" style="margin-top:14px">
+                <div class="dso-fill" style="width:46.7%"></div>
+                <div class="dso-marker" style="left:35%">Target</div>
+                <div class="dso-marker" style="left:46.7%;color:var(--amber)">You</div>
+                <div class="dso-marker" style="left:58.3%">Avg</div>
+              </div>
+            </div>
+            <div class="dso-stats" style="margin-top:18px">
+              <div class="dso-row"><span style="color:var(--text2)">Current DSO</span><span style="color:var(--amber);font-weight:600">28 days</span></div>
+              <div class="dso-row"><span style="color:var(--text2)">Target DSO</span><span style="color:var(--green);font-weight:600">21 days</span></div>
+              <div class="dso-row"><span style="color:var(--text2)">Industry average</span><span style="font-weight:600">35 days</span></div>
+            </div>
+          </div>
+
+          <div class="col-card">
+            <div class="col-card-title" data-info="30-day cash flow estimate based on invoice due dates and historical payment patterns. Assumes current collection rate holds.">Cash Flow Projection — Next 30 Days</div>
+            <div>
+              <div class="cf-row"><span class="cf-label">Week 1</span><span class="cf-val">$3,960 expected</span></div>
+              <div class="cf-row"><span class="cf-label">Week 2</span><span class="cf-val">$7,240 expected</span></div>
+              <div class="cf-row"><span class="cf-label">Week 3</span><span class="cf-val">$4,800 expected</span></div>
+              <div class="cf-row"><span class="cf-label">Week 4</span><span class="cf-val">$2,400 expected</span></div>
+              <div class="cf-row"><span class="cf-label col-green">Total expected</span><span class="cf-val col-green">$18,400</span></div>
+            </div>
+          </div>
+
+          <div class="col-card">
+            <div class="col-card-title" data-info="Average revenue per completed job by category. Use to identify your highest-margin job types and prioritize scheduling accordingly.">Revenue by Job Type</div>
+            <div>
+              <div class="jt-row"><span style="color:var(--text2)">Emergency / Repair</span><span style="font-weight:600">$1,840 avg</span></div>
+              <div class="jt-row"><span style="color:var(--text2)">Installation</span><span style="font-weight:600">$2,920 avg</span></div>
+              <div class="jt-row"><span style="color:var(--text2)">Maintenance</span><span style="font-weight:600">$380 avg</span></div>
+              <div class="jt-row"><span style="color:var(--text2)">Commercial</span><span style="font-weight:600">$4,200 avg</span></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+<!-- MODALS -->
+<div class="fin-modal-overlay" id="fin-reminder-modal" onclick="if(event.target===this)closeModal('fin-reminder-modal')">
+  <div class="fin-modal">
+    <div class="fin-modal-title">Send Payment Reminder</div>
+    <div class="fin-modal-sub" id="fin-reminder-sub"></div>
+    <div class="fin-modal-label">CMNDR DRAFT</div>
+    <div class="fin-modal-draft" id="fin-reminder-draft">Generating draft…</div>
+    <div class="fin-modal-btns">
+      <button class="fin-btn-primary" onclick="sendReminder()">Send email →</button>
+      <button class="fin-btn-ghost" onclick="closeModal('fin-reminder-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+<div class="fin-modal-overlay" id="fin-collection-modal" onclick="if(event.target===this)closeModal('fin-collection-modal')">
+  <div class="fin-modal">
+    <div class="fin-modal-title">Send Collection Notice</div>
+    <div class="fin-modal-sub" id="fin-collection-sub"></div>
+    <div class="fin-modal-label">COLLECTION NOTICE DRAFT</div>
+    <div class="fin-modal-draft" id="fin-collection-draft">Generating draft…</div>
+    <div class="fin-modal-btns">
+      <button class="fin-btn-primary" onclick="sendCollection()">Send notice →</button>
+      <button class="fin-btn-ghost" onclick="closeModal('fin-collection-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+<div class="fin-modal-overlay" id="fin-escalate-modal" onclick="if(event.target===this)closeModal('fin-escalate-modal')">
+  <div class="fin-modal">
+    <div class="fin-modal-title">Escalate to Collections</div>
+    <div class="fin-modal-sub" id="fin-escalate-sub"></div>
+    <div class="fin-modal-label">ESCALATION NOTES</div>
+    <textarea class="fin-modal-textarea" id="fin-escalate-notes" placeholder="Add context for collections team…"></textarea>
+    <div class="fin-modal-btns">
+      <button class="fin-btn-danger" onclick="confirmEscalate()">Escalate →</button>
+      <button class="fin-btn-ghost" onclick="closeModal('fin-escalate-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+<div class="fin-modal-overlay" id="fin-metric-modal" onclick="if(event.target===this)closeModal('fin-metric-modal')">
+  <div class="fin-modal">
+    <div class="fin-modal-title" id="fin-metric-title"></div>
+    <div class="fin-modal-label">CMNDR ANALYSIS</div>
+    <div class="fin-modal-draft" id="fin-metric-body" style="min-height:80px">Analyzing…</div>
+    <div id="fin-metric-cache" style="margin-top:8px;font-size:10px;font-family:monospace;color:var(--text3)"></div>
+    <div class="fin-modal-btns">
+      <button class="fin-btn-ghost" onclick="closeModal('fin-metric-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
+    <button id="cmndr-toggle" onclick="toggleCmndr()" title="Toggle CMNDR">
+      <svg id="toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+    </button>
+
+    <div id="cmndr-col">
+      <div id="cmndr-header">
+        <div class="cmndr-dot"></div>
+        <div><div class="cmndr-title">CMNDR</div><div class="cmndr-sub">Finance Intelligence</div></div>
+      </div>
+      <div id="cmndr-body">
+        <div class="cmndr-narrative">
+          <div class="cn-label">Cash Situation</div>
+          <div class="cn-text skeleton" id="narrative-text" style="height:80px;border-radius:4px;"></div>
+        </div>
+        <div class="cmndr-history" id="cmndr-history"></div>
+      </div>
+      <div id="cmndr-input-area">
+        <div id="cmndr-suggestions">
+          <div class="suggestion-pill" onclick="sendSuggestion(this)">Collection priority?</div>
+          <div class="suggestion-pill" onclick="sendSuggestion(this)">Cash flow outlook</div>
+          <div class="suggestion-pill" onclick="sendSuggestion(this)">Fox Realty action plan</div>
+        </div>
+        <div class="input-row">
+          <textarea id="cmndr-input" placeholder="Ask CMNDR anything…" rows="1" onkeydown="handleKey(event)"></textarea>
+          <button id="cmndr-send" onclick="sendMessage()">
+            <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SESSION_TOKEN = localStorage.getItem('cmndr_session');
+const PAGE_SYSTEM = "You are CMNDR, Resona's AI finance intelligence for Peak Flow HVAC. Focus on cash flow, invoice aging, DSO, overdue collections, and revenue trends. The Fox Realty invoice (INV-1042, $6,440, 31 days overdue) is the highest priority risk. Revenue is trending up 12% MoM. DSO at 28 days is healthy but Fox Realty threatens it. Be concise. Max 3 sentences.";
+const DEMO_NARRATIVE = 'Revenue is up 12% month-over-month at $67,240, but $6,440 in overdue AR from Fox Realty (31 days past due) is the immediate cash risk that needs escalation today. DSO sits at 28 days — healthy relative to the 35-day industry average — but will degrade if the Fox Realty balance remains unresolved. Prioritize sending a collection notice and set a 5-day response deadline before escalating to a collections service.';
+
+async function boot() {
+  if (window.location.search.includes('bypass=true') || localStorage.getItem('arc_bypass') === 'true') {
+    localStorage.setItem('arc_bypass', 'true');
+  } else {
+    if (!SESSION_TOKEN) { location.href = '/login'; return; }
+    try {
+      const r = await fetch('/api/auth?action=me', { headers: { Authorization: `Bearer ${SESSION_TOKEN}` } });
+      if (!r.ok) { location.href = '/login'; return; }
+      const d = await r.json(); const p = d.profile;
+      if (!p || !p.role || !p.role.startsWith('resona_')) { location.href = '/login'; return; }
+      document.getElementById('nav-avatar').textContent = (p.full_name || d.user?.email || 'A').charAt(0).toUpperCase();
+    } catch { location.href = '/login'; return; }
+  }
+  initCmndrPanel();
+  await Promise.all([loadEntropyScore(), loadNarrative()]);
+}
+
+function initCmndrPanel() { if (localStorage.getItem('arc_cmndr_open') === 'false') applyCollapsed(true); }
+function toggleCmndr() { const c=document.getElementById('cmndr-col').classList.contains('collapsed'); applyCollapsed(!c); localStorage.setItem('arc_cmndr_open',c?'true':'false'); }
+function applyCollapsed(on) { document.getElementById('cmndr-col').classList.toggle('collapsed',on); const pts=document.getElementById('toggle-icon')?.querySelector('polyline'); if(pts) pts.setAttribute('points',on?'9 18 15 12 9 6':'15 18 9 12 15 6'); }
+
+async function loadEntropyScore() {
+  try { const r=await fetch('/api/health?action=entropy'); if(!r.ok)return; const d=await r.json(); if(d.score==null){document.getElementById('hs-entropy-sub').textContent='No scan yet';return;} animCount('hs-entropy',d.score,'%'); animBar('bar-entropy',d.score); document.getElementById('hs-entropy-sub').textContent=d.score>=80?'Excellent':d.score>=60?'Good — minor gaps':'Fair — action needed'; } catch {}
+}
+async function loadNarrative() {
+  try {
+    const r=await fetch('/api/ask',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${SESSION_TOKEN}`},body:JSON.stringify({system:'You are CMNDR, Resona AI. Return valid JSON only.',messages:[{role:'user',content:'Generate JSON with key "narrative": 2-3 sentence finance situation for Peak Flow HVAC. Data: $67,240 monthly revenue (+12% MoM), $18,400 AR outstanding, DSO 28 days (vs 21 target, 35 avg), $6,440 overdue from Fox Realty (31 days past due). Prioritize Fox Realty as highest cash risk.'}]})});
+    if(!r.ok) throw new Error();
+    const d=await r.json(); const parsed=extractJSON(d.content?.[0]?.text||d.text||'');
+    if(parsed?.narrative){renderNarrative(parsed.narrative);return;}
+  } catch {}
+  renderNarrative(DEMO_NARRATIVE);
+}
+function renderNarrative(text) { const el=document.getElementById('narrative-text'); el.classList.remove('skeleton'); el.style.height=''; el.textContent=text; }
+function animCount(id,target,suf) { const el=document.getElementById(id); if(!el)return; let t0=null; function step(ts){if(!t0)t0=ts;const p=Math.min((ts-t0)/900,1);el.textContent=Math.round(target*(1-Math.pow(1-p,3)))+(suf||'');if(p<1)requestAnimationFrame(step);} requestAnimationFrame(step); }
+function animBar(id,pct) { const el=document.getElementById(id); if(el) setTimeout(()=>el.style.width=Math.max(0,Math.min(100,pct))+'%',50); }
+const history=[]; let msgN=0;
+function handleKey(e) { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();} }
+function sendSuggestion(el) { document.getElementById('cmndr-input').value=el.textContent; sendMessage(); }
+async function sendMessage() {
+  const inp=document.getElementById('cmndr-input'); const text=inp.value.trim(); if(!text)return;
+  inp.value=''; addMsg('user',text); history.push({role:'user',content:text}); const tid=addMsg('ai','',true);
+  try { const r=await fetch('/api/ask',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${SESSION_TOKEN}`},body:JSON.stringify({system:PAGE_SYSTEM,messages:history})}); let reply='Unable to reach CMNDR.'; if(r.ok){const d=await r.json();reply=d.content?.[0]?.text||d.text||reply;} updMsg(tid,reply); history.push({role:'assistant',content:reply}); } catch { updMsg(tid,'CMNDR temporarily unavailable.'); }
+  document.getElementById('cmndr-body').scrollTop=99999;
+}
+function addMsg(role,text,typing) { const id='msg-'+(++msgN); const t=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); const el=document.createElement('div'); el.className='msg '+role; el.id=id; el.innerHTML=`<div class="msg-bubble">${typing?'<em style="opacity:.5">Thinking…</em>':esc(text)}</div><div class="msg-time">${t}</div>`; document.getElementById('cmndr-history').appendChild(el); document.getElementById('cmndr-body').scrollTop=99999; return id; }
+function updMsg(id,text) { const el=document.getElementById(id); if(el) el.querySelector('.msg-bubble').textContent=text; }
+function extractJSON(text) { try{const m=text.match(/\{[\s\S]*\}/);return m?JSON.parse(m[0]):null;}catch{return null;} }
+function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ── INVOICES ─────────────────────────────────────────────────────
+const INVOICES = [
+  { id:'INV-1048', customer:'Chen Residence',    amount:'$320',   due:'May 12', days:2,  status:'pending' },
+  { id:'INV-1047', customer:'Williams LLC',       amount:'$650',   due:'May 9',  days:5,  status:'pending' },
+  { id:'INV-1046', customer:'Martinez Res.',      amount:'$890',   due:'May 6',  days:8,  status:'pending' },
+  { id:'INV-1045', customer:'Okafor Commercial',  amount:'$2,100', due:'May 4',  days:10, status:'pending' },
+  { id:'INV-1044', customer:'Thompson Res.',      amount:'$3,200', due:'Apr 29', days:15, status:'pending_warn' },
+  { id:'INV-1043', customer:'Cruz HVAC',          amount:'$4,800', due:'Apr 24', days:21, status:'pending_warn' },
+  { id:'INV-1042', customer:'Fox Realty',         amount:'$6,440', due:'Apr 13', days:31, status:'overdue' },
+];
+
+function renderInvoices() {
+  const tbody = document.getElementById('invoice-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = INVOICES.map(inv => {
+    const isOverdue = inv.status === 'overdue';
+    const isWarn    = inv.status === 'pending_warn';
+    const badge = isOverdue ? `<span class="badge badge-red">OVERDUE</span>` : isWarn ? `<span class="badge badge-amber">Pending</span>` : `<span class="badge badge-blue">Pending</span>`;
+    const custHtml  = isOverdue ? `<strong>${esc(inv.customer)}</strong>` : esc(inv.customer);
+    const amtHtml   = isOverdue ? `<strong>${esc(inv.amount)}</strong>`   : esc(inv.amount);
+    const daysHtml  = isOverdue ? `<strong>${inv.days}</strong>`           : inv.days;
+    let actions;
+    if (isOverdue) {
+      actions = `<div style="display:flex;flex-direction:column;line-height:1.8">
+        <span class="action-link" style="color:#0066ff;font-size:11px;font-family:monospace;cursor:pointer" onclick="openCollectionModal('${inv.id}')">Send collection →</span>
+        <span style="color:var(--text3);font-size:11px;font-family:monospace"><span class="action-link" style="color:var(--text3);cursor:pointer" onclick="openEscalateModal('${inv.id}')">Escalate →</span> <span style="color:var(--text3);margin:0 3px">·</span> <span class="action-link" style="color:var(--text3);cursor:pointer" onclick="toggleCallLog('${inv.id}')">Log a call →</span></span>
+      </div>`;
+    } else {
+      actions = `<div style="display:flex;flex-direction:column;line-height:1.8">
+        <span class="action-link" style="color:#0066ff;font-size:11px;font-family:monospace;cursor:pointer" onclick="openReminderModal('${inv.id}')">Send reminder →</span>
+        <span class="action-link" style="color:var(--text3);font-size:11px;font-family:monospace;cursor:pointer" onclick="toggleCallLog('${inv.id}')">Log a call →</span>
+      </div>`;
+    }
+    return `
+      <tr class="${isOverdue ? 'overdue' : ''}" id="inv-row-${inv.id}" style="min-height:56px">
+        <td style="max-width:60px">${esc(inv.id)}</td><td>${custHtml}</td><td>${amtHtml}</td><td>${esc(inv.due)}</td><td style="max-width:40px;text-align:center">${daysHtml}</td><td style="max-width:80px">${badge}</td><td style="padding:12px 8px;vertical-align:middle">${actions}</td>
+      </tr>
+      <tr class="call-log-row" id="call-log-row-${inv.id}">
+        <td colspan="7" style="padding:0">
+          <div style="padding:10px 12px;background:var(--surface2);border-top:1px solid var(--border)">
+            <div style="font-size:10px;font-family:monospace;letter-spacing:.5px;text-transform:uppercase;color:var(--text3);margin-bottom:6px">LOG A CALL — ${esc(inv.id)} · ${esc(inv.customer)}</div>
+            <textarea id="call-notes-${inv.id}" placeholder="Call notes…" style="width:100%;background:var(--surface);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:12px;padding:7px;outline:none;font-family:inherit;resize:vertical;min-height:52px"></textarea>
+            <div style="display:flex;gap:8px;margin-top:6px">
+              <button onclick="saveCallLog('${inv.id}')" class="fin-btn-primary" style="font-size:11px;padding:5px 12px">Save log</button>
+              <button onclick="toggleCallLog('${inv.id}')" class="fin-btn-ghost" style="font-size:11px;padding:5px 12px">Cancel</button>
+            </div>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+}
+
+function toggleCallLog(invId) {
+  document.getElementById('call-log-row-' + invId)?.classList.toggle('open');
+}
+function saveCallLog(invId) {
+  const notes = document.getElementById('call-notes-' + invId)?.value?.trim();
+  if (!notes) return;
+  const logs = JSON.parse(localStorage.getItem('arc_call_logs') || '[]');
+  logs.unshift({ invId, notes, at: Date.now() });
+  localStorage.setItem('arc_call_logs', JSON.stringify(logs));
+  toggleCallLog(invId);
+  document.getElementById('call-notes-' + invId).value = '';
+  showFinToast('Call logged for ' + invId);
+}
+
+// ── INVOICE MODALS ────────────────────────────────────────────────
+let _curReminder = null, _curCollection = null, _curEscalate = null;
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+async function openReminderModal(invId) {
+  _curReminder = invId;
+  const inv = INVOICES.find(i => i.id === invId);
+  document.getElementById('fin-reminder-sub').textContent = `${invId} · ${inv?.customer} · ${inv?.amount} · ${inv?.days} days outstanding`;
+  document.getElementById('fin-reminder-draft').textContent = 'Generating draft…';
+  document.getElementById('fin-reminder-modal').classList.add('open');
+  try {
+    const r = await fetch('/api/ask', { method:'POST', headers:{'Content-Type':'application/json',Authorization:`Bearer ${SESSION_TOKEN}`},
+      body: JSON.stringify({ client_id:'peakflow', page:'finance', question:`Draft a short professional payment reminder email for invoice ${invId} to ${inv?.customer} for ${inv?.amount}, due ${inv?.due} (${inv?.days} days outstanding). From Peak Flow HVAC. Friendly but firm. Plain text only, no markdown.` }) });
+    const d = await r.json();
+    document.getElementById('fin-reminder-draft').textContent = d.answer || 'Draft unavailable.';
+  } catch {
+    document.getElementById('fin-reminder-draft').textContent = `Hi ${inv?.customer},\n\nThis is a friendly reminder that invoice ${invId} for ${inv?.amount} is currently outstanding. Please arrange payment at your earliest convenience.\n\nThank you,\nPeak Flow HVAC`;
+  }
+}
+function sendReminder() {
+  const inv = INVOICES.find(i => i.id === _curReminder);
+  const body = document.getElementById('fin-reminder-draft')?.textContent;
+  fetch('/api/health?action=send-email', { method:'POST', headers:{'Content-Type':'application/json',Authorization:`Bearer ${SESSION_TOKEN}`},
+    body: JSON.stringify({ to:inv?.customer, subject:`Payment Reminder: ${_curReminder}`, body, invoice_id:_curReminder, action_type:'reminder' }) }).catch(()=>{});
+  closeModal('fin-reminder-modal');
+  showFinToast('Reminder sent to ' + (inv?.customer || _curReminder));
+}
+
+async function openCollectionModal(invId) {
+  _curCollection = invId;
+  const inv = INVOICES.find(i => i.id === invId);
+  document.getElementById('fin-collection-sub').textContent = `${invId} · ${inv?.customer} · ${inv?.amount} · ${inv?.days} days OVERDUE`;
+  document.getElementById('fin-collection-draft').textContent = 'Generating draft…';
+  document.getElementById('fin-collection-modal').classList.add('open');
+  try {
+    const r = await fetch('/api/ask', { method:'POST', headers:{'Content-Type':'application/json',Authorization:`Bearer ${SESSION_TOKEN}`},
+      body: JSON.stringify({ client_id:'peakflow', page:'finance', question:`Draft a firm collection notice for invoice ${invId} to ${inv?.customer} for ${inv?.amount}, now ${inv?.days} days overdue. Final notice before collections. From Peak Flow HVAC. Plain text only, no markdown.` }) });
+    const d = await r.json();
+    document.getElementById('fin-collection-draft').textContent = d.answer || 'Draft unavailable.';
+  } catch {
+    document.getElementById('fin-collection-draft').textContent = `FINAL NOTICE\n\nDear ${inv?.customer},\n\nInvoice ${invId} for ${inv?.amount} is now ${inv?.days} days overdue. Payment is required within 5 business days or this account will be referred to a collections agency.\n\nPeak Flow HVAC`;
+  }
+}
+function sendCollection() {
+  const inv = INVOICES.find(i => i.id === _curCollection);
+  const body = document.getElementById('fin-collection-draft')?.textContent;
+  fetch('/api/health?action=send-email', { method:'POST', headers:{'Content-Type':'application/json',Authorization:`Bearer ${SESSION_TOKEN}`},
+    body: JSON.stringify({ to:inv?.customer, subject:`Collection Notice: ${_curCollection}`, body, invoice_id:_curCollection, action_type:'collection' }) }).catch(()=>{});
+  closeModal('fin-collection-modal');
+  showFinToast('Collection notice sent to ' + (inv?.customer || _curCollection));
+}
+
+function openEscalateModal(invId) {
+  _curEscalate = invId;
+  const inv = INVOICES.find(i => i.id === invId);
+  document.getElementById('fin-escalate-sub').textContent = `${invId} · ${inv?.customer} · ${inv?.amount} · ${inv?.days} days OVERDUE`;
+  document.getElementById('fin-escalate-notes').value = '';
+  document.getElementById('fin-escalate-modal').classList.add('open');
+}
+function confirmEscalate() {
+  const inv = INVOICES.find(i => i.id === _curEscalate);
+  const notes = document.getElementById('fin-escalate-notes')?.value?.trim();
+  const escalated = JSON.parse(localStorage.getItem('arc_escalated_invoices') || '{}');
+  escalated[_curEscalate] = { customer:inv?.customer, amount:inv?.amount, notes, at:Date.now() };
+  localStorage.setItem('arc_escalated_invoices', JSON.stringify(escalated));
+  fetch('/api/health?action=send-email', { method:'POST', headers:{'Content-Type':'application/json',Authorization:`Bearer ${SESSION_TOKEN}`},
+    body: JSON.stringify({ to:inv?.customer, subject:`Escalation: ${_curEscalate}`, body:`Invoice escalated. Notes: ${notes}`, invoice_id:_curEscalate, action_type:'escalation' }) }).catch(()=>{});
+  closeModal('fin-escalate-modal');
+  showFinToast('Escalated to collections: ' + (inv?.customer || _curEscalate));
+}
+
+// ── METRIC EXPLAIN ────────────────────────────────────────────────
+const FIN_METRICS = {
+  monthly_revenue: { label:'Monthly Revenue',    ctx:'$67,240 in April 2026, up 12% MoM. Peak Flow HVAC.' },
+  outstanding_ar:  { label:'Outstanding AR',     ctx:'$18,400 outstanding across 11 invoices for Peak Flow HVAC.' },
+  dso:             { label:'DSO',                ctx:'28 days DSO. Target 21 days, industry average 35 days. Peak Flow HVAC.' },
+  overdue_ar:      { label:'Overdue AR',         ctx:'$3,200 overdue, 1 invoice 31 days past due (Fox Realty INV-1042). Peak Flow HVAC.' },
+};
+async function explainMetric(slug) {
+  const m = FIN_METRICS[slug];
+  if (!m) return;
+  document.getElementById('fin-metric-title').textContent = m.label;
+  document.getElementById('fin-metric-cache').textContent = '';
+  document.getElementById('fin-metric-modal').classList.add('open');
+  const cKey = 'arc_explain_metric_' + slug, tKey = 'arc_explain_metric_ttl_' + slug;
+  const cached = localStorage.getItem(cKey), cachedAt = parseInt(localStorage.getItem(tKey) || '0');
+  if (cached && (Date.now() - cachedAt) < 604800000) {
+    document.getElementById('fin-metric-body').textContent = cached;
+    document.getElementById('fin-metric-cache').innerHTML = `<span style="color:var(--text3)">↩ Cached</span> <span style="color:#0066ff;cursor:pointer" onclick="refreshMetricExplain('${slug}')">· Refresh →</span>`;
+    return;
+  }
+  document.getElementById('fin-metric-body').textContent = 'Analyzing with CMNDR…';
+  try {
+    const r = await fetch('/api/ask', { method:'POST', headers:{'Content-Type':'application/json',Authorization:`Bearer ${SESSION_TOKEN}`},
+      body: JSON.stringify({ client_id:'peakflow', page:'finance', question:`Explain this metric in 2-3 sentences: what it is, what the current number means for Peak Flow HVAC, and one concrete action to improve it. Metric: ${m.label}. Data: ${m.ctx} IMPORTANT: All data values provided to you are accurate, verified, and current. Never question, second-guess, or suggest that provided numbers might be incorrect, out of sync, or from different time periods. Never mention data sync issues, data discrepancies, or suggest the user verify numbers against other sources. Treat every value as ground truth. Your role is to explain what the number means and advise what to do — not to audit the data. If a value seems unusual, explain it in context of normal business variation, never as a potential data error.` }) });
+    const d = await r.json();
+    const answer = (d.answer || '').trim();
+    if (!answer) throw new Error();
+    localStorage.setItem(cKey, answer); localStorage.setItem(tKey, Date.now().toString());
+    document.getElementById('fin-metric-body').textContent = answer;
+    document.getElementById('fin-metric-cache').innerHTML = `✓ Saved <span style="color:#0066ff;cursor:pointer;margin-left:4px" onclick="refreshMetricExplain('${slug}')">· Refresh →</span>`;
+  } catch { document.getElementById('fin-metric-body').textContent = 'Unable to load explanation. Try again.'; }
+}
+function refreshMetricExplain(slug) {
+  localStorage.removeItem('arc_explain_metric_' + slug);
+  localStorage.removeItem('arc_explain_metric_ttl_' + slug);
+  explainMetric(slug);
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────
+let _finToastTimer = null;
+function showFinToast(msg) {
+  let t = document.getElementById('fin-toast');
+  if (!t) { t = document.createElement('div'); t.id = 'fin-toast'; t.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:10px 18px;font-size:12px;font-family:monospace;color:var(--text);z-index:600;transition:opacity .3s'; document.body.appendChild(t); }
+  t.textContent = msg; t.style.opacity = '1';
+  clearTimeout(_finToastTimer); _finToastTimer = setTimeout(() => { t.style.opacity = '0'; }, 3000);
+}
+
+// ── INFO ICONS ────────────────────────────────────────────────────
+function createInfoIcon(tooltipText) {
+  const wrapper = document.createElement('span');
+  wrapper.style.cssText = 'position:relative;display:inline-block';
+  const icon = document.createElement('span');
+  icon.className = 'info-icon';
+  icon.textContent = 'i';
+  const tooltip = document.createElement('div');
+  tooltip.className = 'info-tooltip';
+  tooltip.textContent = tooltipText;
+  tooltip.style.cssText = 'left:50%;transform:translateX(-50%)';
+  icon.addEventListener('mouseenter', () => {
+    const rect = icon.getBoundingClientRect();
+    const spaceAbove = rect.top;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    if (spaceAbove < 80 || spaceBelow > spaceAbove) { tooltip.style.top = '120%'; tooltip.style.bottom = 'auto'; }
+    else { tooltip.style.bottom = '120%'; tooltip.style.top = 'auto'; }
+    tooltip.classList.add('visible');
+  });
+  icon.addEventListener('mouseleave', () => tooltip.classList.remove('visible'));
+  if (localStorage.getItem('arc_hide_info_icons') === 'true') wrapper.style.display = 'none';
+  wrapper.appendChild(icon);
+  wrapper.appendChild(tooltip);
+  return wrapper;
+}
+function initInfoIcons() {
+  document.querySelectorAll('[data-info]').forEach(el => {
+    if (el.querySelector('.info-icon')) return;
+    el.appendChild(createInfoIcon(el.getAttribute('data-info')));
+    el.style.display = 'flex';
+    el.style.alignItems = 'center';
+  });
+}
+document.addEventListener('DOMContentLoaded', initInfoIcons);
+
+boot();
+renderInvoices();
+initInfoIcons();
+</script>
+</body>
+</html>

@@ -1,393 +1,401 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ARC — Command Center</title>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    :root {
-      --bg: #0a0c0f;
-      --surface: #111418;
-      --surface2: #181c22;
-      --border: #1e242d;
-      --border2: #262d38;
-      --text: #e8edf5;
-      --text2: #8a95a3;
-      --text3: #4d5663;
-      --accent: #3b82f6;
-      --accent-dim: rgba(59,130,246,0.12);
-      --green: #22c55e;
-      --green-dim: rgba(34,197,94,0.12);
-      --amber: #f59e0b;
-      --amber-dim: rgba(245,158,11,0.12);
-      --red: #ef4444;
-      --red-dim: rgba(239,68,68,0.12);
-      --purple: #a855f7;
-      --purple-dim: rgba(168,85,247,0.12);
-      --nav-h: 56px;
-      --strip-h: 80px;
-    }
-
-    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif; font-size: 14px; }
-
-    /* ── NAV ── */
-    #nav {
-      position: fixed; top: 0; left: 0; right: 0; height: var(--nav-h);
-      background: var(--surface); border-bottom: 1px solid var(--border);
-      display: flex; align-items: center; gap: 16px; padding: 0 20px;
-      z-index: 100;
-    }
-    #nav .logo {
-      font-size: 17px; font-weight: 700; letter-spacing: -0.5px; color: var(--text);
-      display: flex; align-items: center; gap: 8px;
-    }
-    #nav .logo .arc-badge {
-      background: var(--accent); color: #fff; font-size: 11px; font-weight: 700;
-      padding: 2px 7px; border-radius: 4px; letter-spacing: 1.5px;
-    }
-    #nav .client-selector {
-      display: flex; align-items: center; gap: 6px; background: var(--surface2);
-      border: 1px solid var(--border2); border-radius: 6px; padding: 6px 10px;
-      cursor: pointer; color: var(--text2); font-size: 13px; margin-left: 4px;
-    }
-    #nav .client-selector .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
-    #nav .spacer { flex: 1; }
-    #nav .nav-btn {
-      background: none; border: 1px solid var(--border2); border-radius: 6px;
-      color: var(--text2); padding: 6px 12px; cursor: pointer; font-size: 13px;
-      display: flex; align-items: center; gap: 6px; transition: all 0.15s; white-space: nowrap;
-    }
-    #nav .nav-btn:hover { border-color: var(--accent); color: var(--accent); }
-    #nav .cmndr-btn { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
-    #nav .cmndr-btn:hover { background: var(--accent); color: #fff; }
-    #nav .avatar {
-      width: 32px; height: 32px; border-radius: 50%; background: var(--accent);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 13px; font-weight: 600; color: #fff; cursor: pointer; flex-shrink: 0;
-    }
-
-    /* ── SHELL LAYOUT ── */
-    #shell {
-      display: grid;
-      grid-template-columns: 1fr 360px;
-      grid-template-rows: var(--strip-h) 1fr;
-      height: 100vh;
-      padding-top: var(--nav-h);
-    }
-
-    /* ── METRIC STRIP ── */
-    #health-strip {
-      grid-column: 1 / -1;
-      background: var(--surface); border-bottom: 1px solid var(--border);
-      display: flex; align-items: stretch;
-    }
-    .health-card {
-      display: flex; flex-direction: column; justify-content: center;
-      padding: 0 32px; flex: 1;
-      border-right: 1px solid var(--border);
-    }
-    .health-card:last-child { border-right: none; }
-    .hc-label { font-size: 10px; color: var(--text3); letter-spacing: 0.7px; text-transform: uppercase; margin-bottom: 6px; }
-    .hc-value { font-size: 32px; font-weight: 700; letter-spacing: -1.5px; line-height: 1; }
-    .hc-sub { font-size: 11px; color: var(--text3); margin-top: 5px; }
-    .hc-bar { height: 3px; background: var(--border2); border-radius: 2px; margin-top: 10px; }
-    .hc-bar-fill { height: 100%; border-radius: 2px; width: 0; transition: width 1.2s cubic-bezier(.22,1,.36,1); }
-    .col-blue { color: var(--accent); } .col-green { color: var(--green); }
-    .col-amber { color: var(--amber); } .col-purple { color: var(--purple); }
-
-    /* ── MAIN COL ── */
-    #main-col { overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
-
-    /* Module nav */
-    #module-nav { display: flex; gap: 8px; flex-wrap: wrap; }
-    .module-chip {
-      background: var(--surface); border: 1px solid var(--border2);
-      border-radius: 20px; padding: 5px 14px; font-size: 12px; font-weight: 500;
-      color: var(--text2); cursor: pointer; transition: all 0.15s;
-    }
-    .module-chip:hover { border-color: var(--accent); color: var(--accent); }
-    .module-chip.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
-
-    /* Section header */
-    .section-hd {
-      font-size: 10px; font-weight: 600; letter-spacing: 0.8px;
-      text-transform: uppercase; color: var(--text3);
-      display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;
-    }
-    .section-hd a { font-size: 11px; color: var(--accent); text-decoration: none; text-transform: none; letter-spacing: 0; font-weight: 400; }
-
-    /* Exception cards */
-    .exc-card {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 8px; padding: 14px 16px;
-      display: flex; align-items: flex-start; gap: 12px;
-      margin-bottom: 8px; transition: border-color 0.15s;
-    }
-    .exc-card:last-child { margin-bottom: 0; }
-    .exc-card:hover { border-color: var(--border2); }
-    .exc-icon {
-      width: 34px; height: 34px; border-radius: 7px; flex-shrink: 0;
-      display: flex; align-items: center; justify-content: center; font-size: 15px;
-    }
-    .exc-icon.critical { background: var(--red-dim); }
-    .exc-icon.warning  { background: var(--amber-dim); }
-    .exc-icon.info     { background: var(--accent-dim); }
-    .exc-body { flex: 1; min-width: 0; }
-    .exc-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
-    .exc-title { font-size: 13px; font-weight: 600; color: var(--text); }
-    .exc-desc { font-size: 12px; color: var(--text2); line-height: 1.55; }
-    .exc-meta { font-size: 11px; color: var(--text3); margin-top: 5px; }
-    .exc-actions { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
-    .exc-btn {
-      background: var(--surface2); border: 1px solid var(--border2);
-      border-radius: 5px; padding: 4px 10px; font-size: 11px; color: var(--text2);
-      cursor: pointer; transition: all 0.12s; white-space: nowrap;
-    }
-    .exc-btn:hover { border-color: var(--accent); color: var(--accent); }
-    .exc-btn.primary { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
-    .sev-badge {
-      font-size: 10px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;
-      padding: 2px 6px; border-radius: 4px;
-    }
-    .sev-badge.critical { background: var(--red-dim); color: var(--red); }
-    .sev-badge.warning  { background: var(--amber-dim); color: var(--amber); }
-    .sev-badge.info     { background: var(--accent-dim); color: var(--accent); }
-
-    /* skeleton */
-    .skeleton { background: var(--border2); border-radius: 6px; animation: pulse 1.5s ease-in-out infinite; }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
-
-    /* ── CMNDR PANEL ── */
-    #cmndr-col { border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
-    #cmndr-header {
-      padding: 14px 18px 12px; border-bottom: 1px solid var(--border);
-      display: flex; align-items: center; gap: 10px;
-    }
-    .cmndr-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex-shrink: 0; animation: blink 2.2s ease-in-out infinite; }
-    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.35} }
-    .cmndr-title { font-size: 13px; font-weight: 600; }
-    .cmndr-sub { font-size: 11px; color: var(--text3); margin-top: 1px; }
-
-    #cmndr-body { flex: 1; overflow-y: auto; padding: 16px 18px; display: flex; flex-direction: column; gap: 14px; }
-
-    .cmndr-narrative {
-      background: var(--surface2); border: 1px solid var(--border2); border-radius: 8px; padding: 14px;
-    }
-    .cn-label { font-size: 10px; font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase; color: var(--accent); margin-bottom: 8px; }
-    .cn-text { font-size: 13px; color: var(--text2); line-height: 1.65; }
-
-    .cmndr-history { display: flex; flex-direction: column; gap: 10px; }
-    .msg { display: flex; flex-direction: column; }
-    .msg.user .msg-bubble { background: var(--accent-dim); border: 1px solid var(--accent); align-self: flex-end; color: var(--text); }
-    .msg.ai .msg-bubble  { background: var(--surface2); border: 1px solid var(--border2); align-self: flex-start; color: var(--text2); }
-    .msg-bubble { max-width: 92%; padding: 8px 12px; border-radius: 8px; font-size: 13px; line-height: 1.55; margin-bottom: 3px; }
-    .msg-time { font-size: 10px; color: var(--text3); }
-    .msg.user .msg-time { align-self: flex-end; }
-    .msg.ai  .msg-time  { align-self: flex-start; }
-
-    #cmndr-input-area { padding: 10px 18px 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
-    #cmndr-suggestions { display: flex; gap: 6px; flex-wrap: wrap; }
-    .suggestion-pill {
-      background: var(--surface2); border: 1px solid var(--border2);
-      border-radius: 12px; padding: 4px 10px; font-size: 11px; color: var(--text2);
-      cursor: pointer; transition: all 0.12s; white-space: nowrap;
-    }
-    .suggestion-pill:hover { border-color: var(--accent); color: var(--accent); }
-    .input-row { display: flex; gap: 8px; align-items: flex-end; }
-    #cmndr-input {
-      flex: 1; background: var(--surface2); border: 1px solid var(--border2);
-      border-radius: 6px; color: var(--text); font-size: 13px; padding: 8px 12px;
-      outline: none; resize: none; font-family: inherit; min-height: 38px; max-height: 120px;
-    }
-    #cmndr-input:focus { border-color: var(--accent); }
-    #cmndr-send {
-      background: var(--accent); border: none; border-radius: 6px;
-      width: 36px; height: 36px; cursor: pointer; display: flex;
-      align-items: center; justify-content: center; color: #fff; flex-shrink: 0;
-    }
-    #cmndr-send:hover { background: #2563eb; }
-    #cmndr-send svg { width: 14px; height: 14px; fill: currentColor; }
-
-    ::-webkit-scrollbar { width: 4px; height: 4px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
-  </style>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>ARC — Command Center</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0c0f;--surface:#111418;--surface2:#181c22;
+  --border:#1e242d;--border2:#262d38;
+  --text:#e8edf5;--text2:#8a95a3;--text3:#4d5663;
+  --accent:#3b82f6;--accent-dim:rgba(59,130,246,0.12);
+  --green:#22c55e;--green-dim:rgba(34,197,94,0.12);
+  --amber:#f59e0b;--amber-dim:rgba(245,158,11,0.12);
+  --red:#ef4444;--red-dim:rgba(239,68,68,0.12);
+  --purple:#a855f7;--purple-dim:rgba(168,85,247,0.12);
+  --hint:#4d5663;
+  --nav-h:56px;--strip-h:80px;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;font-size:14px}
+/* NAV */
+#nav{position:fixed;top:0;left:0;right:0;height:var(--nav-h);background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;padding:0 20px;z-index:100}
+.logo{font-size:17px;font-weight:700;letter-spacing:-.5px;color:var(--text);display:flex;align-items:center;gap:8px;cursor:pointer;text-decoration:none}
+.arc-badge{background:var(--accent);color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px;letter-spacing:1.5px}
+.client-name-display{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;color:var(--text);cursor:default}
+.spacer{flex:1}
+.nav-btn{background:none;border:1px solid var(--border2);border-radius:6px;color:var(--text2);padding:6px 12px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:6px;transition:all .15s;white-space:nowrap}
+.nav-btn:hover{border-color:var(--accent);color:var(--accent)}
+.cmndr-btn{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+.cmndr-btn:hover{background:var(--accent);color:#fff}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#fff;cursor:pointer;flex-shrink:0}
+/* SHELL */
+#shell{display:flex;flex-direction:column;height:100vh;padding-top:var(--nav-h)}
+/* HEALTH STRIP */
+#health-strip{height:var(--strip-h);flex-shrink:0;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:stretch}
+.hc{display:flex;flex-direction:column;justify-content:center;padding:0 28px;flex:1;border-right:1px solid var(--border)}
+.hc:last-child{border-right:none}
+.hc-label{font-size:10px;color:var(--text3);letter-spacing:.7px;text-transform:uppercase;margin-bottom:5px}
+.hc-value{font-size:30px;font-weight:700;letter-spacing:-1.5px;line-height:1}
+.hc-sub{font-size:11px;color:var(--text3);margin-top:4px}
+.hc-bar{height:3px;background:var(--border2);border-radius:2px;margin-top:8px}
+.hc-bar-fill{height:100%;border-radius:2px;width:0;transition:width 1.2s cubic-bezier(.22,1,.36,1)}
+.col-blue{color:var(--accent)}.col-green{color:var(--green)}.col-amber{color:var(--amber)}
+/* CONTENT ROW */
+#content-row{flex:1;display:flex;overflow:hidden;min-height:0}
+#main-col{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:16px}
+/* CMNDR TOGGLE TAB */
+#cmndr-toggle{width:18px;flex-shrink:0;background:var(--surface2);border:none;border-left:1px solid var(--border);color:var(--text3);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color .15s,background .15s;padding:0}
+#cmndr-toggle:hover{color:var(--accent);background:var(--surface)}
+#cmndr-toggle svg{width:11px;height:11px;flex-shrink:0}
+/* CMNDR COL */
+#cmndr-col{width:300px;flex-shrink:0;border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width 250ms ease,opacity 200ms ease}
+#cmndr-col.collapsed{width:0;opacity:0;pointer-events:none}
+#cmndr-header{padding:14px 16px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0}
+.cmndr-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0;animation:blink 2.2s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+.cmndr-title{font-size:13px;font-weight:600}
+.cmndr-sub{font-size:11px;color:var(--text3);margin-top:1px}
+#cmndr-body{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.cmndr-narrative{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:12px}
+.cn-label{font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--accent);margin-bottom:6px}
+.cn-text{font-size:13px;color:var(--text2);line-height:1.65}
+.cmndr-history{display:flex;flex-direction:column;gap:8px}
+.msg{display:flex;flex-direction:column}
+.msg.user .msg-bubble{background:var(--accent-dim);border:1px solid var(--accent);align-self:flex-end;color:var(--text)}
+.msg.ai .msg-bubble{background:var(--surface2);border:1px solid var(--border2);align-self:flex-start;color:var(--text2)}
+.msg-bubble{max-width:92%;padding:7px 11px;border-radius:8px;font-size:13px;line-height:1.55;margin-bottom:2px}
+.msg-time{font-size:10px;color:var(--text3)}
+.msg.user .msg-time{align-self:flex-end}.msg.ai .msg-time{align-self:flex-start}
+#cmndr-input-area{padding:10px 16px 14px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:7px;flex-shrink:0}
+#cmndr-suggestions{display:flex;gap:5px;flex-wrap:wrap}
+.suggestion-pill{background:var(--surface2);border:1px solid var(--border2);border-radius:12px;padding:3px 9px;font-size:11px;color:var(--text2);cursor:pointer;transition:all .12s;white-space:nowrap}
+.suggestion-pill:hover{border-color:var(--accent);color:var(--accent)}
+.input-row{display:flex;gap:7px;align-items:flex-end}
+#cmndr-input{flex:1;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:13px;padding:7px 11px;outline:none;resize:none;font-family:inherit;min-height:36px;max-height:120px}
+#cmndr-input:focus{border-color:var(--accent)}
+#cmndr-send{background:var(--accent);border:none;border-radius:6px;width:34px;height:34px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0}
+#cmndr-send:hover{background:#2563eb}
+#cmndr-send svg{width:13px;height:13px;fill:currentColor}
+/* MODULE NAV */
+#module-nav{display:flex;gap:8px;flex-wrap:wrap}
+.module-chip{background:var(--surface);border:1px solid var(--border2);border-radius:20px;padding:5px 14px;font-size:12px;font-weight:500;color:var(--text2);cursor:pointer;transition:all .15s;white-space:nowrap}
+.module-chip:hover{border-color:var(--accent);color:var(--accent)}
+.module-chip.active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent);cursor:default}
+/* SECTION HEADER */
+.section-hd{font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.section-hd a{font-size:11px;color:var(--accent);text-decoration:none;text-transform:none;letter-spacing:0;font-weight:400}
+/* EXCEPTION CARDS */
+.exc-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px;display:flex;align-items:flex-start;gap:12px;margin-bottom:8px;transition:border-color .15s;position:relative}
+.exc-card:last-child{margin-bottom:0}
+.exc-card:hover{border-color:var(--border2)}
+.exc-icon{width:34px;height:34px;border-radius:7px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:15px}
+.exc-icon.critical{background:var(--red-dim)}.exc-icon.warning{background:var(--amber-dim)}.exc-icon.info{background:var(--accent-dim)}
+.exc-body{flex:1;min-width:0}
+.exc-head{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.exc-title{font-size:13px;font-weight:600;color:var(--text);padding-right:44px}
+.exc-cmndr-btn{position:absolute;top:14px;right:16px;width:32px;height:32px;border-radius:50%;border:1.5px solid #00d4aa;background:transparent;color:#00d4aa;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;transition:all .15s;z-index:2}
+.exc-cmndr-btn:hover{background:rgba(0,212,170,0.15)}
+.exc-cmndr-btn.dim{border-color:var(--border);color:var(--text3);position:relative}
+.exc-cmndr-btn.dim .exc-cmndr-tip{display:none;position:absolute;right:36px;top:50%;transform:translateY(-50%);background:rgba(19,19,26,0.9);border:0.5px solid var(--border);border-radius:6px;padding:6px 10px;font-size:10px;color:var(--text2);white-space:nowrap;max-width:220px;white-space:normal;line-height:1.4;pointer-events:none;z-index:10}
+.exc-cmndr-btn.dim:hover .exc-cmndr-tip{display:block}
+.exc-cmndr-btn.dim:hover{border-color:var(--border2);color:var(--text2)}
+.exc-desc{font-size:12px;color:var(--text2);line-height:1.55}
+.exc-meta{font-size:11px;color:var(--text3);margin-top:5px}
+.exc-actions{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.exc-btn{background:var(--surface2);border:1px solid var(--border2);border-radius:5px;padding:4px 10px;font-size:11px;color:var(--text2);cursor:pointer;transition:all .12s;white-space:nowrap}
+.exc-btn:hover{border-color:var(--accent);color:var(--accent)}
+.exc-btn.primary{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+.sev-badge{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:2px 6px;border-radius:4px}
+.sev-badge.critical{background:var(--red-dim);color:var(--red)}
+.sev-badge.warning{background:var(--amber-dim);color:var(--amber)}
+.sev-badge.info{background:var(--accent-dim);color:var(--accent)}
+.skeleton{background:var(--border2);border-radius:6px;animation:pulse 1.5s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+/* ── Walkthrough ── */
+.walkthrough-spotlight{
+  box-shadow:0 0 0 4px rgba(59,130,246,.35),0 0 0 8px rgba(59,130,246,.12)!important;
+  position:relative;z-index:999;
+}
+/* ── Strip height override ── */
+:root{--strip-h:100px}
+/* ── Entropy card clickable ── */
+#metric-entropy{cursor:pointer;}
+#metric-entropy:hover{background:var(--surface2);}
+/* ── Fix metric-roi border when exc-count follows ── */
+#metric-roi{border-right:none;}
+/* ── Entropy + Resolved panels ── */
+#entropy-panel,#resolved-panel{
+  position:fixed;right:0;top:0;height:100vh;width:320px;
+  background:var(--surface);border-left:1px solid var(--border);
+  z-index:500;display:flex;flex-direction:column;
+  transform:translateX(100%);transition:transform 250ms ease;overflow:hidden;
+}
+#entropy-panel.open,#resolved-panel.open{transform:none;}
+#entropy-overlay,#resolved-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:490;display:none;
+}
+.ep-dim{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:12px;margin-bottom:8px;}
+.ep-dim-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+.ep-dim-name{font-size:12px;font-weight:500;}
+.ep-dim-score{font-size:14px;font-weight:700;}
+.ep-dim-bar{height:3px;background:var(--border2);border-radius:2px;margin-bottom:6px;overflow:hidden;}
+.ep-dim-fill{height:100%;border-radius:2px;}
+.ep-dim-finding{font-size:11px;color:var(--text2);font-family:monospace;line-height:1.4;}
+.ep-insight{border-left:3px solid var(--accent);background:var(--surface2);padding:12px;border-radius:0 6px 6px 0;margin-top:4px;margin-bottom:16px;}
+.ep-ins-label{font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--accent);margin-bottom:6px;font-family:monospace;}
+.ep-ins-text{font-size:13px;color:var(--text2);line-height:1.6;}
+/* ── Timestamps ── */
+.hc-ts{font-size:10px;color:var(--text3);font-family:monospace;margin-top:5px;display:flex;align-items:center;gap:5px;}
+.hc-ts-refresh{cursor:pointer;transition:color .12s;user-select:none;}
+.hc-ts-refresh:hover{color:var(--accent);}
+@keyframes metric-pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.refreshing{animation:metric-pulse .8s ease 2;}
+/* ── Exception global actions ── */
+.exc-global-sep{height:1px;background:var(--border);margin:10px 0 8px;}
+.exc-global{display:flex;align-items:center;flex-wrap:wrap;}
+.exc-al{font-size:11px;color:#0066ff;font-family:monospace;cursor:pointer;transition:color 150ms ease;white-space:nowrap;text-decoration:none;}
+.exc-al:hover{color:#8888a0;}
+.exc-al-sep{font-size:11px;color:var(--border2);margin:0 5px;user-select:none;}
+/* ── Snooze dropdown ── */
+.snooze-dd{background:var(--surface);border:1px solid var(--border2);border-radius:6px;overflow:hidden;margin-top:6px;}
+.snooze-opt{padding:7px 12px;font-size:12px;color:var(--text2);cursor:pointer;transition:background .1s;}
+.snooze-opt:hover{background:var(--surface2);color:var(--text);}
+/* ── Snoozed badge ── */
+.snoozed-badge{display:none;align-items:center;font-size:10px;font-family:monospace;color:var(--text3);background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:2px 7px;margin-left:4px;}
+/* ── Inline confirm ── */
+.exc-confirm{padding:8px 0 4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.exc-confirm-msg{flex:1;font-size:11px;color:var(--text3);}
+.exc-confirm-yes{color:#0066ff;cursor:pointer;font-family:monospace;font-size:11px;transition:color 150ms ease;}
+.exc-confirm-yes:hover{color:#8888a0;}
+.exc-confirm-no{color:var(--text3);cursor:pointer;font-family:monospace;font-size:11px;}
+.exc-confirm-no:hover{color:var(--text);}
+/* ── Toast ── */
+.toast-undo{color:#0066ff;cursor:pointer;font-weight:500;transition:color 150ms ease;}
+.toast-undo:hover{color:#8888a0;}
+/* ── Exception count indicator ── */
+#exc-count-indicator{flex-shrink:0;padding:0 18px;border-left:1px solid var(--border);display:flex;flex-direction:column;justify-content:center;cursor:pointer;transition:background .15s;min-width:120px;}
+#exc-count-indicator:hover{background:var(--surface2);}
+.eci-label{font-size:10px;font-family:monospace;letter-spacing:.6px;text-transform:uppercase;color:var(--text3);margin-bottom:5px;}
+.eci-dots{display:flex;flex-direction:column;gap:3px;}
+.eci-row{display:flex;align-items:center;gap:5px;font-size:10px;font-family:monospace;color:var(--text3);}
+.eci-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+/* Info icons */
+.info-icon{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;border:1px solid var(--hint);color:var(--hint);font-size:9px;font-style:italic;font-family:'DM Mono',monospace;font-weight:600;cursor:pointer;margin-left:6px;vertical-align:middle;flex-shrink:0;transition:background 150ms ease,color 150ms ease,border-color 150ms ease;position:relative;top:-1px}
+.info-icon:hover{background:rgba(0,102,255,0.1);color:#0066ff;border-color:#0066ff}
+.info-tooltip{position:absolute;z-index:999;background:rgba(19,19,26,0.70);border:0.5px solid var(--border);border-radius:8px;padding:8px 12px;max-width:320px;min-width:200px;width:max-content;font-size:11px;font-family:'DM Mono',monospace;color:var(--text2);line-height:1.5;pointer-events:none;opacity:0;transition:opacity 150ms ease;box-shadow:0 8px 24px rgba(0,0,0,0.4);white-space:normal;backdrop-filter:blur(4px)}
+.info-tooltip.visible{opacity:1}
+</style>
 </head>
 <body>
 
 <nav id="nav">
-  <div class="logo">
+  <a class="logo" href="/">
     <span class="arc-badge">ARC</span>
     Command Center
-  </div>
-  <div class="client-selector">
-    <span class="dot"></span>
-    <span id="nav-client">Peak Flow HVAC</span>
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-  </div>
+  </a>
+  <span class="client-name-display"><span style="font-size:8px;color:#00d4aa;line-height:1">●</span>Peak Flow Plumbing &amp; HVAC</span>
   <div class="spacer"></div>
-  <button class="nav-btn cmndr-btn" onclick="focusCmndr()">
+  <button class="nav-btn" onclick="location.href='/automations'">⚡ Automations</button>
+  <button class="nav-btn" onclick="openReportBuilder()" style="font-family:'DM Mono',monospace;font-size:13px;color:var(--muted,var(--text2));background:transparent;border:0.5px solid var(--border);border-radius:6px;padding:6px 12px">↓ Report</button>
+  <button class="nav-btn cmndr-btn" onclick="toggleCmndr()">
     <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
-    CMNDR
+    CMNDR ✦
   </button>
-  <button class="nav-btn" onclick="location.href='/workbench'">Workbench</button>
   <button class="nav-btn" onclick="location.href='/connections'">Connections</button>
   <div class="avatar" id="nav-avatar">A</div>
 </nav>
 
 <div id="shell">
 
-  <!-- METRIC STRIP -->
   <div id="health-strip">
-    <div class="health-card">
-      <div class="hc-label">Entropy Score</div>
+    <div class="hc" id="metric-entropy" onclick="openEntropyPanel()">
+      <div class="hc-label" data-info="Composite data health score (0–100) calculated from completeness, variance, fragmentation, and enrichment dimensions weighted equally. Higher = healthier business data.">Entropy Score</div>
       <div class="hc-value col-blue" id="hs-entropy">—</div>
       <div class="hc-sub" id="hs-entropy-sub">Loading…</div>
       <div class="hc-bar"><div class="hc-bar-fill" id="bar-entropy" style="background:var(--accent)"></div></div>
+      <div class="hc-ts">
+        <span class="hc-ts-label" id="ts-metric-entropy">Updated just now</span>
+        <span class="hc-ts-refresh" onclick="event.stopPropagation();refreshMetrics('metric-entropy')" title="Refresh">↻</span>
+      </div>
     </div>
-    <div class="health-card">
-      <div class="hc-label">Labor Deletion</div>
-      <div class="hc-value col-green">14.2<span style="font-size:16px;font-weight:500;letter-spacing:0;"> hrs</span></div>
+    <div class="hc" id="metric-labor">
+      <div class="hc-label" data-info="Total hours eliminated this month through automation — calculated as execution count × manual time baseline per task type. Higher = more time freed for revenue work.">Labor Deletion</div>
+      <div class="hc-value col-green">14.2<span style="font-size:16px;font-weight:500;letter-spacing:0"> hrs</span></div>
       <div class="hc-sub">Saved this month</div>
+      <div class="hc-ts">
+        <span class="hc-ts-label" id="ts-metric-labor">Updated just now</span>
+        <span class="hc-ts-refresh" onclick="refreshMetrics('metric-labor')" title="Refresh">↻</span>
+      </div>
     </div>
-    <div class="health-card">
-      <div class="hc-label">Relational ROI</div>
-      <div class="hc-value col-amber">$8.40<span style="font-size:16px;font-weight:500;letter-spacing:0;"> /lead</span></div>
+    <div class="hc" id="metric-roi">
+      <div class="hc-label" data-info="Revenue generated per automated lead contact. Measures the return on your automation investment across the customer acquisition pipeline.">Relational ROI</div>
+      <div class="hc-value col-amber">$8.40<span style="font-size:16px;font-weight:500;letter-spacing:0"> /lead</span></div>
       <div class="hc-sub">Revenue per contact</div>
+      <div class="hc-ts">
+        <span class="hc-ts-label" id="ts-metric-roi">Updated just now</span>
+        <span class="hc-ts-refresh" onclick="refreshMetrics('metric-roi')" title="Refresh">↻</span>
+      </div>
+    </div>
+    <div id="exc-count-indicator" onclick="document.getElementById('main-col').scrollTop=document.getElementById('exception-feed').offsetTop-20">
+      <div class="eci-label">Exceptions</div>
+      <div class="eci-dots" id="eci-dots"></div>
     </div>
   </div>
 
-  <!-- MAIN COL -->
-  <div id="main-col">
-    <div id="module-nav">
-      <div class="module-chip active">All</div>
-      <div class="module-chip" onclick="location.href='/operations'">Operations</div>
-      <div class="module-chip" onclick="location.href='/marketing'">Marketing</div>
-      <div class="module-chip" onclick="location.href='/finance'">Finance</div>
-      <div class="module-chip" onclick="location.href='/optimization'">Yield &amp; Efficiency</div>
-      <div class="module-chip" onclick="location.href='/audit'">Audit</div>
-    </div>
+  <div id="content-row">
+    <div id="main-col">
 
-    <div>
-      <div class="section-hd">
-        <span>Active Exceptions</span>
-        <a href="#">View all</a>
+      <div id="module-nav">
+        <div class="module-chip active">All</div>
+        <div class="module-chip" onclick="location.href='/operations'">Operations</div>
+        <div class="module-chip" onclick="location.href='/marketing'">Marketing</div>
+        <div class="module-chip" onclick="location.href='/finance'">Finance</div>
+        <div class="module-chip" onclick="location.href='/yield'">Yield &amp; Efficiency</div>
+        <div class="module-chip" onclick="location.href='/audit'">Audit</div>
       </div>
-      <div id="exception-feed">
-        <div class="skeleton" style="height:82px;margin-bottom:8px;"></div>
-        <div class="skeleton" style="height:82px;margin-bottom:8px;"></div>
-        <div class="skeleton" style="height:82px;"></div>
-      </div>
-    </div>
-  </div>
 
-  <!-- CMNDR PANEL -->
-  <div id="cmndr-col">
-    <div id="cmndr-header">
-      <div class="cmndr-dot"></div>
       <div>
-        <div class="cmndr-title">CMNDR</div>
-        <div class="cmndr-sub">AI Operations Intelligence</div>
+        <div class="section-hd">
+          <span data-info="CMNDR-generated alerts triggered when business metrics cross risk thresholds. Each exception surfaces a specific issue with context and recommended action.">Active Exceptions</span>
+          <a href="#">View all</a>
+        </div>
+        <div id="exception-feed">
+          <div class="skeleton" style="height:82px;margin-bottom:8px;"></div>
+          <div class="skeleton" style="height:82px;margin-bottom:8px;"></div>
+          <div class="skeleton" style="height:82px;"></div>
+        </div>
       </div>
+
     </div>
 
-    <div id="cmndr-body">
-      <div class="cmndr-narrative">
-        <div class="cn-label">Current Situation</div>
-        <div class="cn-text skeleton" id="narrative-text" style="height:80px;border-radius:4px;"></div>
-      </div>
-      <div class="cmndr-history" id="cmndr-history"></div>
-    </div>
+    <button id="cmndr-toggle" onclick="toggleCmndr()" title="Toggle CMNDR panel">
+      <svg id="toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+    </button>
 
-    <div id="cmndr-input-area">
-      <div id="cmndr-suggestions">
-        <div class="suggestion-pill" onclick="sendSuggestion(this)">Why is revenue down?</div>
-        <div class="suggestion-pill" onclick="sendSuggestion(this)">Top risk this week?</div>
-        <div class="suggestion-pill" onclick="sendSuggestion(this)">Improve data quality</div>
+    <div id="cmndr-col">
+      <div id="cmndr-header">
+        <div class="cmndr-dot"></div>
+        <div>
+          <div class="cmndr-title">CMNDR</div>
+          <div class="cmndr-sub">AI Operations Intelligence</div>
+        </div>
       </div>
-      <div class="input-row">
-        <textarea id="cmndr-input" placeholder="Ask CMNDR anything…" rows="1"
-          onkeydown="handleKey(event)"></textarea>
-        <button id="cmndr-send" onclick="sendMessage()">
-          <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-        </button>
+      <div id="cmndr-body">
+        <div class="cmndr-narrative">
+          <div class="cn-label">Current Situation</div>
+          <div class="cn-text skeleton" id="narrative-text" style="height:80px;border-radius:4px;"></div>
+        </div>
+        <div class="cmndr-history" id="cmndr-history"></div>
+      </div>
+      <div id="cmndr-input-area">
+        <div id="cmndr-suggestions">
+          <div class="suggestion-pill" onclick="sendSuggestion(this)">Why is revenue down?</div>
+          <div class="suggestion-pill" onclick="sendSuggestion(this)">Top risk this week?</div>
+          <div class="suggestion-pill" onclick="sendSuggestion(this)">Improve data quality</div>
+        </div>
+        <div class="input-row">
+          <textarea id="cmndr-input" placeholder="Ask CMNDR anything…" rows="1" onkeydown="handleKey(event)"></textarea>
+          <button id="cmndr-send" onclick="sendMessage()">
+            <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+          </button>
+        </div>
       </div>
     </div>
   </div>
 
 </div>
 
+<!-- Walkthrough overlay — to reset: localStorage.removeItem('arc_walkthrough_seen') then refresh -->
+<div id="walkthrough-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:1000;align-items:center;justify-content:center;backdrop-filter:blur(4px);">
+  <div style="width:100%;max-width:480px;background:var(--surface);border:.5px solid var(--border);border-radius:16px;padding:32px;box-shadow:0 24px 80px rgba(0,0,0,.5);margin:20px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+      <div id="wt-dots" style="display:flex;gap:6px;"></div>
+      <button onclick="closeWalkthrough()" style="background:none;border:none;color:var(--text3);font-size:12px;cursor:pointer;padding:4px 8px;line-height:1;">Skip tour</button>
+    </div>
+    <div id="wt-content"></div>
+    <div id="wt-nav" style="display:flex;align-items:center;justify-content:space-between;margin-top:24px;"></div>
+  </div>
+</div>
+
 <script>
 const SESSION_TOKEN = localStorage.getItem('cmndr_session');
+const PAGE_SYSTEM = "You are CMNDR, Resona's AI operations intelligence. Be concise and direct. Max 3 sentences unless asked for detail.";
 
-// ── AUTH ─────────────────────────────────────────────────────
+const excData = {};
+const cmndrActionData = {};
+let entropyData = null;
+let toastTimer = null;
+let toastActionFn = null;
+
 async function boot() {
-  // DEV BYPASS
-  if (window.location.search.includes('bypass=true') ||
-      localStorage.getItem('arc_bypass') === 'true') {
+  if (window.location.search.includes('bypass=true') || localStorage.getItem('arc_bypass') === 'true') {
     localStorage.setItem('arc_bypass', 'true');
-    // Skip auth entirely, proceed to render
   } else {
     if (!SESSION_TOKEN) { location.href = '/login'; return; }
     try {
       const r = await fetch('/api/auth?action=me', { headers: { Authorization: `Bearer ${SESSION_TOKEN}` } });
       if (!r.ok) { location.href = '/login'; return; }
       const d = await r.json();
-      const profile = d.profile;
-      if (!profile || !profile.role || !["admin","client","demo","resona_admin","resona_advisor","client_user","display"].includes(profile.role)) { location.href = '/login'; return; }
-      const name = profile.full_name || d.user?.email || 'Advisor';
-      document.getElementById('nav-avatar').textContent = name.charAt(0).toUpperCase();
+      const p = d.profile;
+      if (!p || !p.role || !["admin","client","demo","resona_admin","resona_advisor","client_user","display"].includes(p.role)) { location.href = '/login'; return; }
+      document.getElementById('nav-avatar').textContent = (p.full_name || d.user?.email || 'A').charAt(0).toUpperCase();
     } catch { location.href = '/login'; return; }
   }
-
+  initCmndrPanel();
+  initTimestamps();
   await Promise.all([loadEntropyScore(), loadExceptions()]);
+  if (!localStorage.getItem('arc_walkthrough_seen')) {
+    setTimeout(() => showWalkthrough(), 800);
+  }
 }
 
-// ── ENTROPY SCORE ────────────────────────────────────────────
+// ── CMNDR PANEL TOGGLE ──────────────────────────────────────────
+function initCmndrPanel() {
+  if (localStorage.getItem('arc_cmndr_open') === 'false') applyCollapsed(true);
+}
+function toggleCmndr() {
+  const collapsed = document.getElementById('cmndr-col').classList.contains('collapsed');
+  applyCollapsed(!collapsed);
+  localStorage.setItem('arc_cmndr_open', collapsed ? 'true' : 'false');
+}
+function applyCollapsed(on) {
+  document.getElementById('cmndr-col').classList.toggle('collapsed', on);
+  const pts = document.getElementById('toggle-icon')?.querySelector('polyline');
+  if (pts) pts.setAttribute('points', on ? '9 18 15 12 9 6' : '15 18 9 12 15 6');
+}
+
+// ── ENTROPY ─────────────────────────────────────────────────────
 async function loadEntropyScore() {
   try {
     const r = await fetch('/api/health?action=entropy');
     if (!r.ok) return;
     const d = await r.json();
     if (d.score == null) { document.getElementById('hs-entropy-sub').textContent = 'No scan yet'; return; }
-
-    setMetric('entropy', d.score, scoreLabel(d.score));
-  } catch (e) { console.warn('entropy-score:', e); }
+    entropyData = d;
+    animCount('hs-entropy', d.score, '%');
+    animBar('bar-entropy', d.score);
+    document.getElementById('hs-entropy-sub').textContent = scoreLabel(d.score);
+  } catch {}
 }
-
-function setMetric(key, val, sub) {
-  animCount('hs-' + key, val, '%');
-  animBar('bar-' + key, val);
-  if (sub) document.getElementById('hs-' + key + '-sub').textContent = sub;
-}
-
 function scoreLabel(s) {
-  if (s >= 80) return 'Excellent data health';
-  if (s >= 60) return 'Good — minor gaps';
-  if (s >= 40) return 'Fair — action needed';
-  return 'Poor — attention required';
+  return s >= 80 ? 'Excellent data health' : s >= 60 ? 'Good — minor gaps' : s >= 40 ? 'Fair — action needed' : 'Poor — attention required';
 }
-
 function animCount(id, target, suf) {
   const el = document.getElementById(id); if (!el) return;
   let t0 = null;
-  function step(ts) {
-    if (!t0) t0 = ts;
-    const p = Math.min((ts - t0) / 900, 1);
-    el.textContent = Math.round(target * easeOut(p)) + (suf || '');
-    if (p < 1) requestAnimationFrame(step);
-  }
+  function step(ts) { if (!t0) t0=ts; const p=Math.min((ts-t0)/900,1); el.textContent=Math.round(target*(1-Math.pow(1-p,3)))+(suf||''); if(p<1)requestAnimationFrame(step); }
   requestAnimationFrame(step);
 }
-function animBar(id, pct) {
-  const el = document.getElementById(id); if (!el) return;
-  setTimeout(() => el.style.width = Math.max(0, Math.min(100, pct)) + '%', 50);
-}
-function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
+function animBar(id, pct) { const el=document.getElementById(id); if(el) setTimeout(()=>el.style.width=Math.max(0,Math.min(100,pct))+'%',50); }
 
-// ── EXCEPTIONS (CMNDR) ────────────────────────────────────────
+// ── EXCEPTIONS ──────────────────────────────────────────────────
 const DEMO_EXCEPTIONS = [
   { severity:'critical', icon:'⚡', title:'Technician capacity below threshold', description:'Only 4 of 7 technicians are scheduled for peak-season coverage. 3 open positions risk $42K in unbooked summer revenue.', module:'Operations', action_primary:'View schedule', action_secondary:'Post jobs', age:'3 days' },
   { severity:'warning',  icon:'📉', title:'Lead response time exceeds 4 hours',  description:'Average lead response has slipped to 4.2 hours vs 1-hour target. Conversion rate dropped 8% in the last 14 days.', module:'Marketing', action_primary:'View leads', action_secondary:'Set alerts', age:'14 days' },
@@ -398,117 +406,1022 @@ const DEMO_NARRATIVE = 'Peak Flow is entering high-demand summer season with 3 o
 async function loadExceptions() {
   try {
     const r = await fetch('/api/ask', {
-      method: 'POST',
-      headers: { 'Content-Type':'application/json', Authorization:`Bearer ${SESSION_TOKEN}` },
+      method:'POST',
+      headers:{'Content-Type':'application/json', Authorization:`Bearer ${SESSION_TOKEN}`},
       body: JSON.stringify({
         system: 'You are CMNDR, an AI operations intelligence system for Resona. Return valid JSON only, no prose.',
-        messages: [{ role:'user', content: buildExcPrompt() }]
+        messages: [{ role:'user', content:'Analyze Peak Flow HVAC and return JSON with two keys:\n1. "exceptions": array of 3 objects with: severity (critical|warning|info), icon (emoji), title (max 8 words), description (1-2 sentences), module (Operations|Marketing|Finance|Yield), action_primary (label), action_secondary (optional label), age (e.g. "2 days").\n2. "narrative": 2-3 sentence executive summary for an HVAC company entering summer. Focus on: technician capacity, job completion, lead conversion, revenue.' }]
       })
     });
-    if (!r.ok) throw new Error('api failed');
+    if (!r.ok) throw new Error();
     const d = await r.json();
-    const raw = d.content?.[0]?.text || d.text || '';
-    const parsed = extractJSON(raw);
-    if (parsed?.exceptions?.length) {
-      renderExceptions(parsed.exceptions);
-      renderNarrative(parsed.narrative || DEMO_NARRATIVE);
-      return;
-    }
-  } catch (e) { console.warn('exceptions:', e); }
+    const parsed = extractJSON(d.content?.[0]?.text || d.text || '');
+    if (parsed?.exceptions?.length) { renderExceptions(parsed.exceptions); renderNarrative(parsed.narrative || DEMO_NARRATIVE); return; }
+  } catch {}
   renderExceptions(DEMO_EXCEPTIONS);
   renderNarrative(DEMO_NARRATIVE);
 }
 
-function buildExcPrompt() {
-  return 'Analyze Peak Flow HVAC and return JSON with two keys:\n1. "exceptions": array of 3 objects each with: severity (critical|warning|info), icon (emoji), title (max 8 words), description (1-2 sentences), module (Operations|Marketing|Finance|Optimization), action_primary (button label), action_secondary (optional button label), age (e.g. "2 days").\n2. "narrative": 2-3 sentence executive summary for an HVAC company entering summer.\nFocus on: technician scheduling, job completion, revenue per job, lead conversion, inventory, customer satisfaction.';
+function excIdFromTitle(title) {
+  return 'exc_' + title.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'').slice(0,20);
 }
-
-function extractJSON(text) {
-  try { const m = text.match(/\{[\s\S]*\}/); return m ? JSON.parse(m[0]) : null; } catch { return null; }
-}
-
 function renderExceptions(list) {
-  document.getElementById('exception-feed').innerHTML = list.map((e, i) => `
-    <div class="exc-card">
+  list.forEach(e => { const id = excIdFromTitle(e.title); excData[id] = e; });
+  const snoozed = JSON.parse(localStorage.getItem('arc_snoozed_exceptions') || '{}');
+  const resolved = JSON.parse(localStorage.getItem('arc_resolved_exceptions') || '{}');
+  const dismissed = JSON.parse(sessionStorage.getItem('arc_dismissed_exceptions') || '{}');
+  const active = list.filter(e => !resolved[excIdFromTitle(e.title)] && !dismissed[excIdFromTitle(e.title)]);
+  document.getElementById('exception-feed').innerHTML = active.map(e => {
+    const excId = excIdFromTitle(e.title);
+    const isSnoozed = !!snoozed[excId];
+    return `
+    <div class="exc-card" id="${excId}" style="${isSnoozed ? 'opacity:.5' : ''}">
+      ${e.severity === 'info'
+        ? `<button class="exc-cmndr-btn" onclick="showCmndrAutonomousPanel('${excId}')" title="Let CMNDR handle">✦</button>`
+        : `<button class="exc-cmndr-btn dim" tabindex="-1">✦<span class="exc-cmndr-tip">CMNDR autonomous actions not available for HIGH severity exceptions — manual action required.</span></button>`
+      }
       <div class="exc-icon ${e.severity}">${e.icon}</div>
       <div class="exc-body">
         <div class="exc-head">
           <div class="exc-title">${esc(e.title)}</div>
           <span class="sev-badge ${e.severity}">${e.severity}</span>
+          <span class="snoozed-badge" id="snbadge-${excId}" style="display:${isSnoozed?'flex':'none'}">${isSnoozed ? '⏱ snoozed' : ''}</span>
         </div>
         <div class="exc-desc">${esc(e.description)}</div>
         <div class="exc-meta">${esc(e.module)} &middot; ${esc(e.age)}</div>
         <div class="exc-actions">
-          <button class="exc-btn primary" onclick="openModule('${e.module}')">${esc(e.action_primary)}</button>
+          <button class="exc-btn primary" onclick="goModule('${e.module}')">${esc(e.action_primary)}</button>
           ${e.action_secondary ? `<button class="exc-btn" onclick="askCmndr('${esc(e.action_secondary)} for ${esc(e.title)}')">${esc(e.action_secondary)}</button>` : ''}
-          <button class="exc-btn" onclick="askCmndr('Tell me more about: ${esc(e.title)}')">Ask CMNDR</button>
         </div>
+        <div class="exc-global-sep"></div>
+        <div class="exc-global">
+          <span class="exc-al" onclick="explainThis('${excId}')">Explain this</span>
+          <span class="exc-al-sep">·</span>
+          <span class="exc-al" onclick="prefillCmndrById('${excId}')">Ask CMNDR</span>
+          <span class="exc-al-sep">·</span>
+          <span class="exc-al" onclick="showSnoozeDropdown('${excId}',this)">${isSnoozed ? 'Wake' : 'Snooze'}</span>
+          <span class="exc-al-sep">·</span>
+          <span class="exc-al" onclick="dismissException('${excId}')">Dismiss</span>
+          <span class="exc-al-sep">·</span>
+          <span class="exc-al" onclick="resolveException('${excId}')">Mark resolved</span>
+        </div>
+        <div id="conf-${excId}"></div>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
+  updateExceptionCount(active);
 }
-
+function goModule(m) {
+  const r = {Operations:'/operations',Marketing:'/marketing',Finance:'/finance',Yield:'/yield','Yield & Efficiency':'/yield'};
+  location.href = r[m] || '/';
+}
+function renderNarrative(text) {
+  const el = document.getElementById('narrative-text');
+  el.classList.remove('skeleton'); el.style.height = '';
+  el.textContent = text;
+}
+function goModule(m) {
+  const r = {Operations:'/operations',Marketing:'/marketing',Finance:'/finance',Yield:'/yield','Yield & Efficiency':'/yield'};
+  location.href = r[m] || '/';
+}
 function renderNarrative(text) {
   const el = document.getElementById('narrative-text');
   el.classList.remove('skeleton'); el.style.height = '';
   el.textContent = text;
 }
 
-function openModule(m) {
-  const routes = { Operations:'/operations', Marketing:'/marketing', Finance:'/finance', Optimization:'/optimization' };
-  location.href = routes[m] || '/app';
+// ── ACTION MEMORY ────────────────────────────────────────────────
+function logAction(excId, excTitle, action) {
+  const mem = JSON.parse(localStorage.getItem('arc_action_memory') || '[]');
+  mem.unshift({ excId, title: excTitle, action, at: Date.now() });
+  if (mem.length > 20) mem.length = 20;
+  localStorage.setItem('arc_action_memory', JSON.stringify(mem));
+}
+function getActionMemoryContext() {
+  const mem = JSON.parse(localStorage.getItem('arc_action_memory') || '[]');
+  if (!mem.length) return '';
+  return '\n\nRecent user actions: ' + mem.slice(0, 5).map(m => `${m.action} "${m.title}"`).join(', ') + '.';
 }
 
-// ── CMNDR CHAT ────────────────────────────────────────────────
-const history = [];
-let msgN = 0;
-
-function focusCmndr() { document.getElementById('cmndr-input').focus(); }
-function handleKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }
-function sendSuggestion(el) { document.getElementById('cmndr-input').value = el.textContent; sendMessage(); }
-function askCmndr(text) { document.getElementById('cmndr-input').value = text; sendMessage(); document.getElementById('cmndr-body').scrollTop = 99999; }
+// ── CMNDR CHAT ──────────────────────────────────────────────────
+const history = []; let msgN = 0;
+function handleKey(e) { if (e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();} }
+function sendSuggestion(el) { document.getElementById('cmndr-input').value=el.textContent; sendMessage(); }
+function askCmndr(text) { document.getElementById('cmndr-input').value=text; sendMessage(); if(document.getElementById('cmndr-col').classList.contains('collapsed')) toggleCmndr(); }
 
 async function sendMessage() {
   const inp = document.getElementById('cmndr-input');
   const text = inp.value.trim(); if (!text) return;
   inp.value = '';
-  addMsg('user', text);
-  history.push({ role:'user', content:text });
-  const tid = addMsg('ai', '…', true);
+  addMsg('user', text); history.push({role:'user',content:text});
+  const tid = addMsg('ai','',true);
+  try {
+    const r = await fetch('/api/ask', { method:'POST', headers:{'Content-Type':'application/json',Authorization:`Bearer ${SESSION_TOKEN}`}, body:JSON.stringify({system:PAGE_SYSTEM + getActionMemoryContext(),messages:history}) });
+    let reply = 'Unable to reach CMNDR.';
+    if (r.ok) { const d=await r.json(); reply=d.content?.[0]?.text||d.text||reply; }
+    updMsg(tid, reply); history.push({role:'assistant',content:reply});
+  } catch { updMsg(tid,'CMNDR temporarily unavailable.'); }
+  document.getElementById('cmndr-body').scrollTop = 99999;
+}
+function addMsg(role, text, typing) {
+  const id='msg-'+(++msgN); const t=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  const el=document.createElement('div'); el.className='msg '+role; el.id=id;
+  el.innerHTML=`<div class="msg-bubble">${typing?'<em style="opacity:.5">Thinking…</em>':esc(text)}</div><div class="msg-time">${t}</div>`;
+  document.getElementById('cmndr-history').appendChild(el);
+  document.getElementById('cmndr-body').scrollTop=99999; return id;
+}
+function updMsg(id, text) { const el=document.getElementById(id); if(el) el.querySelector('.msg-bubble').textContent=text; }
+function extractJSON(text) { try{const m=text.match(/\{[\s\S]*\}/);return m?JSON.parse(m[0]):null;}catch{return null;} }
+function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
+// ── WALKTHROUGH ──────────────────────────────────────────────────
+// Reset: localStorage.removeItem('arc_walkthrough_seen') then refresh
+
+let walkthroughStep = 1;
+const TOTAL_WT_STEPS = 5;
+
+const WT_STEPS = [
+  {
+    target: 'metric-entropy',
+    icon: '77%', iconColor: 'var(--accent)',
+    title: 'Your Data Health Score',
+    body: "This number tells you how trustworthy your data is — and how reliable every other metric on this screen is. Low score means your automations are working with bad inputs. High score means everything downstream is reliable.",
+    infoLabel: 'HOW WE CALCULATE IT',
+    infoRows: ['Completeness  ████░░░░  30% weight', 'Fragmentation ████░░░░  30% weight', 'Variance      ██░░░░░░  20% weight', 'Enrichment    ██░░░░░░  20% weight']
+  },
+  {
+    target: 'metric-labor',
+    icon: '14.2 hrs', iconColor: 'var(--accent)',
+    title: 'Hours Your Business Got Back',
+    body: "Every time an ISS automation completes a task that would have taken a human — sending a follow-up, routing a lead, reconciling an invoice — we log the time saved. This is the total hours recovered this month across all your active automations.",
+    infoLabel: 'HOW WE CALCULATE IT',
+    infoRows: ['Automation executions × average manual task time', 'Compared against your baseline set during setup', 'Updates in real-time as automations run']
+  },
+  {
+    target: 'metric-roi',
+    icon: '$8.40', iconColor: 'var(--accent)',
+    title: 'Revenue Per Automated Lead',
+    body: "This bridges your marketing spend and your actual revenue. For every lead that came through your automated system, how much revenue did it generate? When this rises, your automations are working. When it drops while lead volume increases, something in the pipeline is breaking.",
+    infoLabel: 'HOW WE CALCULATE IT',
+    infoRows: ['Total revenue from converted automated leads', '÷ Total leads processed through the system', '= Revenue per automated lead']
+  },
+  {
+    target: 'exception-feed',
+    icon: '⚠', iconColor: 'var(--amber)',
+    title: 'Your Active Exceptions',
+    body: "CMNDR monitors your connected data continuously and surfaces things that need attention — ranked by business impact. Each exception has a severity level and direct action buttons. You don't hunt for problems. The problems come to you.",
+    infoLabel: 'SEVERITY LEVELS',
+    infoRows: ['⚠ HIGH   — Immediate action required. Revenue or data at risk.', '⚡ ACTION — Something needs routing or processing now.', 'ℹ INFO   — Awareness item. No immediate action needed.'],
+    note: 'Exceptions refresh every time you log in based on your live data.'
+  },
+  {
+    target: 'cmndr-col',
+    icon: '✦', iconColor: 'var(--accent)',
+    title: 'CMNDR — Your Operations Intelligence',
+    body: "CMNDR isn't a chatbot. It's an operational auditor that knows your business. Ask it anything — why a metric is moving, what to prioritize, what an exception means. It has full context on your data, your automations, and your industry vertical.",
+    infoLabel: 'THINGS TO ASK CMNDR',
+    infoRows: ['→ "Why did my entropy score drop?"', '→ "What\'s my biggest revenue risk this week?"', '→ "Which automation is saving me the most time?"'],
+    note: 'You can collapse and expand CMNDR anytime using the button in the top nav.'
+  }
+];
+
+function showWalkthrough() {
+  walkthroughStep = 1;
+  document.getElementById('walkthrough-overlay').style.display = 'flex';
+  renderWalkthroughStep(1);
+}
+
+function closeWalkthrough() {
+  document.getElementById('walkthrough-overlay').style.display = 'none';
+  localStorage.setItem('arc_walkthrough_seen', 'true');
+  removeAllSpotlights();
+}
+
+function walkthroughNext() {
+  if (walkthroughStep < TOTAL_WT_STEPS) { walkthroughStep++; renderWalkthroughStep(walkthroughStep); }
+}
+
+function walkthroughBack() {
+  if (walkthroughStep > 1) { walkthroughStep--; renderWalkthroughStep(walkthroughStep); }
+}
+
+function removeAllSpotlights() {
+  document.querySelectorAll('.walkthrough-spotlight').forEach(el => el.classList.remove('walkthrough-spotlight'));
+}
+
+function renderWalkthroughStep(step) {
+  const s = WT_STEPS[step - 1];
+
+  // Update dots
+  document.getElementById('wt-dots').innerHTML = Array.from({length: TOTAL_WT_STEPS}, (_,i) =>
+    `<div style="width:6px;height:6px;border-radius:50%;background:${i < step ? 'var(--accent)' : 'var(--border2)'};transition:background .2s;"></div>`
+  ).join('');
+
+  // Spotlight
+  removeAllSpotlights();
+  const target = document.getElementById(s.target);
+  if (target) target.classList.add('walkthrough-spotlight');
+
+  // For step 5 ensure CMNDR panel is visible
+  if (step === 5) {
+    const col = document.getElementById('cmndr-col');
+    if (col && col.classList.contains('collapsed')) applyCollapsed(false);
+  }
+
+  const infoHtml = `
+    <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:12px;margin-top:16px;">
+      <div style="font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);margin-bottom:8px;">${esc(s.infoLabel)}</div>
+      <div style="font-family:monospace;font-size:12px;color:var(--text2);line-height:1.9;">${s.infoRows.map(r => `<div>${esc(r)}</div>`).join('')}</div>
+    </div>
+    ${s.note ? `<div style="font-size:11px;color:var(--text3);margin-top:10px;line-height:1.5;">${esc(s.note)}</div>` : ''}
+  `;
+
+  document.getElementById('wt-content').innerHTML = `
+    <div style="font-size:42px;font-weight:700;color:${s.iconColor};line-height:1;margin-bottom:12px;">${esc(s.icon)}</div>
+    <div style="font-size:20px;font-weight:700;margin-bottom:10px;line-height:1.3;">${esc(s.title)}</div>
+    <div style="font-size:14px;color:var(--text2);line-height:1.65;">${esc(s.body)}</div>
+    ${infoHtml}
+  `;
+
+  const isFirst = step === 1;
+  const isLast = step === TOTAL_WT_STEPS;
+  document.getElementById('wt-nav').innerHTML = `
+    ${!isFirst
+      ? `<button onclick="walkthroughBack()" style="background:none;border:none;color:var(--text3);font-size:13px;cursor:pointer;padding:6px 0;">← Back</button>`
+      : '<div></div>'}
+    <span style="font-size:11px;color:var(--text3);font-family:monospace;">${step} of ${TOTAL_WT_STEPS}</span>
+    ${isLast
+      ? `<button onclick="closeWalkthrough()" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:8px 18px;font-size:13px;cursor:pointer;font-weight:500;">Start using ARC →</button>`
+      : `<button onclick="walkthroughNext()" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:8px 18px;font-size:13px;cursor:pointer;font-weight:500;">Next →</button>`
+    }
+  `;
+}
+
+// ── ENTROPY PANEL ───────────────────────────────────────────────
+function scoreColor(s) { return s >= 80 ? 'var(--green)' : s >= 60 ? 'var(--accent)' : s >= 40 ? 'var(--amber)' : 'var(--red)'; }
+function scoreVerdict(s) { return s >= 80 ? 'Excellent' : s >= 60 ? 'Good' : s >= 40 ? 'Fair' : 'Poor'; }
+
+function openEntropyPanel() {
+  document.getElementById('entropy-panel').classList.add('open');
+  document.getElementById('entropy-overlay').style.display = 'block';
+  renderEntropyPanel();
+}
+function closeEntropyPanel() {
+  document.getElementById('entropy-panel').classList.remove('open');
+  document.getElementById('entropy-overlay').style.display = 'none';
+}
+function renderEntropyPanel() {
+  const body = document.getElementById('entropy-panel-body');
+  if (!entropyData) {
+    body.innerHTML = '<div style="color:var(--text3);font-size:12px;font-family:monospace">No scan data yet. Run a Refinery scan to populate your entropy score.</div>';
+    return;
+  }
+  const d = entropyData;
+  const dims = d.dimensions || [
+    { name:'Completeness', score:d.completeness ?? Math.round(d.score * 1.05), finding:'Missing fields in 12% of records' },
+    { name:'Fragmentation', score:d.fragmentation ?? Math.round(d.score * 0.95), finding:'Duplicate contacts detected' },
+    { name:'Variance', score:d.variance ?? Math.round(d.score * 1.02), finding:'Phone format inconsistencies' },
+    { name:'Enrichment', score:d.enrichment ?? Math.round(d.score * 0.9), finding:'Email domain enrichment low' }
+  ];
+  body.innerHTML = `
+    <div style="text-align:center;margin-bottom:18px">
+      <div style="font-size:42px;font-weight:700;color:${scoreColor(d.score)};line-height:1">${d.score}<span style="font-size:20px">%</span></div>
+      <div style="font-size:12px;color:var(--text3);margin-top:4px;font-family:monospace">${scoreVerdict(d.score)} data health</div>
+    </div>
+    ${dims.map(dim => {
+      const s = Math.min(100, Math.max(0, dim.score || 50));
+      return `<div class="ep-dim">
+        <div class="ep-dim-head">
+          <span class="ep-dim-name">${esc(dim.name)}</span>
+          <span class="ep-dim-score" style="color:${scoreColor(s)}">${s}%</span>
+        </div>
+        <div class="ep-dim-bar"><div class="ep-dim-fill" style="width:${s}%;background:${scoreColor(s)}"></div></div>
+        <div class="ep-dim-finding">${esc(dim.finding)}</div>
+      </div>`;
+    }).join('')}
+    <div class="ep-insight">
+      <div class="ep-ins-label">CMNDR insight</div>
+      <div class="ep-ins-text">${esc(d.insight || 'Your data quality directly impacts every downstream metric. A 10-point entropy improvement typically yields 15–20% better automation accuracy.')}</div>
+    </div>
+  `;
+}
+
+// ── TIMESTAMPS ───────────────────────────────────────────────────
+function initTimestamps() {
+  const stored = JSON.parse(localStorage.getItem('arc_last_updated') || '{}');
+  const now = Date.now();
+  ['metric-entropy','metric-labor','metric-roi'].forEach(id => {
+    if (!stored[id]) stored[id] = now;
+  });
+  localStorage.setItem('arc_last_updated', JSON.stringify(stored));
+  renderTimestamps();
+  setInterval(renderTimestamps, 30000);
+}
+function renderTimestamps() {
+  const stored = JSON.parse(localStorage.getItem('arc_last_updated') || '{}');
+  ['metric-entropy','metric-labor','metric-roi'].forEach(id => {
+    const el = document.getElementById('ts-' + id);
+    if (el) el.textContent = 'Updated ' + timeAgo(stored[id] || Date.now());
+  });
+}
+function timeAgo(ts) {
+  const s = Math.floor((Date.now() - ts) / 1000);
+  if (s < 10) return 'just now';
+  if (s < 60) return s + 's ago';
+  const m = Math.floor(s / 60);
+  if (m < 60) return m + 'm ago';
+  const h = Math.floor(m / 60);
+  if (h < 24) return h + 'h ago';
+  return Math.floor(h / 24) + 'd ago';
+}
+function refreshMetrics(id) {
+  const tsEl = document.getElementById('ts-' + id);
+  if (tsEl) tsEl.textContent = 'Refreshing…';
+  const card = document.getElementById(id);
+  const valEl = card?.querySelector('.hc-value');
+  if (valEl) valEl.classList.add('refreshing');
+  setTimeout(() => {
+    if (valEl) valEl.classList.remove('refreshing');
+    const stored = JSON.parse(localStorage.getItem('arc_last_updated') || '{}');
+    stored[id] = Date.now();
+    localStorage.setItem('arc_last_updated', JSON.stringify(stored));
+    renderTimestamps();
+    if (id === 'metric-entropy') {
+      // New scan data — invalidate all explain caches
+      clearAllExplainCaches();
+      loadEntropyScore();
+    }
+  }, 1500);
+}
+
+// ── EXCEPTION COUNT BADGE ────────────────────────────────────────
+function updateExceptionCount(list) {
+  const label = document.querySelector('#exc-count-indicator .eci-label');
+  const dots = document.getElementById('eci-dots');
+  if (!list || !list.length) {
+    if (label) label.textContent = 'No exceptions';
+    if (dots) dots.innerHTML = '';
+    return;
+  }
+  const counts = { critical:0, warning:0, info:0 };
+  list.forEach(e => { if (counts[e.severity] !== undefined) counts[e.severity]++; });
+  if (label) label.textContent = list.length + ' exception' + (list.length !== 1 ? 's' : '');
+  const colorMap = { critical:'var(--red)', warning:'var(--amber)', info:'var(--accent)' };
+  const labelMap = { critical:'HIGH', warning:'ACTION', info:'INFO' };
+  if (dots) dots.innerHTML = Object.entries(counts).filter(([,n])=>n>0).map(([k,n])=>`
+    <div class="eci-row"><span class="eci-dot" style="background:${colorMap[k]}"></span>${n} ${labelMap[k]}</div>
+  `).join('');
+}
+
+// ── EXPLAIN THIS CACHE ────────────────────────────────────────────
+function explainTtl() { return parseInt(localStorage.getItem('arc_explain_cache_ttl') || '604800000'); }
+function explainCacheKey(excId) { return 'arc_explain_' + excId; }
+function getExplainCache(excId) {
+  try {
+    const raw = localStorage.getItem(explainCacheKey(excId));
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if ((Date.now() - data.cached_at) > explainTtl()) { localStorage.removeItem(explainCacheKey(excId)); return null; }
+    return data;
+  } catch { return null; }
+}
+function setExplainCache(excId, data, title) {
+  try {
+    localStorage.setItem(explainCacheKey(excId), JSON.stringify({ ...data, cached_at: Date.now(), exception_title: title }));
+  } catch {}
+}
+function clearExplainCache(excId) { localStorage.removeItem(explainCacheKey(excId)); }
+function clearAllExplainCaches() {
+  Object.keys(localStorage).filter(k => k.startsWith('arc_explain_')).forEach(k => localStorage.removeItem(k));
+}
+function formatCacheDate(ts) {
+  return new Date(ts).toLocaleDateString('en-US', {month:'short', day:'numeric'}) + ' at ' +
+    new Date(ts).toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'});
+}
+
+function renderExplainResult(confDiv, data, excId, cachedAt, showSaved) {
+  const isCollapsed = localStorage.getItem('arc_explain_collapsed_' + excId) === 'true';
+  const colId = 'expl-body-' + excId;
+  const toggleBtn = `<button onclick="toggleExplainCollapse('${excId}')" id="expl-toggle-${excId}" style="position:absolute;top:8px;right:8px;width:20px;height:20px;border-radius:50%;border:1px solid var(--border2);background:var(--surface);color:var(--text3);font-size:13px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0">${isCollapsed ? '+' : '−'}</button>`;
+  let bodyHtml, summaryLabel;
+  if (data.what_this_is || data.what_your_number_means || data.what_to_do) {
+    summaryLabel = 'WHAT THIS IS · WHAT YOUR NUMBER MEANS · WHAT TO DO';
+    bodyHtml = `
+      <div id="${colId}" style="overflow:hidden;max-height:${isCollapsed ? '0' : '500px'};transition:max-height 300ms ease">
+        <div style="font-size:10px;font-family:monospace;letter-spacing:.6px;text-transform:uppercase;color:var(--text3);margin-bottom:4px">WHAT THIS IS</div>
+        <div style="color:var(--text);margin-bottom:10px">${esc(data.what_this_is || '')}</div>
+        <div style="font-size:10px;font-family:monospace;letter-spacing:.6px;text-transform:uppercase;color:var(--text3);margin-bottom:4px">WHAT YOUR NUMBER MEANS</div>
+        <div style="color:var(--text);margin-bottom:10px">${esc(data.what_your_number_means || '')}</div>
+        <div style="font-size:10px;font-family:monospace;letter-spacing:.6px;text-transform:uppercase;color:var(--text3);margin-bottom:4px">WHAT TO DO</div>
+        <div style="color:var(--text)">${esc(data.what_to_do || '')}</div>
+      </div>`;
+  } else {
+    summaryLabel = 'CMNDR EXPLANATION';
+    bodyHtml = `
+      <div id="${colId}" style="overflow:hidden;max-height:${isCollapsed ? '0' : '500px'};transition:max-height 300ms ease">
+        <div style="font-size:10px;font-family:monospace;letter-spacing:.6px;text-transform:uppercase;color:var(--text3);margin-bottom:4px">CMNDR EXPLANATION</div>
+        <div style="color:var(--text)">${esc(data.raw_text || '')}</div>
+      </div>`;
+  }
+  const summaryRow = `<div id="expl-summary-${excId}" style="display:${isCollapsed ? 'block' : 'none'};font-size:10px;font-family:monospace;color:var(--text3);margin-top:2px">${summaryLabel}</div>`;
+  const cardHtml = `
+    <div style="margin-top:10px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:12px 32px 12px 12px;font-size:12px;line-height:1.6;position:relative">
+      ${toggleBtn}${bodyHtml}${summaryRow}
+    </div>`;
+  const cacheHtml = `
+    <div style="margin-top:8px;padding-top:8px;border-top:0.5px solid var(--border)">
+      <span style="font-size:10px;font-family:monospace;color:var(--text3)">↩ Cached · ${formatCacheDate(cachedAt)}</span><span
+        style="font-size:10px;font-family:monospace;color:#0066ff;cursor:pointer;margin-left:4px;transition:color 150ms ease"
+        onmouseover="this.style.color='#8888a0'" onmouseout="this.style.color='#0066ff'"
+        onclick="clearExplainCache('${excId}');explainThis('${excId}')">&nbsp;· Refresh →</span>
+    </div>`;
+  const savedId = 'expl-saved-' + excId;
+  if (showSaved) {
+    confDiv.innerHTML = cardHtml + `<div id="${savedId}" style="margin-top:8px;padding-top:8px;border-top:0.5px solid var(--border);font-size:10px;font-family:monospace;color:var(--text3)">✓ Saved</div>`;
+    setTimeout(() => { const el = document.getElementById(savedId); if (el) el.outerHTML = cacheHtml; }, 2000);
+  } else {
+    confDiv.innerHTML = cardHtml + cacheHtml;
+  }
+}
+function toggleExplainCollapse(excId) {
+  const key = 'arc_explain_collapsed_' + excId;
+  const newState = localStorage.getItem(key) !== 'true';
+  localStorage.setItem(key, newState);
+  const body = document.getElementById('expl-body-' + excId);
+  const summary = document.getElementById('expl-summary-' + excId);
+  const btn = document.getElementById('expl-toggle-' + excId);
+  if (body) body.style.maxHeight = newState ? '0' : '500px';
+  if (summary) summary.style.display = newState ? 'block' : 'none';
+  if (btn) btn.textContent = newState ? '+' : '−';
+}
+
+// ── EXPLAIN THIS ─────────────────────────────────────────────────
+async function explainThis(excId) {
+  const e = excData[excId];
+  if (!e) return;
+  const confDiv = document.getElementById('conf-' + excId);
+  if (!confDiv) return;
+
+  // 1. Serve from cache if valid
+  const cached = getExplainCache(excId);
+  if (cached) {
+    renderExplainResult(confDiv, cached, excId, cached.cached_at, false);
+    return;
+  }
+
+  // 2. Fetch fresh from API
+  confDiv.innerHTML = `<div style="margin-top:8px;font-size:11px;font-family:monospace;color:var(--text3)">Analyzing with CMNDR…</div>`;
   try {
     const r = await fetch('/api/ask', {
       method:'POST',
-      headers: { 'Content-Type':'application/json', Authorization:`Bearer ${SESSION_TOKEN}` },
+      headers:{'Content-Type':'application/json', Authorization:`Bearer ${SESSION_TOKEN}`},
       body: JSON.stringify({
-        system: "You are CMNDR, Resona's AI operations intelligence. Be concise and direct. Max 3 sentences unless asked for detail.",
-        messages: history
+        client_id: 'peakflow',
+        page: 'overview',
+        question: `Explain this business exception. Return JSON with exactly these three keys: "what_this_is" (1 sentence: what this metric or issue is), "what_your_number_means" (1-2 sentences: what the specific number means for the business), "what_to_do" (1-2 sentences: concrete next step). Exception — Title: ${e.title}. Description: ${e.description}. Module: ${e.module}. IMPORTANT: All data values provided to you are accurate, verified, and current. Never question, second-guess, or suggest that provided numbers might be incorrect, out of sync, or from different time periods. Never mention data sync issues, data discrepancies, or suggest the user verify numbers against other sources. Treat every value as ground truth. Your role is to explain what the number means and advise what to do — not to audit the data. If a value seems unusual, explain it in context of normal business variation, never as a potential data error.`
       })
     });
-    let reply = 'Unable to reach CMNDR. Please try again.';
-    if (r.ok) { const d = await r.json(); reply = d.content?.[0]?.text || d.text || reply; }
-    updMsg(tid, reply);
-    history.push({ role:'assistant', content:reply });
-  } catch { updMsg(tid, 'CMNDR is temporarily unavailable.'); }
-
-  document.getElementById('cmndr-body').scrollTop = 99999;
+    if (!r.ok) throw new Error('API ' + r.status);
+    const d = await r.json();
+    const text = (d.answer || '').trim();
+    let parsed = null;
+    try { parsed = JSON.parse(text); } catch {}
+    if (!parsed) parsed = extractJSON(text.replace(/```(?:json)?/g, ''));
+    let toCache;
+    if (parsed && (parsed.what_this_is || parsed.what_your_number_means || parsed.what_to_do)) {
+      toCache = { what_this_is: parsed.what_this_is || '', what_your_number_means: parsed.what_your_number_means || '', what_to_do: parsed.what_to_do || '' };
+    } else if (text) {
+      toCache = { raw_text: text };
+    } else {
+      throw new Error('empty');
+    }
+    setExplainCache(excId, toCache, e.title);
+    renderExplainResult(confDiv, toCache, excId, Date.now(), true);
+  } catch {
+    confDiv.innerHTML = `<div style="margin-top:8px;font-size:11px;font-family:monospace;color:var(--text3)">Unable to load explanation. Try again.</div>`;
+  }
 }
 
-function addMsg(role, text, typing) {
-  const id = 'msg-' + (++msgN);
-  const t = new Date().toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
-  const el = document.createElement('div');
-  el.className = 'msg ' + role; el.id = id;
-  el.innerHTML = `<div class="msg-bubble">${typing ? '<em style="opacity:.5">CMNDR is thinking…</em>' : esc(text)}</div><div class="msg-time">${t}</div>`;
-  document.getElementById('cmndr-history').appendChild(el);
-  document.getElementById('cmndr-body').scrollTop = 99999;
-  return id;
+// ── ASK CMNDR PRE-FILL ───────────────────────────────────────────
+function prefillCmndrById(excId) {
+  const e = excData[excId];
+  if (!e) return;
+  prefillCmndr('Tell me more about: ' + e.title);
+}
+function prefillCmndr(text) {
+  if (document.getElementById('cmndr-col').classList.contains('collapsed')) toggleCmndr();
+  const inp = document.getElementById('cmndr-input');
+  if (inp) { inp.value = text; inp.focus(); }
 }
 
-function updMsg(id, text) { const el = document.getElementById(id); if (el) el.querySelector('.msg-bubble').textContent = text; }
-function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+// ── SNOOZE ───────────────────────────────────────────────────────
+function showSnoozeDropdown(excId, el) {
+  const snoozed = JSON.parse(localStorage.getItem('arc_snoozed_exceptions') || '{}');
+  if (snoozed[excId]) { wakeException(excId); return; }
+  const confDiv = document.getElementById('conf-' + excId);
+  if (!confDiv) return;
+  if (confDiv.querySelector('.snooze-dd')) { confDiv.innerHTML = ''; return; }
+  confDiv.innerHTML = `
+    <div class="snooze-dd" style="margin-top:6px">
+      <div class="snooze-opt" onclick="applySnooze('${excId}',24)">Snooze for 24 hours</div>
+      <div class="snooze-opt" onclick="applySnooze('${excId}',72)">Snooze for 3 days</div>
+      <div class="snooze-opt" onclick="applySnooze('${excId}',168)">Snooze for 1 week</div>
+    </div>`;
+}
+function applySnooze(excId, hours) {
+  logAction(excId, excData[excId]?.title || excId, 'snoozed');
+  const snoozed = JSON.parse(localStorage.getItem('arc_snoozed_exceptions') || '{}');
+  snoozed[excId] = { until: Date.now() + hours * 3600000, hours };
+  localStorage.setItem('arc_snoozed_exceptions', JSON.stringify(snoozed));
+  const card = document.getElementById(excId);
+  if (card) card.style.opacity = '.5';
+  const badge = document.getElementById('snbadge-' + excId);
+  if (badge) { badge.style.display = 'flex'; badge.textContent = '⏱ snoozed'; }
+  const confDiv = document.getElementById('conf-' + excId);
+  if (confDiv) confDiv.innerHTML = '';
+  // update snooze link text
+  const links = card?.querySelectorAll('.exc-al');
+  links?.forEach(l => { if (l.textContent.trim() === 'Snooze') l.textContent = 'Wake'; });
+  showToast('Snoozed for ' + (hours < 48 ? hours + ' hours' : (hours/24) + ' days'));
+}
+function wakeException(excId) {
+  const snoozed = JSON.parse(localStorage.getItem('arc_snoozed_exceptions') || '{}');
+  delete snoozed[excId];
+  localStorage.setItem('arc_snoozed_exceptions', JSON.stringify(snoozed));
+  const card = document.getElementById(excId);
+  if (card) card.style.opacity = '';
+  const badge = document.getElementById('snbadge-' + excId);
+  if (badge) badge.style.display = 'none';
+  const links = card?.querySelectorAll('.exc-al');
+  links?.forEach(l => { if (l.textContent.trim() === 'Wake') l.textContent = 'Snooze'; });
+  showToast('Exception unsnoozed');
+}
+
+// ── DISMISS ──────────────────────────────────────────────────────
+function dismissException(excId) {
+  const confDiv = document.getElementById('conf-' + excId);
+  if (!confDiv) return;
+  confDiv.innerHTML = `
+    <div class="exc-confirm">
+      <span class="exc-confirm-msg">Dismiss this exception for this session?</span>
+      <span class="exc-confirm-yes" onclick="confirmDismiss('${excId}')">Yes, dismiss</span>
+      <span class="exc-confirm-no" onclick="cancelConfirm('${excId}')">Cancel</span>
+    </div>`;
+}
+function confirmDismiss(excId) {
+  logAction(excId, excData[excId]?.title || excId, 'dismissed');
+  const dismissed = JSON.parse(sessionStorage.getItem('arc_dismissed_exceptions') || '{}');
+  dismissed[excId] = true;
+  sessionStorage.setItem('arc_dismissed_exceptions', JSON.stringify(dismissed));
+  const card = document.getElementById(excId);
+  if (card) {
+    card.style.transition = 'opacity .3s, transform .3s, max-height .4s';
+    card.style.opacity = '0';
+    card.style.transform = 'translateY(-8px)';
+    setTimeout(() => { card.style.display = 'none'; updateExceptionCount(Object.values(excData)); }, 350);
+  }
+  toastActionFn = () => {
+    const d2 = JSON.parse(sessionStorage.getItem('arc_dismissed_exceptions') || '{}');
+    delete d2[excId];
+    sessionStorage.setItem('arc_dismissed_exceptions', JSON.stringify(d2));
+    if (card) { card.style.display = ''; card.style.opacity = '1'; card.style.transform = ''; }
+    updateExceptionCount(Object.values(excData));
+  };
+  showToast('Exception dismissed — <span class="toast-undo" onclick="toastAction()">Undo</span>', 5000);
+}
+
+// ── RESOLVE ──────────────────────────────────────────────────────
+function resolveException(excId) {
+  const confDiv = document.getElementById('conf-' + excId);
+  if (!confDiv) return;
+  confDiv.innerHTML = `
+    <div class="exc-confirm">
+      <span class="exc-confirm-msg">Mark as resolved?</span>
+      <span class="exc-confirm-yes" onclick="confirmResolve('${excId}')">Yes, resolve</span>
+      <span class="exc-confirm-no" onclick="cancelConfirm('${excId}')">Cancel</span>
+    </div>`;
+}
+function confirmResolve(excId) {
+  logAction(excId, excData[excId]?.title || excId, 'resolved');
+  const resolved = JSON.parse(localStorage.getItem('arc_resolved_exceptions') || '{}');
+  resolved[excId] = { resolvedAt: Date.now(), data: excData[excId] };
+  localStorage.setItem('arc_resolved_exceptions', JSON.stringify(resolved));
+  const count = Object.keys(resolved).length;
+  localStorage.setItem('arc_resolved_count', count);
+  const card = document.getElementById(excId);
+  if (card) {
+    card.style.transition = 'border-color .2s';
+    card.style.borderColor = 'var(--accent)';
+    setTimeout(() => {
+      card.style.transition = 'opacity .3s, transform .3s';
+      card.style.opacity = '0';
+      card.style.transform = 'translateY(-8px)';
+      setTimeout(() => { card.style.display = 'none'; updateExceptionCount(Object.values(excData)); }, 350);
+    }, 200);
+  }
+  showToast('Resolved — <span class="toast-undo" onclick="openResolvedLog()" style="color:var(--accent);cursor:pointer">View resolved log</span>', 6000);
+}
+function cancelConfirm(excId) {
+  const confDiv = document.getElementById('conf-' + excId);
+  if (confDiv) confDiv.innerHTML = '';
+}
+
+// ── CMNDR AUTONOMOUS ACTION ───────────────────────────────────────
+async function showCmndrAutonomousPanel(excId) {
+  const e = excData[excId];
+  if (!e) return;
+  const confDiv = document.getElementById('conf-' + excId);
+  if (!confDiv) return;
+  confDiv.innerHTML = `<div style="margin-top:8px;font-size:11px;font-family:monospace;color:var(--text3)">CMNDR is determining the best action…</div>`;
+  try {
+    const r = await fetch('/api/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SESSION_TOKEN}` },
+      body: JSON.stringify({
+        client_id: 'peakflow',
+        page: 'overview',
+        question: `For this business exception, determine the single best autonomous action CMNDR should take. Return JSON with exactly these keys: "action_title" (4-6 words), "action_description" (1 sentence: what CMNDR will do), "rationale" (1 sentence: why this is right). Exception — Title: ${e.title}. Description: ${e.description}. Module: ${e.module}. IMPORTANT: All data values provided to you are accurate, verified, and current. Never question, second-guess, or suggest that provided numbers might be incorrect, out of sync, or from different time periods. Never mention data sync issues, data discrepancies, or suggest the user verify numbers against other sources. Treat every value as ground truth. Your role is to explain what the number means and advise what to do — not to audit the data. If a value seems unusual, explain it in context of normal business variation, never as a potential data error.`
+      })
+    });
+    if (!r.ok) throw new Error('API ' + r.status);
+    const d = await r.json();
+    const text = (d.answer || '').trim();
+    let parsed = null;
+    try { parsed = JSON.parse(text); } catch {}
+    if (!parsed) parsed = extractJSON(text.replace(/```(?:json)?/g, ''));
+    if (!parsed?.action_title) throw new Error('no data');
+    cmndrActionData[excId] = parsed;
+    confDiv.innerHTML = `
+      <div style="margin-top:10px;background:rgba(0,212,170,.06);border:1px solid rgba(0,212,170,.25);border-radius:8px;padding:12px;font-size:12px;line-height:1.6">
+        <div style="font-size:10px;font-family:monospace;letter-spacing:.6px;text-transform:uppercase;color:#00d4aa;margin-bottom:6px">CMNDR WILL</div>
+        <div style="color:var(--text);font-weight:500;margin-bottom:4px">${esc(parsed.action_title)}</div>
+        <div style="color:var(--text);margin-bottom:8px">${esc(parsed.action_description)}</div>
+        <div style="font-size:10px;color:var(--text3)">${esc(parsed.rationale)}</div>
+        <div style="margin-top:10px;display:flex;gap:8px">
+          <button onclick="confirmCmndrAction('${excId}')" style="background:#00d4aa;color:#0a0f1a;border:none;border-radius:5px;padding:5px 12px;font-size:11px;font-family:monospace;cursor:pointer;font-weight:600">Confirm →</button>
+          <button onclick="cancelConfirm('${excId}')" style="background:transparent;color:var(--text3);border:1px solid var(--border2);border-radius:5px;padding:5px 12px;font-size:11px;font-family:monospace;cursor:pointer">Cancel</button>
+        </div>
+      </div>`;
+  } catch {
+    confDiv.innerHTML = `<div style="margin-top:8px;font-size:11px;font-family:monospace;color:var(--text3)">Unable to determine action. Try again.</div>`;
+  }
+}
+function confirmCmndrAction(excId) {
+  const action = cmndrActionData[excId];
+  if (!action) return;
+  const queue = JSON.parse(localStorage.getItem('arc_cmndr_queue') || '[]');
+  queue.push({ excId, action, queuedAt: Date.now(), status: 'handling' });
+  localStorage.setItem('arc_cmndr_queue', JSON.stringify(queue));
+  logAction(excId, excData[excId]?.title || excId, 'cmndr_handled');
+  const confDiv = document.getElementById('conf-' + excId);
+  if (confDiv) {
+    confDiv.innerHTML = `<div style="margin-top:8px;font-size:11px;font-family:monospace;color:#00d4aa">⟳ CMNDR handling…</div>`;
+    setTimeout(() => {
+      confDiv.innerHTML = `<div style="margin-top:8px;font-size:11px;font-family:monospace;color:#00d4aa">✓ CMNDR handled</div>`;
+      const card = document.getElementById(excId);
+      if (card) card.style.opacity = '.4';
+    }, 2000);
+  }
+}
+
+// ── RESOLVED LOG PANEL ───────────────────────────────────────────
+function openResolvedLog() {
+  const resolved = JSON.parse(localStorage.getItem('arc_resolved_exceptions') || '{}');
+  const body = document.getElementById('resolved-panel-body');
+  const entries = Object.entries(resolved);
+  if (!entries.length) {
+    body.innerHTML = '<div style="color:var(--text3);font-size:12px;font-family:monospace">No resolved exceptions yet.</div>';
+  } else {
+    body.innerHTML = entries.map(([id, v]) => {
+      const e = v.data || {};
+      const dt = new Date(v.resolvedAt).toLocaleDateString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+      return `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
+        <div style="font-size:12px;font-weight:500;color:var(--text);margin-bottom:3px">${esc(e.title || id)}</div>
+        <div style="font-size:11px;font-family:monospace;color:var(--text3)">${esc(e.module || '')} · resolved ${dt}</div>
+      </div>`;
+    }).join('');
+  }
+  document.getElementById('resolved-panel').classList.add('open');
+  document.getElementById('resolved-overlay').style.display = 'block';
+}
+function closeResolvedLog() {
+  document.getElementById('resolved-panel').classList.remove('open');
+  document.getElementById('resolved-overlay').style.display = 'none';
+}
+
+// ── TOAST ────────────────────────────────────────────────────────
+function showToast(html, ms = 3000) {
+  const t = document.getElementById('toast');
+  clearTimeout(toastTimer);
+  t.innerHTML = html;
+  t.style.display = 'flex';
+  toastTimer = setTimeout(() => { t.style.display = 'none'; }, ms);
+}
+function toastAction() {
+  if (toastActionFn) { toastActionFn(); toastActionFn = null; }
+  const t = document.getElementById('toast');
+  clearTimeout(toastTimer);
+  t.style.display = 'none';
+}
+
+// ── SCAN SUMMARY CHANGE DETECTION ────────────────────────────────
+// Clears explain caches if arc_scan_summary changes (same-origin tabs)
+window.addEventListener('storage', e => {
+  if (e.key === 'arc_scan_summary') clearAllExplainCaches();
+});
+
+// ── INFO ICONS ────────────────────────────────────────────────────
+function createInfoIcon(tooltipText) {
+  const wrapper = document.createElement('span');
+  wrapper.style.cssText = 'position:relative;display:inline-block';
+  const icon = document.createElement('span');
+  icon.className = 'info-icon';
+  icon.textContent = 'i';
+  const tooltip = document.createElement('div');
+  tooltip.className = 'info-tooltip';
+  tooltip.textContent = tooltipText;
+  tooltip.style.cssText = 'left:50%;transform:translateX(-50%)';
+  icon.addEventListener('mouseenter', () => {
+    const rect = icon.getBoundingClientRect();
+    const spaceAbove = rect.top;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    if (spaceAbove < 80 || spaceBelow > spaceAbove) {
+      tooltip.style.top = '120%'; tooltip.style.bottom = 'auto';
+    } else {
+      tooltip.style.bottom = '120%'; tooltip.style.top = 'auto';
+    }
+    tooltip.classList.add('visible');
+  });
+  icon.addEventListener('mouseleave', () => tooltip.classList.remove('visible'));
+  if (localStorage.getItem('arc_hide_info_icons') === 'true') wrapper.style.display = 'none';
+  wrapper.appendChild(icon);
+  wrapper.appendChild(tooltip);
+  return wrapper;
+}
+function initInfoIcons() {
+  document.querySelectorAll('[data-info]').forEach(el => {
+    if (el.querySelector('.info-icon')) return;
+    el.appendChild(createInfoIcon(el.getAttribute('data-info')));
+    el.style.display = 'flex';
+    el.style.alignItems = 'center';
+  });
+}
+document.addEventListener('DOMContentLoaded', initInfoIcons);
 
 boot();
 </script>
+
+<!-- ── Entropy panel ── -->
+<div id="entropy-overlay" onclick="closeEntropyPanel()"></div>
+<div id="entropy-panel">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px 12px;border-bottom:1px solid var(--border);flex-shrink:0">
+    <div style="font-size:13px;font-weight:600;letter-spacing:.2px">Data Entropy Score</div>
+    <div style="cursor:pointer;color:var(--text3);font-size:18px;line-height:1" onclick="closeEntropyPanel()">×</div>
+  </div>
+  <div style="padding:16px 18px;flex:1;overflow-y:auto" id="entropy-panel-body">
+    <div style="color:var(--text3);font-size:12px;font-family:monospace">Loading dimensions…</div>
+  </div>
+  <div style="padding:14px 18px;border-top:1px solid var(--border);flex-shrink:0">
+    <button class="exc-btn primary" style="width:100%;justify-content:center" onclick="clearAllExplainCaches();location.href='https://refinery-six.vercel.app'">Run new Refinery scan →</button>
+  </div>
+</div>
+
+<!-- ── Resolved log panel ── -->
+<div id="resolved-overlay" onclick="closeResolvedLog()"></div>
+<div id="resolved-panel">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px 12px;border-bottom:1px solid var(--border);flex-shrink:0">
+    <div style="font-size:13px;font-weight:600">Resolved Exceptions</div>
+    <div style="cursor:pointer;color:var(--text3);font-size:18px;line-height:1" onclick="closeResolvedLog()">×</div>
+  </div>
+  <div style="padding:16px 18px;flex:1;overflow-y:auto" id="resolved-panel-body">
+    <div style="color:var(--text3);font-size:12px;font-family:monospace">No resolved exceptions yet.</div>
+  </div>
+</div>
+
+<!-- ── Toast ── -->
+<div id="toast" style="position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:10px 18px;font-size:13px;color:var(--text);box-shadow:0 4px 20px rgba(0,0,0,.4);z-index:600;display:none;white-space:nowrap;gap:12px;align-items:center"></div>
+
+<!-- ── Report Builder Modal ── -->
+<div id="report-modal-overlay" onclick="if(event.target===this)closeReportBuilder()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(6px);z-index:700;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border:1px solid var(--border2);border-radius:12px;padding:28px;width:560px;max-width:94vw;max-height:85vh;overflow-y:auto;display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between">
+      <div>
+        <div style="font-size:18px;font-weight:700;font-family:'Syne',system-ui,sans-serif;letter-spacing:-.3px">↓ Build Report</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:4px">Generate a formatted client report from your ARC data</div>
+      </div>
+      <button onclick="closeReportBuilder()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:20px;line-height:1;padding:2px">×</button>
+    </div>
+    <div>
+      <div style="font-size:10px;font-family:'DM Mono',monospace;letter-spacing:.6px;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Report Name</div>
+      <input id="report-name-input" type="text" style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:13px;padding:8px 12px;outline:none;font-family:inherit" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border2)'"/>
+    </div>
+    <div>
+      <div style="font-size:10px;font-family:'DM Mono',monospace;letter-spacing:.6px;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Date Range</div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <input id="report-date-from" type="date" style="flex:1;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:13px;padding:7px 10px;outline:none;font-family:inherit" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border2)'"/>
+        <span style="color:var(--text3);font-size:12px">to</span>
+        <input id="report-date-to" type="date" style="flex:1;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:13px;padding:7px 10px;outline:none;font-family:inherit" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border2)'"/>
+      </div>
+    </div>
+    <div>
+      <div style="font-size:10px;font-family:'DM Mono',monospace;letter-spacing:.6px;text-transform:uppercase;color:var(--text3);margin-bottom:10px">Report Sections</div>
+      <div id="report-sections-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px"></div>
+    </div>
+    <div id="report-narrative-opt" style="display:none;border-left:3px solid var(--accent);background:var(--surface2);border-radius:0 6px 6px 0;padding:12px 14px">
+      <div style="font-size:11px;font-weight:600;color:var(--accent);letter-spacing:.5px;text-transform:uppercase;margin-bottom:4px">CMNDR Executive Narrative</div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.5">AI-generated 3-paragraph executive summary tailored to your client's current metrics and exceptions.</div>
+    </div>
+    <div>
+      <div style="font-size:10px;font-family:'DM Mono',monospace;letter-spacing:.6px;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Export Format</div>
+      <div style="display:flex;gap:6px" id="report-format-btns">
+        <button class="rpt-fmt-btn active" data-fmt="pdf" onclick="selectFmt(this)">PDF</button>
+        <button class="rpt-fmt-btn" data-fmt="print" onclick="selectFmt(this)">Print</button>
+        <button class="rpt-fmt-btn" data-fmt="share" onclick="selectFmt(this)">Share Link</button>
+      </div>
+    </div>
+    <button id="report-generate-btn" onclick="generateReport()" style="background:var(--accent);border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:600;padding:12px;cursor:pointer;transition:background .15s;width:100%">Generate Report →</button>
+  </div>
+</div>
+
+<!-- ── Report Preview Panel ── -->
+<div id="report-preview" style="display:none;position:fixed;inset:0;background:#f8f8fa;z-index:800;flex-direction:column">
+  <div style="background:#111418;border-bottom:1px solid #1e242d;padding:12px 24px;display:flex;align-items:center;gap:16px;flex-shrink:0">
+    <span style="font-size:15px;font-weight:700;color:#fff;letter-spacing:-.3px"><span style="background:#3b82f6;color:#fff;font-size:11px;font-weight:700;padding:2px 6px;border-radius:4px;letter-spacing:1.5px;margin-right:8px">ARC</span>Report Preview</span>
+    <div style="flex:1"></div>
+    <button onclick="window.print()" style="background:none;border:1px solid #2a3040;border-radius:6px;color:#8a95a3;padding:6px 14px;font-size:12px;cursor:pointer">Print</button>
+    <button onclick="downloadReport()" style="background:#3b82f6;border:none;border-radius:6px;color:#fff;padding:6px 14px;font-size:12px;cursor:pointer;font-weight:600">↓ Download PDF</button>
+    <button onclick="closeReportPreview()" style="background:none;border:none;color:#4d5663;cursor:pointer;font-size:20px;line-height:1;padding:2px">×</button>
+  </div>
+  <div style="flex:1;overflow-y:auto;padding:40px 20px">
+    <div id="report-content" style="max-width:800px;margin:0 auto;background:#fff;border-radius:8px;padding:48px 56px;box-shadow:0 2px 16px rgba(0,0,0,.08);color:#1a1a2e;font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif"></div>
+  </div>
+</div>
+
+<style>
+.rpt-fmt-btn{background:var(--surface2);border:1px solid var(--border2);border-radius:6px;color:var(--text2);padding:6px 14px;font-size:12px;cursor:pointer;transition:all .12s;font-family:'DM Mono',monospace}
+.rpt-fmt-btn.active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+.rpt-section-card{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:12px;cursor:pointer;position:relative;transition:border-color .15s;user-select:none}
+.rpt-section-card.selected{border-color:var(--accent);background:var(--accent-dim)}
+.rpt-section-card.locked{opacity:.7;cursor:default}
+.rpt-section-card .rpt-cb{position:absolute;top:10px;right:10px;width:16px;height:16px;border-radius:3px;border:1.5px solid var(--border2);background:transparent;transition:all .12s}
+.rpt-section-card.selected .rpt-cb{background:var(--accent);border-color:var(--accent)}
+.rpt-section-card.selected .rpt-cb::after{content:'✓';position:absolute;top:-1px;left:1px;font-size:11px;color:#fff;font-weight:700}
+@media print{
+  #nav,#health-strip,#cmndr-col,#cmndr-toggle,#report-preview > div:first-child{display:none!important}
+  #report-preview{background:#fff!important}
+  #report-content{box-shadow:none!important;padding:0!important;max-width:none!important}
+}
+</style>
+
+<script>
+const REPORT_SECTIONS = [
+  { id:'summary',   emoji:'⬡', name:'Command Center Summary', desc:'Entropy score, exceptions overview, key metrics', locked:true, selected:true },
+  { id:'ops',       emoji:'⚙', name:'Operations Overview',    desc:'Job pipeline, tech performance, team utilization', selected:true },
+  { id:'marketing', emoji:'📈', name:'Marketing Intelligence', desc:'Lead pipeline, conversion rates, channel performance', selected:false },
+  { id:'finance',   emoji:'💰', name:'Finance & Collections',  desc:'Revenue, AR aging, cash flow projection', selected:false },
+  { id:'yield',     emoji:'⚡', name:'Yield & Efficiency',     desc:'Automation ROI, labor savings, efficiency score', selected:false },
+  { id:'cmndr',     emoji:'✦', name:'CMNDR Executive Summary', desc:'AI-generated narrative and strategic recommendations', selected:false },
+];
+let _rptFmt = 'pdf';
+let _rptSections = {};
+
+function openReportBuilder() {
+  const overlay = document.getElementById('report-modal-overlay');
+  overlay.style.display = 'flex';
+  // Pre-fill dates
+  const now = new Date();
+  const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  document.getElementById('report-date-from').value = firstOfMonth.toISOString().slice(0,10);
+  document.getElementById('report-date-to').value = now.toISOString().slice(0,10);
+  // Pre-fill name
+  const monthName = now.toLocaleString('default',{month:'long'});
+  document.getElementById('report-name-input').value = `Peak Flow — Operations Report — ${monthName} ${now.getFullYear()}`;
+  // Render section cards
+  REPORT_SECTIONS.forEach(s => { _rptSections[s.id] = s.selected; });
+  renderSectionCards();
+}
+function closeReportBuilder() {
+  document.getElementById('report-modal-overlay').style.display = 'none';
+}
+function renderSectionCards() {
+  const grid = document.getElementById('report-sections-grid');
+  grid.innerHTML = REPORT_SECTIONS.map(s => {
+    const sel = _rptSections[s.id];
+    return `<div class="rpt-section-card ${sel?'selected':''} ${s.locked?'locked':''}" onclick="toggleSection('${s.id}')">
+      <div class="rpt-cb"></div>
+      <div style="font-size:18px;margin-bottom:6px">${s.emoji}</div>
+      <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:3px;padding-right:20px">${s.name}</div>
+      <div style="font-size:11px;color:var(--text3);line-height:1.4">${s.desc}</div>
+    </div>`;
+  }).join('');
+  checkNarrativeOpt();
+}
+function toggleSection(id) {
+  const sec = REPORT_SECTIONS.find(s => s.id === id);
+  if (sec && sec.locked) return;
+  _rptSections[id] = !_rptSections[id];
+  renderSectionCards();
+}
+function checkNarrativeOpt() {
+  document.getElementById('report-narrative-opt').style.display = _rptSections['cmndr'] ? 'block' : 'none';
+}
+function selectFmt(btn) {
+  document.querySelectorAll('.rpt-fmt-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  _rptFmt = btn.dataset.fmt;
+}
+
+async function generateReport() {
+  const btn = document.getElementById('report-generate-btn');
+  btn.textContent = 'Generating…';
+  btn.disabled = true;
+  btn.style.opacity = '.7';
+  let execSummary = '';
+  if (_rptSections['cmndr']) {
+    try {
+      const r = await fetch('/api/ask', { method:'POST', headers:{'Content-Type':'application/json',Authorization:`Bearer ${SESSION_TOKEN}`},
+        body: JSON.stringify({ system: 'You are CMNDR, an AI operations intelligence for Peak Flow Plumbing & HVAC. Write a concise 3-paragraph executive summary covering: (1) current business health and key metrics, (2) top risks and active exceptions, (3) strategic recommendations. Use professional, direct language. No markdown. No headers.', messages:[{role:'user',content:'Generate the executive summary for this month.'}] }) });
+      const d = await r.json();
+      execSummary = d.content?.[0]?.text || d.text || '';
+    } catch { execSummary = 'Executive summary unavailable — please try again.'; }
+  }
+  btn.textContent = 'Generate Report →';
+  btn.disabled = false;
+  btn.style.opacity = '1';
+  closeReportBuilder();
+  renderReportPreview(execSummary);
+}
+
+function renderReportPreview(execSummary) {
+  const now = new Date();
+  const name = document.getElementById('report-name-input').value;
+  const from = document.getElementById('report-date-from').value;
+  const to   = document.getElementById('report-date-to').value;
+  let html = `
+    <div style="border-bottom:2px solid #3b82f6;margin-bottom:32px;padding-bottom:20px">
+      <div style="font-size:24px;font-weight:800;color:#0f172a;letter-spacing:-.5px;margin-bottom:6px">${name}</div>
+      <div style="font-size:13px;color:#64748b">Period: ${from} → ${to} &nbsp;·&nbsp; Generated ${now.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}</div>
+    </div>`;
+
+  if (_rptSections['summary']) {
+    html += `<div style="margin-bottom:28px"><div style="font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#3b82f6;margin-bottom:12px;border-bottom:1px solid #e2e8f0;padding-bottom:8px">⬡ Command Center Summary</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px">
+        <div style="background:#f1f5f9;border-radius:8px;padding:14px"><div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px">Entropy Score</div><div style="font-size:24px;font-weight:700;color:#3b82f6">77</div></div>
+        <div style="background:#f1f5f9;border-radius:8px;padding:14px"><div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px">Labor Saved</div><div style="font-size:24px;font-weight:700;color:#22c55e">14.2 hrs</div></div>
+        <div style="background:#f1f5f9;border-radius:8px;padding:14px"><div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px">Rel. ROI</div><div style="font-size:24px;font-weight:700;color:#f59e0b">$8.40</div></div>
+      </div></div>`;
+  }
+  if (_rptSections['ops']) {
+    html += `<div style="margin-bottom:28px"><div style="font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#3b82f6;margin-bottom:12px;border-bottom:1px solid #e2e8f0;padding-bottom:8px">⚙ Operations Overview</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;color:#334155">
+        <div><span style="color:#64748b">Jobs this month</span><span style="float:right;font-weight:600">142</span></div>
+        <div><span style="color:#64748b">Completion rate</span><span style="float:right;font-weight:600;color:#22c55e">94%</span></div>
+        <div><span style="color:#64748b">Avg job time</span><span style="float:right;font-weight:600">2.4 hrs</span></div>
+        <div><span style="color:#64748b">First-time fix</span><span style="float:right;font-weight:600">87%</span></div>
+      </div></div>`;
+  }
+  if (_rptSections['marketing']) {
+    html += `<div style="margin-bottom:28px"><div style="font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#3b82f6;margin-bottom:12px;border-bottom:1px solid #e2e8f0;padding-bottom:8px">📈 Marketing Intelligence</div>
+      <div style="font-size:13px;color:#334155;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div><span style="color:#64748b">Leads this month</span><span style="float:right;font-weight:600">48</span></div>
+        <div><span style="color:#64748b">Conversion rate</span><span style="float:right;font-weight:600">31%</span></div>
+        <div><span style="color:#64748b">Cost per lead</span><span style="float:right;font-weight:600">$24</span></div>
+        <div><span style="color:#64748b">Top channel</span><span style="float:right;font-weight:600">Google</span></div>
+      </div></div>`;
+  }
+  if (_rptSections['finance']) {
+    html += `<div style="margin-bottom:28px"><div style="font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#3b82f6;margin-bottom:12px;border-bottom:1px solid #e2e8f0;padding-bottom:8px">💰 Finance & Collections</div>
+      <div style="font-size:13px;color:#334155;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div><span style="color:#64748b">Monthly Revenue</span><span style="float:right;font-weight:600;color:#22c55e">$67,240</span></div>
+        <div><span style="color:#64748b">Outstanding AR</span><span style="float:right;font-weight:600;color:#f59e0b">$18,400</span></div>
+        <div><span style="color:#64748b">Current DSO</span><span style="float:right;font-weight:600">28 days</span></div>
+        <div><span style="color:#64748b">Overdue invoices</span><span style="float:right;font-weight:600;color:#ef4444">1</span></div>
+      </div></div>`;
+  }
+  if (_rptSections['yield']) {
+    html += `<div style="margin-bottom:28px"><div style="font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#3b82f6;margin-bottom:12px;border-bottom:1px solid #e2e8f0;padding-bottom:8px">⚡ Yield & Efficiency</div>
+      <div style="font-size:13px;color:#334155;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div><span style="color:#64748b">Efficiency score</span><span style="float:right;font-weight:600;color:#22c55e">84</span></div>
+        <div><span style="color:#64748b">Active automations</span><span style="float:right;font-weight:600">6</span></div>
+        <div><span style="color:#64748b">Hours saved</span><span style="float:right;font-weight:600">14.2</span></div>
+        <div><span style="color:#64748b">Automation ROI</span><span style="float:right;font-weight:600">$8.40/lead</span></div>
+      </div></div>`;
+  }
+  if (_rptSections['cmndr'] && execSummary) {
+    html += `<div style="margin-bottom:28px"><div style="font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#3b82f6;margin-bottom:12px;border-bottom:1px solid #e2e8f0;padding-bottom:8px">✦ CMNDR Executive Summary</div>
+      <div style="font-size:13px;color:#334155;line-height:1.75;white-space:pre-line">${execSummary}</div></div>`;
+  }
+  html += `<div style="margin-top:40px;border-top:1px solid #e2e8f0;padding-top:16px;font-size:11px;color:#94a3b8;display:flex;justify-content:space-between">
+    <span>Generated by ARC Command Center</span><span>Peak Flow Plumbing &amp; HVAC</span>
+  </div>`;
+  document.getElementById('report-content').innerHTML = html;
+  document.getElementById('report-preview').style.display = 'flex';
+}
+function closeReportPreview() {
+  document.getElementById('report-preview').style.display = 'none';
+}
+function downloadReport() { window.print(); }
+</script>
+
 </body>
 </html>

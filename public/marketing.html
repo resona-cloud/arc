@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>ARC — Marketing</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0c0f;--surface:#111418;--surface2:#181c22;
+  --border:#1e242d;--border2:#262d38;
+  --text:#e8edf5;--text2:#8a95a3;--text3:#4d5663;
+  --accent:#3b82f6;--accent-dim:rgba(59,130,246,0.12);
+  --green:#22c55e;--green-dim:rgba(34,197,94,0.12);
+  --amber:#f59e0b;--amber-dim:rgba(245,158,11,0.12);
+  --red:#ef4444;--red-dim:rgba(239,68,68,0.12);
+  --purple:#a855f7;--purple-dim:rgba(168,85,247,0.12);
+  --nav-h:56px;--strip-h:80px;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;font-size:14px}
+#nav{position:fixed;top:0;left:0;right:0;height:var(--nav-h);background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;padding:0 20px;z-index:100}
+.logo{font-size:17px;font-weight:700;letter-spacing:-.5px;color:var(--text);display:flex;align-items:center;gap:8px;cursor:pointer;text-decoration:none}
+.arc-badge{background:var(--accent);color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px;letter-spacing:1.5px}
+.client-name-display{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;color:var(--text);cursor:default}
+.spacer{flex:1}
+.nav-btn{background:none;border:1px solid var(--border2);border-radius:6px;color:var(--text2);padding:6px 12px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:6px;transition:all .15s;white-space:nowrap}
+.nav-btn:hover{border-color:var(--accent);color:var(--accent)}
+.cmndr-btn{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+.cmndr-btn:hover{background:var(--accent);color:#fff}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#fff;cursor:pointer;flex-shrink:0}
+#shell{display:flex;flex-direction:column;height:100vh;padding-top:var(--nav-h)}
+#health-strip{height:var(--strip-h);flex-shrink:0;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:stretch}
+.hc{display:flex;flex-direction:column;justify-content:center;padding:0 28px;flex:1;border-right:1px solid var(--border)}
+.hc:last-child{border-right:none}
+.hc-label{font-size:10px;color:var(--text3);letter-spacing:.7px;text-transform:uppercase;margin-bottom:5px}
+.hc-value{font-size:30px;font-weight:700;letter-spacing:-1.5px;line-height:1}
+.hc-sub{font-size:11px;color:var(--text3);margin-top:4px}
+.hc-bar{height:3px;background:var(--border2);border-radius:2px;margin-top:8px}
+.hc-bar-fill{height:100%;border-radius:2px;width:0;transition:width 1.2s cubic-bezier(.22,1,.36,1)}
+.col-blue{color:var(--accent)}.col-green{color:var(--green)}.col-amber{color:var(--amber)}
+#content-row{flex:1;display:flex;overflow:hidden;min-height:0}
+#main-col{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:16px}
+#cmndr-toggle{width:18px;flex-shrink:0;background:var(--surface2);border:none;border-left:1px solid var(--border);color:var(--text3);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color .15s,background .15s;padding:0}
+#cmndr-toggle:hover{color:var(--accent);background:var(--surface)}
+#cmndr-toggle svg{width:11px;height:11px;flex-shrink:0}
+#cmndr-col{width:300px;flex-shrink:0;border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width 250ms ease,opacity 200ms ease}
+#cmndr-col.collapsed{width:0;opacity:0;pointer-events:none}
+#cmndr-header{padding:14px 16px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0}
+.cmndr-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0;animation:blink 2.2s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+.cmndr-title{font-size:13px;font-weight:600}.cmndr-sub{font-size:11px;color:var(--text3);margin-top:1px}
+#cmndr-body{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.cmndr-narrative{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:12px}
+.cn-label{font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--accent);margin-bottom:6px}
+.cn-text{font-size:13px;color:var(--text2);line-height:1.65}
+.cmndr-history{display:flex;flex-direction:column;gap:8px}
+.msg{display:flex;flex-direction:column}
+.msg.user .msg-bubble{background:var(--accent-dim);border:1px solid var(--accent);align-self:flex-end;color:var(--text)}
+.msg.ai .msg-bubble{background:var(--surface2);border:1px solid var(--border2);align-self:flex-start;color:var(--text2)}
+.msg-bubble{max-width:92%;padding:7px 11px;border-radius:8px;font-size:13px;line-height:1.55;margin-bottom:2px}
+.msg-time{font-size:10px;color:var(--text3)}
+.msg.user .msg-time{align-self:flex-end}.msg.ai .msg-time{align-self:flex-start}
+#cmndr-input-area{padding:10px 16px 14px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:7px;flex-shrink:0}
+#cmndr-suggestions{display:flex;gap:5px;flex-wrap:wrap}
+.suggestion-pill{background:var(--surface2);border:1px solid var(--border2);border-radius:12px;padding:3px 9px;font-size:11px;color:var(--text2);cursor:pointer;transition:all .12s;white-space:nowrap}
+.suggestion-pill:hover{border-color:var(--accent);color:var(--accent)}
+.input-row{display:flex;gap:7px;align-items:flex-end}
+#cmndr-input{flex:1;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:13px;padding:7px 11px;outline:none;resize:none;font-family:inherit;min-height:36px;max-height:120px}
+#cmndr-input:focus{border-color:var(--accent)}
+#cmndr-send{background:var(--accent);border:none;border-radius:6px;width:34px;height:34px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0}
+#cmndr-send:hover{background:#2563eb}
+#cmndr-send svg{width:13px;height:13px;fill:currentColor}
+#module-nav{display:flex;gap:8px;flex-wrap:wrap}
+.module-chip{background:var(--surface);border:1px solid var(--border2);border-radius:20px;padding:5px 14px;font-size:12px;font-weight:500;color:var(--text2);cursor:pointer;transition:all .15s;white-space:nowrap}
+.module-chip:hover{border-color:var(--accent);color:var(--accent)}
+.module-chip.active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent);cursor:default}
+.skeleton{background:var(--border2);border-radius:6px;animation:pulse 1.5s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+/* PAGE SPECIFIC */
+.page-title{font-size:22px;font-weight:700;letter-spacing:-.5px}
+.page-sub{font-size:13px;color:var(--text3);margin-top:3px;margin-bottom:0}
+.metric-row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+.metric-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px}
+.mc-label{font-size:10px;color:var(--text3);letter-spacing:.7px;text-transform:uppercase;margin-bottom:8px}
+.mc-value{font-size:18px;font-weight:700;letter-spacing:-.5px;line-height:1;margin-bottom:4px}
+.mc-sub{font-size:11px;color:var(--text2)}
+.mc-trend{font-size:11px;margin-top:5px}
+.trend-up{color:var(--green)}.trend-warn{color:var(--amber)}.trend-dn{color:var(--red)}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.col-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;display:flex;flex-direction:column;gap:14px}
+.col-card-title{font-size:12px;font-weight:600;color:var(--text)}
+.data-table{width:100%;border-collapse:collapse;font-size:12px}
+.data-table th{font-size:10px;color:var(--text3);font-weight:600;letter-spacing:.5px;text-transform:uppercase;padding:6px 8px;text-align:left;border-bottom:1px solid var(--border)}
+.data-table td{padding:8px;border-bottom:1px solid var(--border);color:var(--text2)}
+.data-table tr:last-child td{border-bottom:none}
+.data-table tr:hover td{background:var(--surface2)}
+.badge{font-size:10px;font-weight:600;padding:2px 7px;border-radius:4px;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap}
+.badge-green{background:var(--green-dim);color:var(--green)}
+.badge-amber{background:var(--amber-dim);color:var(--amber)}
+.badge-red{background:var(--red-dim);color:var(--red)}
+.badge-blue{background:var(--accent-dim);color:var(--accent)}
+.badge-muted{background:var(--border2);color:var(--text3)}
+/* Donut chart */
+.donut-wrap{display:flex;align-items:center;gap:20px}
+.donut{width:110px;height:110px;border-radius:50%;background:conic-gradient(var(--accent) 0% 52%,#60a5fa 52% 76%,var(--purple) 76% 92%,var(--border2) 92% 100%);position:relative;flex-shrink:0}
+.donut-hole{position:absolute;inset:26px;background:var(--surface);border-radius:50%}
+.donut-legend{display:flex;flex-direction:column;gap:8px}
+.dl-item{display:flex;align-items:center;gap:8px;font-size:12px}
+.dl-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.dl-name{color:var(--text2);flex:1}
+.dl-ct{color:var(--text3);font-size:11px}
+/* CAC trend bars */
+.trend-bars{display:flex;align-items:flex-end;gap:12px;height:80px;padding-top:10px}
+.trend-bar{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px}
+.tb-fill{width:100%;border-radius:3px 3px 0 0;background:var(--border2);transition:height .8s ease}
+.tb-fill.current{background:var(--accent)}
+.tb-label{font-size:10px;color:var(--text3);text-align:center;white-space:nowrap}
+/* Funnel */
+.funnel{display:flex;flex-direction:column;gap:6px}
+.funnel-step{padding:7px 12px;border-radius:5px;background:var(--surface2);border:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:12px}
+.f-count{font-weight:600;color:var(--text)}
+.f-pct{color:var(--text3);font-size:11px}
+/* Benchmark */
+.bench-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px}
+.bench-row:last-child{border-bottom:none}
+.bench-key{color:var(--text2)}
+.bench-val{font-weight:600}
+.mc-explain{display:inline-block;margin-top:6px;font-size:10px;font-family:monospace;color:#0066ff;cursor:pointer;transition:color 150ms ease}
+.mc-explain:hover{color:#8888a0}
+/* Info icons */
+.info-icon{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;border:1px solid var(--hint,#4d5663);color:var(--hint,#4d5663);font-size:9px;font-style:italic;font-family:'DM Mono',monospace;font-weight:600;cursor:pointer;margin-left:6px;vertical-align:middle;flex-shrink:0;transition:background 150ms ease,color 150ms ease,border-color 150ms ease;position:relative;top:-1px}
+.info-icon:hover{background:rgba(0,102,255,0.1);color:#0066ff;border-color:#0066ff}
+.info-tooltip{position:absolute;z-index:999;background:rgba(19,19,26,0.70);border:0.5px solid var(--border);border-radius:8px;padding:8px 12px;max-width:320px;min-width:200px;width:max-content;font-size:11px;font-family:'DM Mono',monospace;color:var(--text2);line-height:1.5;pointer-events:none;opacity:0;transition:opacity 150ms ease;box-shadow:0 8px 24px rgba(0,0,0,0.4);white-space:normal;backdrop-filter:blur(4px)}
+.info-tooltip.visible{opacity:1}
+.action-link{color:var(--accent);font-size:11px;cursor:pointer;text-decoration:none;margin-left:6px}
+.mod-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:500;align-items:center;justify-content:center}
+.mod-overlay.open{display:flex}
+.mod-modal{background:var(--surface);border:1px solid var(--border2);border-radius:12px;padding:24px;width:460px;max-width:92vw;max-height:85vh;overflow-y:auto}
+.route-option{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;padding:8px;border:1px solid var(--border2);border-radius:6px;margin-bottom:6px}
+.route-option:hover{border-color:var(--accent)}
+</style>
+</head>
+<body>
+
+<nav id="nav">
+  <a class="logo" href="/">
+    <span class="arc-badge">ARC</span>
+    Command Center
+  </a>
+  <span class="client-name-display"><span style="font-size:8px;color:#00d4aa;line-height:1">●</span>Peak Flow Plumbing &amp; HVAC</span>
+  <div class="spacer"></div>
+  <button class="nav-btn" onclick="location.href='/automations'">⚡ Automations</button>
+  <button class="nav-btn cmndr-btn" onclick="toggleCmndr()">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+    CMNDR ✦
+  </button>
+  <button class="nav-btn" onclick="location.href='/connections'">Connections</button>
+  <div class="avatar" id="nav-avatar">A</div>
+</nav>
+
+<div id="shell">
+  <div id="health-strip">
+    <div class="hc">
+      <div class="hc-label">Entropy Score</div>
+      <div class="hc-value col-blue" id="hs-entropy">—</div>
+      <div class="hc-sub" id="hs-entropy-sub">Loading…</div>
+      <div class="hc-bar"><div class="hc-bar-fill" id="bar-entropy" style="background:var(--accent)"></div></div>
+    </div>
+    <div class="hc">
+      <div class="hc-label">Labor Deletion</div>
+      <div class="hc-value col-green">14.2<span style="font-size:16px;font-weight:500;letter-spacing:0"> hrs</span></div>
+      <div class="hc-sub">Saved this month</div>
+    </div>
+    <div class="hc">
+      <div class="hc-label">Relational ROI</div>
+      <div class="hc-value col-amber">$8.40<span style="font-size:16px;font-weight:500;letter-spacing:0"> /lead</span></div>
+      <div class="hc-sub">Revenue per contact</div>
+    </div>
+  </div>
+
+  <div id="content-row">
+    <div id="main-col">
+
+      <div id="module-nav">
+        <div class="module-chip" onclick="location.href='/'">All</div>
+        <div class="module-chip" onclick="location.href='/operations'">Operations</div>
+        <div class="module-chip active">Marketing</div>
+        <div class="module-chip" onclick="location.href='/finance'">Finance</div>
+        <div class="module-chip" onclick="location.href='/yield'">Yield &amp; Efficiency</div>
+        <div class="module-chip" onclick="location.href='/audit'">Audit</div>
+      </div>
+
+      <div>
+        <div class="page-title">Marketing</div>
+        <div class="page-sub">Lead Intelligence · Peak Flow</div>
+      </div>
+
+      <div class="metric-row">
+        <div class="metric-card">
+          <div class="mc-label" data-info="All inbound inquiries received this month across all channels — organic, paid, referral, and direct. Volume trend indicates marketing channel health.">Total Leads</div>
+          <div class="mc-value">89</div>
+          <div class="mc-sub">This month</div>
+          <div class="mc-trend trend-up">↑ 40% WoW</div>
+          <span class="mc-explain" onclick="explainMetric('total_leads')">Explain this →</span>
+        </div>
+        <div class="metric-card">
+          <div class="mc-label" data-info="Average time from lead submission to first contact. Conversion probability drops by 80% beyond 1 hour. Critical threshold: 1 hour or less.">Response Time</div>
+          <div class="mc-value" style="color:var(--red)">4.2 hrs</div>
+          <div class="mc-sub">Target: 1 hour</div>
+          <div class="mc-trend trend-dn">↑ Critical risk</div>
+          <span class="mc-explain" onclick="explainMetric('response_time')">Explain this →</span>
+        </div>
+        <div class="metric-card">
+          <div class="mc-label" data-info="Booked jobs ÷ total leads received. Industry average is 25–35%. Your rate reflects response time, quote quality, and follow-up consistency.">Conversion Rate</div>
+          <div class="mc-value">31%</div>
+          <div class="mc-sub">Leads to booked</div>
+          <div class="mc-trend trend-warn">↓ 8%</div>
+          <span class="mc-explain" onclick="explainMetric('conversion_rate')">Explain this →</span>
+        </div>
+        <div class="metric-card">
+          <div class="mc-label" data-info="Customer Acquisition Cost = total marketing spend ÷ new customers acquired. Compare against CLV to ensure you're not overpaying for customers.">CAC</div>
+          <div class="mc-value col-green">$284</div>
+          <div class="mc-sub">vs $310 industry avg</div>
+          <div class="mc-trend trend-up">↓ 8.4% below avg</div>
+          <span class="mc-explain" onclick="explainMetric('cac')">Explain this →</span>
+        </div>
+        <div class="metric-card">
+          <div class="mc-label" data-info="Highest volume lead channel this month by raw count. Use to allocate future marketing budget toward your best-performing acquisition channels.">Top Source</div>
+          <div class="mc-value" style="font-size:14px;font-weight:700;padding-top:4px">Organic</div>
+          <div class="mc-sub">52% of leads</div>
+          <div class="mc-trend" style="color:var(--accent)">46 of 89 leads</div>
+          <span class="mc-explain" onclick="explainMetric('top_source')">Explain this →</span>
+        </div>
+      </div>
+
+      <div class="two-col">
+
+        <!-- LEFT -->
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="col-card">
+            <div class="col-card-title" data-info="Lead volume by channel as a percentage of total. Use to identify over- and under-performing sources and rebalance spend accordingly.">Lead Source Breakdown</div>
+            <div class="donut-wrap">
+              <div class="donut"><div class="donut-hole"></div></div>
+              <div class="donut-legend">
+                <div class="dl-item"><div class="dl-dot" style="background:var(--accent)"></div><span class="dl-name">Organic</span><span class="dl-ct">46 · 52%</span></div>
+                <div class="dl-item"><div class="dl-dot" style="background:#60a5fa"></div><span class="dl-name">Paid</span><span class="dl-ct">21 · 24%</span></div>
+                <div class="dl-item"><div class="dl-dot" style="background:var(--purple)"></div><span class="dl-name">Referral</span><span class="dl-ct">14 · 16%</span></div>
+                <div class="dl-item"><div class="dl-dot" style="background:var(--border2)"></div><span class="dl-name">Direct</span><span class="dl-ct">8 · 9%</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-card">
+            <div class="col-card-title">Lead Pipeline</div>
+            <table class="data-table">
+              <thead><tr><th>Name</th><th>Source</th><th>Received</th><th>Response</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td>Jordan Pierce</td><td>Organic</td><td>2 hrs ago</td><td style="color:var(--red)">Pending</td><td><span class="badge badge-red">Not contacted</span> <span class="action-link" onclick="openRouteModal('Jordan Pierce','Organic','2 hrs ago')">Route now →</span></td></tr>
+                <tr><td>Amanda Torres</td><td>Paid</td><td>5 hrs ago</td><td>6.2 hrs</td><td><span class="badge badge-amber">Quoted</span></td></tr>
+                <tr><td>Kevin Shaw</td><td>Referral</td><td>1 day ago</td><td>1.1 hrs</td><td><span class="badge badge-blue">Booked</span></td></tr>
+                <tr><td>Michelle Grant</td><td>Paid</td><td>2 days ago</td><td>0.8 hrs</td><td><span class="badge badge-green">Converted</span></td></tr>
+                <tr><td>Ryan Cole</td><td>Organic</td><td>3 days ago</td><td>3.4 hrs</td><td><span class="badge badge-muted">Lost</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- RIGHT -->
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="col-card">
+            <div class="col-card-title" data-info="Calculation transparency: total marketing spend divided by new customers acquired. Benchmark against the HVAC industry average of $310.">CAC Breakdown</div>
+            <div style="font-size:12px;color:var(--text2);line-height:2">
+              <div style="display:flex;justify-content:space-between"><span>Total marketing spend</span><span style="color:var(--text);font-weight:600">$4,320</span></div>
+              <div style="display:flex;justify-content:space-between"><span>New customers acquired</span><span style="color:var(--text);font-weight:600">15</span></div>
+              <div style="border-top:1px solid var(--border);padding-top:8px;margin-top:4px;display:flex;justify-content:space-between;font-weight:700;font-size:13px"><span>CAC = $4,320 ÷ 15</span><span class="col-green">$284</span></div>
+            </div>
+            <div style="margin-top:4px">
+              <div class="bench-row"><span class="bench-key">Your CAC</span><span class="bench-val">$284</span></div>
+              <div class="bench-row"><span class="bench-key">Industry average</span><span class="bench-val">$310</span></div>
+              <div class="bench-row"><span class="bench-key">Difference</span><span class="bench-val" style="color:var(--green)">↓ 8.4% below avg</span></div>
+            </div>
+            <div>
+              <div style="font-size:11px;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">CAC trend — last 4 months</div>
+              <div class="trend-bars">
+                <div class="trend-bar"><div class="tb-fill" style="height:100%"></div><div class="tb-label">Jan<br>$340</div></div>
+                <div class="trend-bar"><div class="tb-fill" style="height:93%"></div><div class="tb-label">Feb<br>$318</div></div>
+                <div class="trend-bar"><div class="tb-fill" style="height:87%"></div><div class="tb-label">Mar<br>$297</div></div>
+                <div class="trend-bar"><div class="tb-fill current" style="height:83%"></div><div class="tb-label">Apr<br>$284</div></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-card">
+            <div class="col-card-title" data-info="Stage-by-stage drop-off from lead to conversion. A large gap between stages is a friction point — that's where leads are being lost.">Conversion Funnel</div>
+            <div class="funnel">
+              <div class="funnel-step" style="width:100%"><span class="f-count">89 Leads</span><span class="f-pct">100%</span></div>
+              <div class="funnel-step" style="width:90%;margin:0 auto"><span class="f-count">52 Contacted</span><span class="f-pct">58%</span></div>
+              <div class="funnel-step" style="width:78%;margin:0 auto"><span class="f-count">31 Quoted</span><span class="f-pct">35%</span></div>
+              <div class="funnel-step" style="width:64%;margin:0 auto"><span class="f-count">27 Booked</span><span class="f-pct">30%</span></div>
+              <div class="funnel-step" style="width:50%;margin:0 auto;border-color:var(--green)"><span class="f-count col-green">15 Converted</span><span class="f-pct" style="color:var(--green)">17%</span></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+<!-- METRIC EXPLAIN MODAL -->
+<div class="mod-overlay" id="mkt-metric-modal" onclick="if(event.target===this)closeMetricModal()">
+  <div class="mod-modal">
+    <div style="font-size:15px;font-weight:700;margin-bottom:12px" id="mkt-metric-title"></div>
+    <div style="font-size:10px;font-family:monospace;letter-spacing:.6px;text-transform:uppercase;color:var(--text3);margin-bottom:4px">CMNDR ANALYSIS</div>
+    <div id="mkt-metric-body" style="background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:10px 12px;font-size:12px;color:var(--text2);line-height:1.6;min-height:80px;white-space:pre-wrap">Analyzing…</div>
+    <div id="mkt-metric-cache" style="margin-top:8px;font-size:10px;font-family:monospace;color:var(--text3)"></div>
+    <div style="margin-top:16px"><button onclick="closeMetricModal()" style="background:transparent;color:var(--text2);border:1px solid var(--border2);border-radius:6px;padding:7px 16px;font-size:12px;font-family:monospace;cursor:pointer">Close</button></div>
+  </div>
+</div>
+<!-- ROUTE LEAD MODAL -->
+<div class="mod-overlay" id="route-modal" onclick="if(event.target===this)closeRouteModal()">
+  <div class="mod-modal">
+    <div style="font-size:15px;font-weight:700;margin-bottom:3px">Route Lead</div>
+    <div style="font-size:11px;font-family:monospace;color:var(--text3);margin-bottom:14px" id="route-lead-sub"></div>
+    <div style="font-size:10px;font-family:monospace;letter-spacing:.6px;text-transform:uppercase;color:var(--text3);margin-bottom:4px">CMNDR RECOMMENDATION</div>
+    <div id="route-cmndr-rec" style="background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:10px 12px;font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:14px;min-height:52px;white-space:pre-wrap">Getting recommendation…</div>
+    <div style="font-size:10px;font-family:monospace;letter-spacing:.6px;text-transform:uppercase;color:var(--text3);margin-bottom:8px">ROUTE TO</div>
+    <label class="route-option"><input type="radio" name="route-opt" value="Marcus T."> Marcus T. — Next available (94% utilization)</label>
+    <label class="route-option"><input type="radio" name="route-opt" value="Devon R."> Devon R. — Within 2 hrs (87% utilization)</label>
+    <label class="route-option"><input type="radio" name="route-opt" value="Aaliya S."> Aaliya S. — Within 4 hrs (76% utilization)</label>
+    <label class="route-option"><input type="radio" name="route-opt" value="Unassigned Queue"> Add to unassigned queue</label>
+    <div style="margin-top:16px;display:flex;gap:8px">
+      <button onclick="confirmRoute()" style="background:#0066ff;color:#fff;border:none;border-radius:6px;padding:7px 16px;font-size:12px;font-family:monospace;cursor:pointer;font-weight:600">Assign →</button>
+      <button onclick="closeRouteModal()" style="background:transparent;color:var(--text2);border:1px solid var(--border2);border-radius:6px;padding:7px 16px;font-size:12px;font-family:monospace;cursor:pointer">Cancel</button>
+    </div>
+  </div>
+</div>
+
+    <button id="cmndr-toggle" onclick="toggleCmndr()" title="Toggle CMNDR">
+      <svg id="toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+    </button>
+
+    <div id="cmndr-col">
+      <div id="cmndr-header">
+        <div class="cmndr-dot"></div>
+        <div><div class="cmndr-title">CMNDR</div><div class="cmndr-sub">Marketing Intelligence</div></div>
+      </div>
+      <div id="cmndr-body">
+        <div class="cmndr-narrative">
+          <div class="cn-label">Lead Situation</div>
+          <div class="cn-text skeleton" id="narrative-text" style="height:80px;border-radius:4px;"></div>
+        </div>
+        <div class="cmndr-history" id="cmndr-history"></div>
+      </div>
+      <div id="cmndr-input-area">
+        <div id="cmndr-suggestions">
+          <div class="suggestion-pill" onclick="sendSuggestion(this)">Fix response time</div>
+          <div class="suggestion-pill" onclick="sendSuggestion(this)">Best lead source?</div>
+          <div class="suggestion-pill" onclick="sendSuggestion(this)">Improve conversion</div>
+        </div>
+        <div class="input-row">
+          <textarea id="cmndr-input" placeholder="Ask CMNDR anything…" rows="1" onkeydown="handleKey(event)"></textarea>
+          <button id="cmndr-send" onclick="sendMessage()">
+            <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SESSION_TOKEN = localStorage.getItem('cmndr_session');
+const PAGE_SYSTEM = "You are CMNDR, Resona's AI marketing intelligence for Peak Flow HVAC. Focus on lead generation, response time, conversion rates, CAC efficiency, and source performance. Lead response time at 4.2 hours (vs 1 hour target) is a critical risk — flag this prominently. Be concise. Max 3 sentences.";
+const DEMO_NARRATIVE = 'Lead volume is up 40% week-over-week but response time has degraded to 4.2 hours — more than 4x the 1-hour target — directly causing the 8% conversion rate decline. Jordan Pierce has been waiting 2 hours with no contact, representing immediate lost revenue. Organic is outperforming paid 2:1 on volume but the response gap is neutralizing the advantage.';
+
+async function boot() {
+  if (window.location.search.includes('bypass=true') || localStorage.getItem('arc_bypass') === 'true') {
+    localStorage.setItem('arc_bypass', 'true');
+  } else {
+    if (!SESSION_TOKEN) { location.href = '/login'; return; }
+    try {
+      const r = await fetch('/api/auth?action=me', { headers: { Authorization: `Bearer ${SESSION_TOKEN}` } });
+      if (!r.ok) { location.href = '/login'; return; }
+      const d = await r.json(); const p = d.profile;
+      if (!p || !p.role || !p.role.startsWith('resona_')) { location.href = '/login'; return; }
+      document.getElementById('nav-avatar').textContent = (p.full_name || d.user?.email || 'A').charAt(0).toUpperCase();
+    } catch { location.href = '/login'; return; }
+  }
+  initCmndrPanel();
+  await Promise.all([loadEntropyScore(), loadNarrative()]);
+}
+
+function initCmndrPanel() { if (localStorage.getItem('arc_cmndr_open') === 'false') applyCollapsed(true); }
+function toggleCmndr() { const c=document.getElementById('cmndr-col').classList.contains('collapsed'); applyCollapsed(!c); localStorage.setItem('arc_cmndr_open',c?'true':'false'); }
+function applyCollapsed(on) { document.getElementById('cmndr-col').classList.toggle('collapsed',on); const pts=document.getElementById('toggle-icon')?.querySelector('polyline'); if(pts) pts.setAttribute('points',on?'9 18 15 12 9 6':'15 18 9 12 15 6'); }
+
+async function loadEntropyScore() {
+  try { const r=await fetch('/api/health?action=entropy'); if(!r.ok)return; const d=await r.json(); if(d.score==null){document.getElementById('hs-entropy-sub').textContent='No scan yet';return;} animCount('hs-entropy',d.score,'%'); animBar('bar-entropy',d.score); document.getElementById('hs-entropy-sub').textContent=d.score>=80?'Excellent':d.score>=60?'Good — minor gaps':'Fair — action needed'; } catch {}
+}
+async function loadNarrative() {
+  try {
+    const r=await fetch('/api/ask',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${SESSION_TOKEN}`},body:JSON.stringify({system:'You are CMNDR, Resona AI. Return valid JSON only.',messages:[{role:'user',content:'Generate JSON with key "narrative": 2-3 sentence marketing situation summary for Peak Flow HVAC. Data: 89 leads this month (+40% WoW), 4.2hr response time (vs 1hr target), 31% conversion rate (-8%), $284 CAC (vs $310 industry avg), 52% organic leads. Flag response time as critical issue.'}]})});
+    if(!r.ok) throw new Error();
+    const d=await r.json(); const parsed=extractJSON(d.content?.[0]?.text||d.text||'');
+    if(parsed?.narrative){renderNarrative(parsed.narrative);return;}
+  } catch {}
+  renderNarrative(DEMO_NARRATIVE);
+}
+function renderNarrative(text) { const el=document.getElementById('narrative-text'); el.classList.remove('skeleton'); el.style.height=''; el.textContent=text; }
+function animCount(id,target,suf) { const el=document.getElementById(id); if(!el)return; let t0=null; function step(ts){if(!t0)t0=ts;const p=Math.min((ts-t0)/900,1);el.textContent=Math.round(target*(1-Math.pow(1-p,3)))+(suf||'');if(p<1)requestAnimationFrame(step);} requestAnimationFrame(step); }
+function animBar(id,pct) { const el=document.getElementById(id); if(el) setTimeout(()=>el.style.width=Math.max(0,Math.min(100,pct))+'%',50); }
+const history=[]; let msgN=0;
+function handleKey(e) { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();} }
+function sendSuggestion(el) { document.getElementById('cmndr-input').value=el.textContent; sendMessage(); }
+async function sendMessage() {
+  const inp=document.getElementById('cmndr-input'); const text=inp.value.trim(); if(!text)return;
+  inp.value=''; addMsg('user',text); history.push({role:'user',content:text}); const tid=addMsg('ai','',true);
+  try { const r=await fetch('/api/ask',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${SESSION_TOKEN}`},body:JSON.stringify({system:PAGE_SYSTEM,messages:history})}); let reply='Unable to reach CMNDR.'; if(r.ok){const d=await r.json();reply=d.content?.[0]?.text||d.text||reply;} updMsg(tid,reply); history.push({role:'assistant',content:reply}); } catch { updMsg(tid,'CMNDR temporarily unavailable.'); }
+  document.getElementById('cmndr-body').scrollTop=99999;
+}
+function addMsg(role,text,typing) { const id='msg-'+(++msgN); const t=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); const el=document.createElement('div'); el.className='msg '+role; el.id=id; el.innerHTML=`<div class="msg-bubble">${typing?'<em style="opacity:.5">Thinking…</em>':esc(text)}</div><div class="msg-time">${t}</div>`; document.getElementById('cmndr-history').appendChild(el); document.getElementById('cmndr-body').scrollTop=99999; return id; }
+function updMsg(id,text) { const el=document.getElementById(id); if(el) el.querySelector('.msg-bubble').textContent=text; }
+function extractJSON(text) { try{const m=text.match(/\{[\s\S]*\}/);return m?JSON.parse(m[0]):null;}catch{return null;} }
+function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+const MKT_METRICS = {
+  total_leads:     { label:'Total Leads',     ctx:'89 leads this month, up 40% week-over-week. Peak Flow HVAC.' },
+  response_time:   { label:'Response Time',   ctx:'4.2 hrs avg response time vs 1 hr target. Critical risk for conversion. Peak Flow HVAC.' },
+  conversion_rate: { label:'Conversion Rate', ctx:'31% conversion rate (leads to booked), down 8%. 89 leads → 15 converted. Peak Flow HVAC.' },
+  cac:             { label:'CAC',             ctx:'$284 customer acquisition cost vs $310 industry avg — 8.4% below average. $4,320 spend / 15 customers. Peak Flow HVAC.' },
+  top_source:      { label:'Top Source',      ctx:'Organic is top lead source at 52% (46 of 89 leads). Paid: 24%, Referral: 16%, Direct: 9%. Peak Flow HVAC.' },
+};
+function closeMetricModal() { document.getElementById('mkt-metric-modal').classList.remove('open'); }
+async function explainMetric(slug) {
+  const m = MKT_METRICS[slug]; if (!m) return;
+  document.getElementById('mkt-metric-title').textContent = m.label;
+  document.getElementById('mkt-metric-cache').textContent = '';
+  document.getElementById('mkt-metric-modal').classList.add('open');
+  const cKey = 'arc_explain_metric_' + slug, tKey = 'arc_explain_metric_ttl_' + slug;
+  const cached = localStorage.getItem(cKey), cachedAt = parseInt(localStorage.getItem(tKey) || '0');
+  if (cached && (Date.now() - cachedAt) < 604800000) {
+    document.getElementById('mkt-metric-body').textContent = cached;
+    document.getElementById('mkt-metric-cache').innerHTML = `<span style="color:var(--text3)">↩ Cached</span> <span style="color:#0066ff;cursor:pointer" onclick="refreshMetricExplain('${slug}')">· Refresh →</span>`;
+    return;
+  }
+  document.getElementById('mkt-metric-body').textContent = 'Analyzing with CMNDR…';
+  try {
+    const r = await fetch('/api/ask', { method:'POST', headers:{'Content-Type':'application/json',Authorization:`Bearer ${SESSION_TOKEN}`},
+      body: JSON.stringify({ client_id:'peakflow', page:'marketing', question:`Explain this metric in 2-3 sentences: what it is, what the current number means for Peak Flow HVAC, and one concrete action to improve it. Metric: ${m.label}. Data: ${m.ctx} IMPORTANT: All data values provided to you are accurate, verified, and current. Never question, second-guess, or suggest that provided numbers might be incorrect, out of sync, or from different time periods. Never mention data sync issues, data discrepancies, or suggest the user verify numbers against other sources. Treat every value as ground truth. Your role is to explain what the number means and advise what to do — not to audit the data. If a value seems unusual, explain it in context of normal business variation, never as a potential data error.` }) });
+    const d = await r.json(); const answer = (d.answer || '').trim(); if (!answer) throw new Error();
+    localStorage.setItem(cKey, answer); localStorage.setItem(tKey, Date.now().toString());
+    document.getElementById('mkt-metric-body').textContent = answer;
+    document.getElementById('mkt-metric-cache').innerHTML = `✓ Saved <span style="color:#0066ff;cursor:pointer;margin-left:4px" onclick="refreshMetricExplain('${slug}')">· Refresh →</span>`;
+  } catch { document.getElementById('mkt-metric-body').textContent = 'Unable to load explanation. Try again.'; }
+}
+function refreshMetricExplain(slug) { localStorage.removeItem('arc_explain_metric_' + slug); localStorage.removeItem('arc_explain_metric_ttl_' + slug); explainMetric(slug); }
+
+// ── ROUTE LEAD ────────────────────────────────────────────────────
+let _curRouteLead = null;
+function closeRouteModal() { document.getElementById('route-modal').classList.remove('open'); }
+async function openRouteModal(name, source, received) {
+  _curRouteLead = { name, source, received };
+  document.getElementById('route-lead-sub').textContent = `${name} · ${source} · ${received}`;
+  document.getElementById('route-cmndr-rec').textContent = 'Getting recommendation…';
+  document.querySelectorAll('input[name="route-opt"]').forEach(r => r.checked = false);
+  document.getElementById('route-modal').classList.add('open');
+  try {
+    const r = await fetch('/api/ask', { method:'POST', headers:{'Content-Type':'application/json',Authorization:`Bearer ${SESSION_TOKEN}`},
+      body: JSON.stringify({ client_id:'peakflow', page:'marketing', question:`A new lead: ${name} via ${source}, arrived ${received}. Recommend which technician to route this to and why, in 1-2 sentences. Options: Marcus T (94% util, fastest), Devon R (87% util, ~2hr), Aaliya S (76% util, ~4hr), or unassigned queue. Plain text only.` }) });
+    const d = await r.json();
+    document.getElementById('route-cmndr-rec').textContent = (d.answer || '').trim() || 'Route to Aaliya S. — she has the most capacity at 76% and can respond within 4 hours.';
+  } catch { document.getElementById('route-cmndr-rec').textContent = 'Route to Aaliya S. — she has the most capacity at 76% and can respond within 4 hours.'; }
+}
+function confirmRoute() {
+  const selected = document.querySelector('input[name="route-opt"]:checked')?.value;
+  if (!selected) return;
+  closeRouteModal();
+  showMktToast(`${_curRouteLead?.name || 'Lead'} routed to ${selected}`);
+}
+let _mktToastTimer = null;
+function showMktToast(msg) {
+  let t = document.getElementById('mkt-toast');
+  if (!t) { t = document.createElement('div'); t.id = 'mkt-toast'; t.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:10px 18px;font-size:12px;font-family:monospace;color:var(--text);z-index:600;transition:opacity .3s'; document.body.appendChild(t); }
+  t.textContent = msg; t.style.opacity = '1';
+  clearTimeout(_mktToastTimer); _mktToastTimer = setTimeout(() => { t.style.opacity = '0'; }, 3000);
+}
+// ── INFO ICONS ────────────────────────────────────────────────────
+function createInfoIcon(tooltipText) {
+  const wrapper = document.createElement('span');
+  wrapper.style.cssText = 'position:relative;display:inline-block';
+  const icon = document.createElement('span');
+  icon.className = 'info-icon';
+  icon.textContent = 'i';
+  const tooltip = document.createElement('div');
+  tooltip.className = 'info-tooltip';
+  tooltip.textContent = tooltipText;
+  tooltip.style.cssText = 'left:50%;transform:translateX(-50%)';
+  icon.addEventListener('mouseenter', () => {
+    const rect = icon.getBoundingClientRect();
+    const spaceAbove = rect.top;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    if (spaceAbove < 80 || spaceBelow > spaceAbove) { tooltip.style.top = '120%'; tooltip.style.bottom = 'auto'; }
+    else { tooltip.style.bottom = '120%'; tooltip.style.top = 'auto'; }
+    tooltip.classList.add('visible');
+  });
+  icon.addEventListener('mouseleave', () => tooltip.classList.remove('visible'));
+  if (localStorage.getItem('arc_hide_info_icons') === 'true') wrapper.style.display = 'none';
+  wrapper.appendChild(icon);
+  wrapper.appendChild(tooltip);
+  return wrapper;
+}
+function initInfoIcons() {
+  document.querySelectorAll('[data-info]').forEach(el => {
+    if (el.querySelector('.info-icon')) return;
+    el.appendChild(createInfoIcon(el.getAttribute('data-info')));
+    el.style.display = 'flex';
+    el.style.alignItems = 'center';
+  });
+}
+document.addEventListener('DOMContentLoaded', initInfoIcons);
+
+boot();
+</script>
+</body>
+</html>

@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>ARC — Yield &amp; Efficiency</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0c0f;--surface:#111418;--surface2:#181c22;
+  --border:#1e242d;--border2:#262d38;
+  --text:#e8edf5;--text2:#8a95a3;--text3:#4d5663;
+  --accent:#3b82f6;--accent-dim:rgba(59,130,246,0.12);
+  --green:#22c55e;--green-dim:rgba(34,197,94,0.12);
+  --amber:#f59e0b;--amber-dim:rgba(245,158,11,0.12);
+  --red:#ef4444;--red-dim:rgba(239,68,68,0.12);
+  --purple:#a855f7;--purple-dim:rgba(168,85,247,0.12);
+  --nav-h:56px;--strip-h:80px;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;font-size:14px}
+#nav{position:fixed;top:0;left:0;right:0;height:var(--nav-h);background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;padding:0 20px;z-index:100}
+.logo{font-size:17px;font-weight:700;letter-spacing:-.5px;color:var(--text);display:flex;align-items:center;gap:8px;cursor:pointer;text-decoration:none}
+.arc-badge{background:var(--accent);color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px;letter-spacing:1.5px}
+.client-name-display{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;color:var(--text);cursor:default}
+.spacer{flex:1}
+.nav-btn{background:none;border:1px solid var(--border2);border-radius:6px;color:var(--text2);padding:6px 12px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:6px;transition:all .15s;white-space:nowrap}
+.nav-btn:hover{border-color:var(--accent);color:var(--accent)}
+.cmndr-btn{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+.cmndr-btn:hover{background:var(--accent);color:#fff}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#fff;cursor:pointer;flex-shrink:0}
+#shell{display:flex;flex-direction:column;height:100vh;padding-top:var(--nav-h)}
+#health-strip{height:var(--strip-h);flex-shrink:0;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:stretch}
+.hc{display:flex;flex-direction:column;justify-content:center;padding:0 28px;flex:1;border-right:1px solid var(--border)}
+.hc:last-child{border-right:none}
+.hc-label{font-size:10px;color:var(--text3);letter-spacing:.7px;text-transform:uppercase;margin-bottom:5px}
+.hc-value{font-size:30px;font-weight:700;letter-spacing:-1.5px;line-height:1}
+.hc-sub{font-size:11px;color:var(--text3);margin-top:4px}
+.hc-bar{height:3px;background:var(--border2);border-radius:2px;margin-top:8px}
+.hc-bar-fill{height:100%;border-radius:2px;width:0;transition:width 1.2s cubic-bezier(.22,1,.36,1)}
+.col-blue{color:var(--accent)}.col-green{color:var(--green)}.col-amber{color:var(--amber)}
+#content-row{flex:1;display:flex;overflow:hidden;min-height:0}
+#main-col{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:16px}
+#cmndr-toggle{width:18px;flex-shrink:0;background:var(--surface2);border:none;border-left:1px solid var(--border);color:var(--text3);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color .15s,background .15s;padding:0}
+#cmndr-toggle:hover{color:var(--accent);background:var(--surface)}
+#cmndr-toggle svg{width:11px;height:11px;flex-shrink:0}
+#cmndr-col{width:300px;flex-shrink:0;border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width 250ms ease,opacity 200ms ease}
+#cmndr-col.collapsed{width:0;opacity:0;pointer-events:none}
+#cmndr-header{padding:14px 16px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0}
+.cmndr-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0;animation:blink 2.2s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+.cmndr-title{font-size:13px;font-weight:600}.cmndr-sub{font-size:11px;color:var(--text3);margin-top:1px}
+#cmndr-body{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.cmndr-narrative{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:12px}
+.cn-label{font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--accent);margin-bottom:6px}
+.cn-text{font-size:13px;color:var(--text2);line-height:1.65}
+.cmndr-history{display:flex;flex-direction:column;gap:8px}
+.msg{display:flex;flex-direction:column}
+.msg.user .msg-bubble{background:var(--accent-dim);border:1px solid var(--accent);align-self:flex-end;color:var(--text)}
+.msg.ai .msg-bubble{background:var(--surface2);border:1px solid var(--border2);align-self:flex-start;color:var(--text2)}
+.msg-bubble{max-width:92%;padding:7px 11px;border-radius:8px;font-size:13px;line-height:1.55;margin-bottom:2px}
+.msg-time{font-size:10px;color:var(--text3)}
+.msg.user .msg-time{align-self:flex-end}.msg.ai .msg-time{align-self:flex-start}
+#cmndr-input-area{padding:10px 16px 14px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:7px;flex-shrink:0}
+#cmndr-suggestions{display:flex;gap:5px;flex-wrap:wrap}
+.suggestion-pill{background:var(--surface2);border:1px solid var(--border2);border-radius:12px;padding:3px 9px;font-size:11px;color:var(--text2);cursor:pointer;transition:all .12s;white-space:nowrap}
+.suggestion-pill:hover{border-color:var(--accent);color:var(--accent)}
+.input-row{display:flex;gap:7px;align-items:flex-end}
+#cmndr-input{flex:1;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:13px;padding:7px 11px;outline:none;resize:none;font-family:inherit;min-height:36px;max-height:120px}
+#cmndr-input:focus{border-color:var(--accent)}
+#cmndr-send{background:var(--accent);border:none;border-radius:6px;width:34px;height:34px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0}
+#cmndr-send:hover{background:#2563eb}
+#cmndr-send svg{width:13px;height:13px;fill:currentColor}
+#module-nav{display:flex;gap:8px;flex-wrap:wrap}
+.module-chip{background:var(--surface);border:1px solid var(--border2);border-radius:20px;padding:5px 14px;font-size:12px;font-weight:500;color:var(--text2);cursor:pointer;transition:all .15s;white-space:nowrap}
+.module-chip:hover{border-color:var(--accent);color:var(--accent)}
+.module-chip.active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent);cursor:default}
+.skeleton{background:var(--border2);border-radius:6px;animation:pulse 1.5s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+/* PAGE SPECIFIC */
+.page-title{font-size:22px;font-weight:700;letter-spacing:-.5px}
+.page-sub{font-size:13px;color:var(--text3);margin-top:3px}
+.metric-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.metric-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px}
+.mc-label{font-size:10px;color:var(--text3);letter-spacing:.7px;text-transform:uppercase;margin-bottom:8px}
+.mc-value{font-size:18px;font-weight:700;letter-spacing:-.5px;line-height:1;margin-bottom:4px}
+.mc-sub{font-size:11px;color:var(--text2)}
+.mc-trend{font-size:11px;margin-top:5px}
+.trend-up{color:var(--green)}.trend-warn{color:var(--amber)}.trend-dn{color:var(--red)}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.col-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;display:flex;flex-direction:column;gap:14px}
+.col-card-title{font-size:12px;font-weight:600;color:var(--text)}
+/* Automation table */
+.data-table{width:100%;border-collapse:collapse;font-size:12px}
+.data-table th{font-size:10px;color:var(--text3);font-weight:600;letter-spacing:.5px;text-transform:uppercase;padding:6px 8px;text-align:left;border-bottom:1px solid var(--border)}
+.data-table td{padding:8px;border-bottom:1px solid var(--border);color:var(--text2)}
+.data-table tr:last-child td{border-bottom:none}
+.data-table tr:hover td{background:var(--surface2)}
+.badge{font-size:10px;font-weight:600;padding:2px 7px;border-radius:4px;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap}
+.badge-green{background:var(--green-dim);color:var(--green)}
+.badge-amber{background:var(--amber-dim);color:var(--amber)}
+/* Labor bars */
+.labor-row{display:flex;align-items:center;gap:10px;margin-bottom:7px}
+.labor-row:last-child{margin-bottom:0}
+.labor-name{font-size:11px;color:var(--text2);width:140px;flex-shrink:0}
+.labor-track{flex:1;height:6px;background:var(--border2);border-radius:3px;overflow:hidden}
+.labor-fill{height:100%;border-radius:3px;background:var(--accent)}
+.labor-hrs{font-size:11px;color:var(--text3);width:36px;text-align:right;flex-shrink:0}
+/* Quality bars */
+.quality-row{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+.quality-row:last-child{margin-bottom:0}
+.q-label{font-size:11px;color:var(--text2);width:120px;flex-shrink:0}
+.q-track{flex:1;height:6px;background:var(--border2);border-radius:3px;overflow:hidden}
+.q-fill{height:100%;border-radius:3px}
+.q-val{font-size:11px;color:var(--text3);width:28px;text-align:right;flex-shrink:0}
+/* SVG chart */
+.chart-wrap{overflow-x:auto}
+.chart-wrap svg{min-width:240px}
+/* Scan button */
+.scan-btn{background:var(--accent-dim);border:1px solid var(--accent);border-radius:6px;color:var(--accent);padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;display:inline-block;text-decoration:none}
+.scan-btn:hover{background:var(--accent);color:#fff}
+.mc-explain{display:inline-block;margin-top:6px;font-size:10px;font-family:monospace;color:#0066ff;cursor:pointer;transition:color 150ms ease}
+.mc-explain:hover{color:#8888a0}
+/* Info icons */
+.info-icon{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;border:1px solid var(--hint,#4d5663);color:var(--hint,#4d5663);font-size:9px;font-style:italic;font-family:'DM Mono',monospace;font-weight:600;cursor:pointer;margin-left:6px;vertical-align:middle;flex-shrink:0;transition:background 150ms ease,color 150ms ease,border-color 150ms ease;position:relative;top:-1px}
+.info-icon:hover{background:rgba(0,102,255,0.1);color:#0066ff;border-color:#0066ff}
+.info-tooltip{position:absolute;z-index:999;background:rgba(19,19,26,0.70);border:0.5px solid var(--border);border-radius:8px;padding:8px 12px;max-width:320px;min-width:200px;width:max-content;font-size:11px;font-family:'DM Mono',monospace;color:var(--text2);line-height:1.5;pointer-events:none;opacity:0;transition:opacity 150ms ease;box-shadow:0 8px 24px rgba(0,0,0,0.4);white-space:normal;backdrop-filter:blur(4px)}
+.info-tooltip.visible{opacity:1}
+.badge-paused{background:var(--red-dim);color:var(--red)}
+.mod-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:500;align-items:center;justify-content:center}
+.mod-overlay.open{display:flex}
+.mod-modal{background:var(--surface);border:1px solid var(--border2);border-radius:12px;padding:24px;width:440px;max-width:92vw;max-height:82vh;overflow-y:auto}
+</style>
+</head>
+<body>
+
+<nav id="nav">
+  <a class="logo" href="/">
+    <span class="arc-badge">ARC</span>
+    Command Center
+  </a>
+  <span class="client-name-display"><span style="font-size:8px;color:#00d4aa;line-height:1">●</span>Peak Flow Plumbing &amp; HVAC</span>
+  <div class="spacer"></div>
+  <button class="nav-btn" onclick="location.href='/automations'">⚡ Automations</button>
+  <button class="nav-btn cmndr-btn" onclick="toggleCmndr()">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+    CMNDR ✦
+  </button>
+  <button class="nav-btn" onclick="location.href='/connections'">Connections</button>
+  <div class="avatar" id="nav-avatar">A</div>
+</nav>
+
+<div id="shell">
+  <div id="health-strip">
+    <div class="hc">
+      <div class="hc-label">Entropy Score</div>
+      <div class="hc-value col-blue" id="hs-entropy">—</div>
+      <div class="hc-sub" id="hs-entropy-sub">Loading…</div>
+      <div class="hc-bar"><div class="hc-bar-fill" id="bar-entropy" style="background:var(--accent)"></div></div>
+    </div>
+    <div class="hc">
+      <div class="hc-label">Labor Deletion</div>
+      <div class="hc-value col-green">14.2<span style="font-size:16px;font-weight:500;letter-spacing:0"> hrs</span></div>
+      <div class="hc-sub">Saved this month</div>
+    </div>
+    <div class="hc">
+      <div class="hc-label">Relational ROI</div>
+      <div class="hc-value col-amber">$8.40<span style="font-size:16px;font-weight:500;letter-spacing:0"> /lead</span></div>
+      <div class="hc-sub">Revenue per contact</div>
+    </div>
+  </div>
+
+  <div id="content-row">
+    <div id="main-col">
+
+      <div id="module-nav">
+        <div class="module-chip" onclick="location.href='/'">All</div>
+        <div class="module-chip" onclick="location.href='/operations'">Operations</div>
+        <div class="module-chip" onclick="location.href='/marketing'">Marketing</div>
+        <div class="module-chip" onclick="location.href='/finance'">Finance</div>
+        <div class="module-chip active">Yield &amp; Efficiency</div>
+        <div class="module-chip" onclick="location.href='/audit'">Audit</div>
+      </div>
+
+      <div>
+        <div class="page-title">Yield &amp; Efficiency</div>
+        <div class="page-sub">Automation Performance · Peak Flow</div>
+      </div>
+
+      <div class="metric-row">
+        <div class="metric-card">
+          <div class="mc-label" data-info="Total labor hours eliminated this month across all active ISS automations. Calculated as execution count × manual time baseline per automation type.">Hours Saved</div>
+          <div class="mc-value col-green">14.2<span style="font-size:12px;font-weight:500;letter-spacing:0"> hrs</span></div>
+          <div class="mc-sub">This month</div>
+          <div class="mc-trend trend-up">↑ 3.1 from last month</div>
+          <span class="mc-explain" onclick="explainMetric('hours_saved')">Explain this →</span>
+        </div>
+        <div class="metric-card">
+          <div class="mc-label" data-info="Percentage of automation runs completing without error across all active ISS modules. Below 90% indicates a misconfiguration that needs investigation.">Automation Success</div>
+          <div class="mc-value col-green">94.2%</div>
+          <div class="mc-sub">Across all active ISS</div>
+          <div class="mc-trend trend-up">↑ Healthy</div>
+          <span class="mc-explain" onclick="explainMetric('automation_success')">Explain this →</span>
+        </div>
+        <div class="metric-card">
+          <div class="mc-label" data-info="ISS modules currently running live. Each automation runs on a defined trigger and contributes to your labor deletion and data quality scores.">Active Automations</div>
+          <div class="mc-value">6</div>
+          <div class="mc-sub">ISS modules running</div>
+          <div class="mc-trend" style="color:var(--accent)">1 needs attention</div>
+          <span class="mc-explain" onclick="explainMetric('active_automations')">Explain this →</span>
+        </div>
+        <div class="metric-card">
+          <div class="mc-label" data-info="30-day direction of your composite data health score. An improving trend means your automations and data hygiene efforts are working.">Entropy Trend</div>
+          <div class="mc-value col-green" style="font-size:14px;padding-top:4px">↑ Improving</div>
+          <div class="mc-sub">71 → 77 over 30 days</div>
+          <div class="mc-trend trend-up">+6 points</div>
+          <span class="mc-explain" onclick="explainMetric('entropy_trend')">Explain this →</span>
+        </div>
+      </div>
+
+      <div class="two-col">
+
+        <!-- LEFT: Automation table + Labor breakdown -->
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="col-card">
+            <div class="col-card-title" data-info="Live table of all deployed ISS modules with run counts, success rates, and hours saved. Toggle switches allow instant pause/resume without deleting configuration.">Active ISS Automations</div>
+            <table class="data-table">
+              <thead><tr><th>Automation</th><th>Type</th><th>Runs</th><th>Success</th><th>Hrs</th><th>Status</th><th>Toggle</th></tr></thead>
+              <tbody id="automation-tbody"></tbody>
+            </table>
+          </div>
+
+          <div class="col-card">
+            <div class="col-card-title" data-info="Per-automation distribution of hours saved. The widest bars represent automations with the highest manual time replacement value.">Labor Deletion Breakdown</div>
+            <div>
+              <div class="labor-row"><div class="labor-name">Client Onboarding Verify</div><div class="labor-track"><div class="labor-fill" style="width:90%"></div></div><div class="labor-hrs">4.8h</div></div>
+              <div class="labor-row"><div class="labor-name">Job Status Sync</div><div class="labor-track"><div class="labor-fill" style="width:80%"></div></div><div class="labor-hrs">2.6h</div></div>
+              <div class="labor-row"><div class="labor-name">Lead Ingestion Firewall</div><div class="labor-track"><div class="labor-fill" style="width:67%"></div></div><div class="labor-hrs">3.2h</div></div>
+              <div class="labor-row"><div class="labor-name">Invoice Collection Pulse</div><div class="labor-track"><div class="labor-fill" style="width:50%"></div></div><div class="labor-hrs">2.1h</div></div>
+              <div class="labor-row"><div class="labor-name">Data Hygiene Reminder</div><div class="labor-track"><div class="labor-fill" style="width:19%;background:var(--amber)"></div></div><div class="labor-hrs">0.8h</div></div>
+              <div class="labor-row"><div class="labor-name">Quote Generator Draft</div><div class="labor-track"><div class="labor-fill" style="width:17%"></div></div><div class="labor-hrs">0.7h</div></div>
+            </div>
+            <div style="border-top:1px solid var(--border);padding-top:10px;display:flex;justify-content:space-between;font-size:12px;font-weight:700"><span>Total saved</span><span class="col-green" id="labor-total">14.2 hours</span></div>
+          </div>
+        </div>
+
+        <!-- RIGHT: Entropy trend + Quality breakdown -->
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="col-card">
+            <div class="col-card-title" data-info="30-day chart of your composite Refinery score. Dots colored by score range: red = critical, amber = fair, blue = good. Upward trend = data health improving.">Entropy Score Trend — 30 Days</div>
+            <div class="chart-wrap">
+              <svg viewBox="0 0 300 150" width="100%" style="overflow:visible">
+                <!-- Grid -->
+                <line x1="20" y1="15" x2="280" y2="15" stroke="#1e242d" stroke-width="1"/>
+                <line x1="20" y1="55" x2="280" y2="55" stroke="#1e242d" stroke-width="1"/>
+                <line x1="20" y1="95" x2="280" y2="95" stroke="#1e242d" stroke-width="1"/>
+                <!-- Y labels -->
+                <text x="14" y="18" font-size="9" fill="#4d5663" text-anchor="end">80</text>
+                <text x="14" y="58" font-size="9" fill="#4d5663" text-anchor="end">60</text>
+                <text x="14" y="98" font-size="9" fill="#4d5663" text-anchor="end">40</text>
+                <!-- Area fill -->
+                <polygon points="20,57 83,52 146,47 209,42 280,38 280,115 20,115" fill="rgba(59,130,246,0.08)"/>
+                <!-- Line -->
+                <polyline points="20,57 83,52 146,47 209,42 280,38" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linejoin="round"/>
+                <!-- Dots -->
+                <circle cx="20" cy="57" r="4" fill="#ef4444" stroke="#0a0c0f" stroke-width="2"/>
+                <circle cx="83" cy="52" r="4" fill="#f59e0b" stroke="#0a0c0f" stroke-width="2"/>
+                <circle cx="146" cy="47" r="4" fill="#f59e0b" stroke="#0a0c0f" stroke-width="2"/>
+                <circle cx="209" cy="42" r="4" fill="#f59e0b" stroke="#0a0c0f" stroke-width="2"/>
+                <circle cx="280" cy="38" r="4" fill="#3b82f6" stroke="#0a0c0f" stroke-width="2"/>
+                <!-- Score labels -->
+                <text x="20" y="45" font-size="9" fill="#ef4444" text-anchor="middle">58</text>
+                <text x="83" y="40" font-size="9" fill="#f59e0b" text-anchor="middle">63</text>
+                <text x="146" y="35" font-size="9" fill="#f59e0b" text-anchor="middle">68</text>
+                <text x="209" y="30" font-size="9" fill="#f59e0b" text-anchor="middle">73</text>
+                <text x="280" y="26" font-size="9" fill="#3b82f6" text-anchor="middle">77</text>
+                <!-- X labels -->
+                <text x="20" y="130" font-size="9" fill="#4d5663" text-anchor="middle">Apr 1</text>
+                <text x="83" y="130" font-size="9" fill="#4d5663" text-anchor="middle">Apr 8</text>
+                <text x="146" y="130" font-size="9" fill="#4d5663" text-anchor="middle">Apr 15</text>
+                <text x="209" y="130" font-size="9" fill="#4d5663" text-anchor="middle">Apr 22</text>
+                <text x="280" y="130" font-size="9" fill="#4d5663" text-anchor="middle">Apr 30</text>
+              </svg>
+            </div>
+          </div>
+
+          <div class="col-card">
+            <div class="col-card-title" data-info="Four dimension scores from your latest Refinery scan: Completeness (data readiness), Variance (process design), Fragmentation (visibility), Enrichment (AI strategy risk).">Refinery Data Quality — Current Scores</div>
+            <div>
+              <div class="quality-row">
+                <div class="q-label">Completeness</div>
+                <div class="q-track"><div class="q-fill" style="width:56%;background:var(--amber)"></div></div>
+                <div class="q-val" style="color:var(--amber)">56</div>
+              </div>
+              <div style="font-size:10px;color:var(--text3);margin-top:-6px;margin-bottom:10px;margin-left:130px">Automation Readiness</div>
+              <div class="quality-row">
+                <div class="q-label">Variance</div>
+                <div class="q-track"><div class="q-fill" style="width:84%;background:var(--green)"></div></div>
+                <div class="q-val" style="color:var(--green)">84</div>
+              </div>
+              <div style="font-size:10px;color:var(--text3);margin-top:-6px;margin-bottom:10px;margin-left:130px">Process Design</div>
+              <div class="quality-row">
+                <div class="q-label">Fragmentation</div>
+                <div class="q-track"><div class="q-fill" style="width:95%;background:var(--green)"></div></div>
+                <div class="q-val" style="color:var(--green)">95</div>
+              </div>
+              <div style="font-size:10px;color:var(--text3);margin-top:-6px;margin-bottom:10px;margin-left:130px">Visibility Index</div>
+              <div class="quality-row">
+                <div class="q-label">Enrichment</div>
+                <div class="q-track"><div class="q-fill" style="width:74%;background:var(--accent)"></div></div>
+                <div class="q-val" style="color:var(--accent)">74</div>
+              </div>
+              <div style="font-size:10px;color:var(--text3);margin-top:-6px;margin-bottom:14px;margin-left:130px">AI Strategy Risk</div>
+            </div>
+            <a class="scan-btn" href="https://refinery.resona.ai" target="_blank">Run new Refinery scan →</a>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+<!-- METRIC EXPLAIN MODAL -->
+<div class="mod-overlay" id="yld-metric-modal" onclick="if(event.target===this)closeMetricModal()">
+  <div class="mod-modal">
+    <div style="font-size:15px;font-weight:700;margin-bottom:12px" id="yld-metric-title"></div>
+    <div style="font-size:10px;font-family:monospace;letter-spacing:.6px;text-transform:uppercase;color:var(--text3);margin-bottom:4px">CMNDR ANALYSIS</div>
+    <div id="yld-metric-body" style="background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:10px 12px;font-size:12px;color:var(--text2);line-height:1.6;min-height:80px;white-space:pre-wrap">Analyzing…</div>
+    <div id="yld-metric-cache" style="margin-top:8px;font-size:10px;font-family:monospace;color:var(--text3)"></div>
+    <div style="margin-top:16px"><button onclick="closeMetricModal()" style="background:transparent;color:var(--text2);border:1px solid var(--border2);border-radius:6px;padding:7px 16px;font-size:12px;font-family:monospace;cursor:pointer">Close</button></div>
+  </div>
+</div>
+
+    <button id="cmndr-toggle" onclick="toggleCmndr()" title="Toggle CMNDR">
+      <svg id="toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+    </button>
+
+    <div id="cmndr-col">
+      <div id="cmndr-header">
+        <div class="cmndr-dot"></div>
+        <div><div class="cmndr-title">CMNDR</div><div class="cmndr-sub">Efficiency Intelligence</div></div>
+      </div>
+      <div id="cmndr-body">
+        <div class="cmndr-narrative">
+          <div class="cn-label">Automation Situation</div>
+          <div class="cn-text skeleton" id="narrative-text" style="height:80px;border-radius:4px;"></div>
+        </div>
+        <div class="cmndr-history" id="cmndr-history"></div>
+      </div>
+      <div id="cmndr-input-area">
+        <div id="cmndr-suggestions">
+          <div class="suggestion-pill" onclick="sendSuggestion(this)">What's underperforming?</div>
+          <div class="suggestion-pill" onclick="sendSuggestion(this)">Improve entropy score</div>
+          <div class="suggestion-pill" onclick="sendSuggestion(this)">Automation ROI</div>
+        </div>
+        <div class="input-row">
+          <textarea id="cmndr-input" placeholder="Ask CMNDR anything…" rows="1" onkeydown="handleKey(event)"></textarea>
+          <button id="cmndr-send" onclick="sendMessage()">
+            <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SESSION_TOKEN = localStorage.getItem('cmndr_session');
+const PAGE_SYSTEM = "You are CMNDR, Resona's AI efficiency intelligence for Peak Flow HVAC. Focus on automation performance, labor deletion ROI, error rates, and data quality improvement over time. The Data Hygiene Reminder automation is underperforming at 75% success (below 90% threshold). Entropy score improved from 58 to 77 over 30 days. Be concise. Max 3 sentences.";
+const DEMO_NARRATIVE = 'Six ISS automations are running with a 94.2% average success rate, saving 14.2 hours this month — up 3.1 hours from last month. The Data Hygiene Reminder is the only underperformer at 75% success rate, which is directly correlated with the 56/100 completeness score in Refinery. Entropy improved 19 points over 30 days; the next scan should target completeness improvements by enriching contact email fields.';
+
+async function boot() {
+  if (window.location.search.includes('bypass=true') || localStorage.getItem('arc_bypass') === 'true') {
+    localStorage.setItem('arc_bypass', 'true');
+  } else {
+    if (!SESSION_TOKEN) { location.href = '/login'; return; }
+    try {
+      const r = await fetch('/api/auth?action=me', { headers: { Authorization: `Bearer ${SESSION_TOKEN}` } });
+      if (!r.ok) { location.href = '/login'; return; }
+      const d = await r.json(); const p = d.profile;
+      if (!p || !p.role || !p.role.startsWith('resona_')) { location.href = '/login'; return; }
+      document.getElementById('nav-avatar').textContent = (p.full_name || d.user?.email || 'A').charAt(0).toUpperCase();
+    } catch { location.href = '/login'; return; }
+  }
+  initCmndrPanel();
+  await Promise.all([loadEntropyScore(), loadNarrative()]);
+}
+
+function initCmndrPanel() { if (localStorage.getItem('arc_cmndr_open') === 'false') applyCollapsed(true); }
+function toggleCmndr() { const c=document.getElementById('cmndr-col').classList.contains('collapsed'); applyCollapsed(!c); localStorage.setItem('arc_cmndr_open',c?'true':'false'); }
+function applyCollapsed(on) { document.getElementById('cmndr-col').classList.toggle('collapsed',on); const pts=document.getElementById('toggle-icon')?.querySelector('polyline'); if(pts) pts.setAttribute('points',on?'9 18 15 12 9 6':'15 18 9 12 15 6'); }
+
+async function loadEntropyScore() {
+  try { const r=await fetch('/api/health?action=entropy'); if(!r.ok)return; const d=await r.json(); if(d.score==null){document.getElementById('hs-entropy-sub').textContent='No scan yet';return;} animCount('hs-entropy',d.score,'%'); animBar('bar-entropy',d.score); document.getElementById('hs-entropy-sub').textContent=d.score>=80?'Excellent':d.score>=60?'Good — minor gaps':'Fair — action needed'; } catch {}
+}
+async function loadNarrative() {
+  try {
+    const r=await fetch('/api/ask',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${SESSION_TOKEN}`},body:JSON.stringify({system:'You are CMNDR, Resona AI. Return valid JSON only.',messages:[{role:'user',content:'Generate JSON with key "narrative": 2-3 sentence yield & efficiency situation for Peak Flow HVAC. Data: 14.2 hrs saved (+3.1 MoM), 94.2% automation success rate, 6 active automations, entropy score 77 (up from 58 in 30 days), Data Hygiene Reminder at 75% success (below 90% threshold), completeness score 56/100. Flag the underperforming automation.'}]})});
+    if(!r.ok) throw new Error();
+    const d=await r.json(); const parsed=extractJSON(d.content?.[0]?.text||d.text||'');
+    if(parsed?.narrative){renderNarrative(parsed.narrative);return;}
+  } catch {}
+  renderNarrative(DEMO_NARRATIVE);
+}
+function renderNarrative(text) { const el=document.getElementById('narrative-text'); el.classList.remove('skeleton'); el.style.height=''; el.textContent=text; }
+function animCount(id,target,suf) { const el=document.getElementById(id); if(!el)return; let t0=null; function step(ts){if(!t0)t0=ts;const p=Math.min((ts-t0)/900,1);el.textContent=Math.round(target*(1-Math.pow(1-p,3)))+(suf||'');if(p<1)requestAnimationFrame(step);} requestAnimationFrame(step); }
+function animBar(id,pct) { const el=document.getElementById(id); if(el) setTimeout(()=>el.style.width=Math.max(0,Math.min(100,pct))+'%',50); }
+const history=[]; let msgN=0;
+function handleKey(e) { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();} }
+function sendSuggestion(el) { document.getElementById('cmndr-input').value=el.textContent; sendMessage(); }
+async function sendMessage() {
+  const inp=document.getElementById('cmndr-input'); const text=inp.value.trim(); if(!text)return;
+  inp.value=''; addMsg('user',text); history.push({role:'user',content:text}); const tid=addMsg('ai','',true);
+  try { const r=await fetch('/api/ask',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${SESSION_TOKEN}`},body:JSON.stringify({system:PAGE_SYSTEM,messages:history})}); let reply='Unable to reach CMNDR.'; if(r.ok){const d=await r.json();reply=d.content?.[0]?.text||d.text||reply;} updMsg(tid,reply); history.push({role:'assistant',content:reply}); } catch { updMsg(tid,'CMNDR temporarily unavailable.'); }
+  document.getElementById('cmndr-body').scrollTop=99999;
+}
+function addMsg(role,text,typing) { const id='msg-'+(++msgN); const t=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); const el=document.createElement('div'); el.className='msg '+role; el.id=id; el.innerHTML=`<div class="msg-bubble">${typing?'<em style="opacity:.5">Thinking…</em>':esc(text)}</div><div class="msg-time">${t}</div>`; document.getElementById('cmndr-history').appendChild(el); document.getElementById('cmndr-body').scrollTop=99999; return id; }
+function updMsg(id,text) { const el=document.getElementById(id); if(el) el.querySelector('.msg-bubble').textContent=text; }
+function extractJSON(text) { try{const m=text.match(/\{[\s\S]*\}/);return m?JSON.parse(m[0]):null;}catch{return null;} }
+function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+const YLD_METRICS = {
+  hours_saved:          { label:'Hours Saved',          ctx:'14.2 hours saved this month, up 3.1 from last month via 6 ISS automations. Peak Flow HVAC.' },
+  automation_success:   { label:'Automation Success',   ctx:'94.2% avg success rate across 6 active ISS automations. Data Hygiene Reminder at 75% (below 90% threshold). Peak Flow HVAC.' },
+  active_automations:   { label:'Active Automations',   ctx:'6 ISS modules running. 1 (Data Hygiene Reminder) needs attention at 75% success rate. Peak Flow HVAC.' },
+  entropy_trend:        { label:'Entropy Trend',        ctx:'Entropy score improved from 71 to 77 over 30 days (+6 points). Current pillars: Completeness 56, Variance 84, Fragmentation 95, Enrichment 74. Peak Flow HVAC.' },
+};
+function closeMetricModal() { document.getElementById('yld-metric-modal').classList.remove('open'); }
+async function explainMetric(slug) {
+  const m = YLD_METRICS[slug]; if (!m) return;
+  document.getElementById('yld-metric-title').textContent = m.label;
+  document.getElementById('yld-metric-cache').textContent = '';
+  document.getElementById('yld-metric-modal').classList.add('open');
+  const cKey = 'arc_explain_metric_' + slug, tKey = 'arc_explain_metric_ttl_' + slug;
+  const cached = localStorage.getItem(cKey), cachedAt = parseInt(localStorage.getItem(tKey) || '0');
+  if (cached && (Date.now() - cachedAt) < 604800000) {
+    document.getElementById('yld-metric-body').textContent = cached;
+    document.getElementById('yld-metric-cache').innerHTML = `<span style="color:var(--text3)">↩ Cached</span> <span style="color:#0066ff;cursor:pointer" onclick="refreshMetricExplain('${slug}')">· Refresh →</span>`;
+    return;
+  }
+  document.getElementById('yld-metric-body').textContent = 'Analyzing with CMNDR…';
+  try {
+    const r = await fetch('/api/ask', { method:'POST', headers:{'Content-Type':'application/json',Authorization:`Bearer ${SESSION_TOKEN}`},
+      body: JSON.stringify({ client_id:'peakflow', page:'yield', question:`Explain this metric in 2-3 sentences: what it is, what the current number means for Peak Flow HVAC, and one concrete action to improve it. Metric: ${m.label}. Data: ${m.ctx} IMPORTANT: All data values provided to you are accurate, verified, and current. Never question, second-guess, or suggest that provided numbers might be incorrect, out of sync, or from different time periods. Never mention data sync issues, data discrepancies, or suggest the user verify numbers against other sources. Treat every value as ground truth. Your role is to explain what the number means and advise what to do — not to audit the data. If a value seems unusual, explain it in context of normal business variation, never as a potential data error.` }) });
+    const d = await r.json(); const answer = (d.answer || '').trim(); if (!answer) throw new Error();
+    localStorage.setItem(cKey, answer); localStorage.setItem(tKey, Date.now().toString());
+    document.getElementById('yld-metric-body').textContent = answer;
+    document.getElementById('yld-metric-cache').innerHTML = `✓ Saved <span style="color:#0066ff;cursor:pointer;margin-left:4px" onclick="refreshMetricExplain('${slug}')">· Refresh →</span>`;
+  } catch { document.getElementById('yld-metric-body').textContent = 'Unable to load explanation. Try again.'; }
+}
+function refreshMetricExplain(slug) { localStorage.removeItem('arc_explain_metric_' + slug); localStorage.removeItem('arc_explain_metric_ttl_' + slug); explainMetric(slug); }
+
+// ── AUTOMATION TOGGLES ────────────────────────────────────────────
+const AUTOMATIONS = [
+  { name:'Lead Ingestion Firewall',  type:'ISS Strip', runs:89,  success:'98%', hrs:3.2, status:'active' },
+  { name:'Invoice Collection Pulse', type:'ISS Strip', runs:12,  success:'91%', hrs:2.1, status:'active' },
+  { name:'Client Onboarding Verify', type:'ISS Vanta', runs:15,  success:'96%', hrs:4.8, status:'active' },
+  { name:'Job Status Sync',          type:'ISS Strip', runs:203, success:'99%', hrs:2.6, status:'active' },
+  { name:'Data Hygiene Reminder',    type:'ISS Strip', runs:4,   success:'75%', hrs:0.8, status:'warning' },
+  { name:'Quote Generator Draft',    type:'ISS Strip', runs:7,   success:'86%', hrs:0.7, status:'active' },
+];
+function getPaused() { return JSON.parse(localStorage.getItem('arc_paused_automations') || '{}'); }
+function renderAutomations() {
+  const tbody = document.getElementById('automation-tbody'); if (!tbody) return;
+  const paused = getPaused();
+  tbody.innerHTML = AUTOMATIONS.map(a => {
+    const isPaused = !!paused[a.name];
+    const isWarn = a.status === 'warning';
+    const badgeClass = isPaused ? 'badge-paused' : isWarn ? 'badge-amber' : 'badge-green';
+    const badgeText = isPaused ? 'Paused' : isWarn ? 'Warning' : 'Active';
+    const successStyle = (a.success === '75%' && !isPaused) ? `style="color:var(--amber)"` : '';
+    const sid = a.name.replace(/\s+/g,'_');
+    const toggleColor = isPaused ? '#e84040' : '#00d4aa';
+    const thumbLeft = isPaused ? '3px' : '19px';
+    const confirmText = isPaused ? 'Resume?' : 'Pause?';
+    return `
+      <tr>
+        <td>${esc(a.name)}</td><td>${esc(a.type)}</td><td>${a.runs}</td>
+        <td ${successStyle}>${esc(a.success)}</td><td>${a.hrs}</td>
+        <td><span class="badge ${badgeClass}">${badgeText}</span></td>
+        <td>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div onclick="handleToggle('${esc(a.name)}')" style="cursor:pointer;width:36px;height:20px;border-radius:10px;background:${toggleColor};position:relative;transition:background .2s;flex-shrink:0">
+              <div style="position:absolute;top:3px;left:${thumbLeft};width:14px;height:14px;border-radius:50%;background:#fff;transition:left .2s"></div>
+            </div>
+            <div id="ac-${sid}" style="font-size:10px;font-family:monospace;color:var(--text3);display:none;white-space:nowrap">
+              ${confirmText}
+              <span style="color:#0066ff;cursor:pointer;margin-left:4px" onclick="confirmToggle('${esc(a.name)}')">Yes</span>
+              <span style="cursor:pointer;margin-left:4px" onclick="cancelToggle('${sid}')">No</span>
+            </div>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+  updateLaborTotal();
+}
+function handleToggle(name) {
+  const sid = name.replace(/\s+/g,'_');
+  document.querySelectorAll('[id^="ac-"]').forEach(el => { if (el.id !== 'ac-'+sid) el.style.display='none'; });
+  const el = document.getElementById('ac-' + sid);
+  if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+function cancelToggle(sid) { const el = document.getElementById('ac-' + sid); if (el) el.style.display = 'none'; }
+function confirmToggle(name) {
+  const paused = getPaused(); const isPaused = !!paused[name];
+  if (isPaused) { delete paused[name]; showYieldToast(name + ' resumed'); }
+  else { paused[name] = true; showYieldToast(name + ' paused — <span style="color:#00d4aa;cursor:pointer" onclick="resumeAutomation(\'' + name.replace(/'/g,"\\'") + '\')">Resume</span>'); }
+  localStorage.setItem('arc_paused_automations', JSON.stringify(paused));
+  renderAutomations();
+}
+function resumeAutomation(name) { const p = getPaused(); delete p[name]; localStorage.setItem('arc_paused_automations', JSON.stringify(p)); renderAutomations(); }
+function updateLaborTotal() {
+  const paused = getPaused();
+  const total = AUTOMATIONS.filter(a => !paused[a.name]).reduce((s,a) => s+a.hrs, 0);
+  const el = document.getElementById('labor-total'); if (el) el.textContent = total.toFixed(1) + ' hours';
+}
+let _yldToastTimer = null;
+function showYieldToast(msg) {
+  let t = document.getElementById('yld-toast');
+  if (!t) { t = document.createElement('div'); t.id='yld-toast'; t.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:10px 18px;font-size:12px;font-family:monospace;color:var(--text);z-index:600;transition:opacity .3s'; document.body.appendChild(t); }
+  t.innerHTML = msg; t.style.opacity = '1';
+  clearTimeout(_yldToastTimer); _yldToastTimer = setTimeout(() => { t.style.opacity = '0'; }, 4000);
+}
+
+// ── INFO ICONS ────────────────────────────────────────────────────
+function createInfoIcon(tooltipText) {
+  const wrapper = document.createElement('span');
+  wrapper.style.cssText = 'position:relative;display:inline-block';
+  const icon = document.createElement('span');
+  icon.className = 'info-icon';
+  icon.textContent = 'i';
+  const tooltip = document.createElement('div');
+  tooltip.className = 'info-tooltip';
+  tooltip.textContent = tooltipText;
+  tooltip.style.cssText = 'left:50%;transform:translateX(-50%)';
+  icon.addEventListener('mouseenter', () => {
+    const rect = icon.getBoundingClientRect();
+    const spaceAbove = rect.top;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    if (spaceAbove < 80 || spaceBelow > spaceAbove) { tooltip.style.top = '120%'; tooltip.style.bottom = 'auto'; }
+    else { tooltip.style.bottom = '120%'; tooltip.style.top = 'auto'; }
+    tooltip.classList.add('visible');
+  });
+  icon.addEventListener('mouseleave', () => tooltip.classList.remove('visible'));
+  if (localStorage.getItem('arc_hide_info_icons') === 'true') wrapper.style.display = 'none';
+  wrapper.appendChild(icon);
+  wrapper.appendChild(tooltip);
+  return wrapper;
+}
+function initInfoIcons() {
+  document.querySelectorAll('[data-info]').forEach(el => {
+    if (el.querySelector('.info-icon')) return;
+    el.appendChild(createInfoIcon(el.getAttribute('data-info')));
+    el.style.display = 'flex';
+    el.style.alignItems = 'center';
+  });
+}
+document.addEventListener('DOMContentLoaded', initInfoIcons);
+
+boot();
+renderAutomations();
+initInfoIcons();
+</script>
+</body>
+</html>

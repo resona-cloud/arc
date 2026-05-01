@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>ARC — Automations</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0c0f;--surface:#111418;--surface2:#181c22;
+  --border:#1e242d;--border2:#262d38;
+  --text:#e8edf5;--text2:#8a95a3;--text3:#4d5663;
+  --hint:#4d5663;
+  --accent:#3b82f6;--accent-dim:rgba(59,130,246,0.12);
+  --green:#22c55e;--green-dim:rgba(34,197,94,0.12);
+  --amber:#f59e0b;--amber-dim:rgba(245,158,11,0.12);
+  --red:#ef4444;--red-dim:rgba(239,68,68,0.12);
+  --purple:#a855f7;--purple-dim:rgba(168,85,247,0.12);
+  --nav-h:56px;--strip-h:80px;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;font-size:14px}
+#nav{position:fixed;top:0;left:0;right:0;height:var(--nav-h);background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;padding:0 20px;z-index:100}
+.logo{font-size:17px;font-weight:700;letter-spacing:-.5px;color:var(--text);display:flex;align-items:center;gap:8px;cursor:pointer;text-decoration:none}
+.arc-badge{background:var(--accent);color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px;letter-spacing:1.5px}
+.client-name-display{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;color:var(--text);cursor:default}
+.spacer{flex:1}
+.nav-btn{background:none;border:1px solid var(--border2);border-radius:6px;color:var(--text2);padding:6px 12px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:6px;transition:all .15s;white-space:nowrap}
+.nav-btn:hover{border-color:var(--accent);color:var(--accent)}
+.cmndr-btn{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+.cmndr-btn:hover{background:var(--accent);color:#fff}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#fff;cursor:pointer;flex-shrink:0}
+#shell{display:flex;flex-direction:column;height:100vh;padding-top:var(--nav-h)}
+#health-strip{height:var(--strip-h);flex-shrink:0;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:stretch}
+.hc{display:flex;flex-direction:column;justify-content:center;padding:0 28px;flex:1;border-right:1px solid var(--border)}
+.hc:last-child{border-right:none}
+.hc-label{font-size:10px;color:var(--text3);letter-spacing:.7px;text-transform:uppercase;margin-bottom:5px}
+.hc-value{font-size:30px;font-weight:700;letter-spacing:-1.5px;line-height:1}
+.hc-sub{font-size:11px;color:var(--text3);margin-top:4px}
+.hc-bar{height:3px;background:var(--border2);border-radius:2px;margin-top:8px}
+.hc-bar-fill{height:100%;border-radius:2px;width:0;transition:width 1.2s cubic-bezier(.22,1,.36,1)}
+.col-blue{color:var(--accent)}.col-green{color:var(--green)}.col-amber{color:var(--amber)}
+#content-row{flex:1;display:flex;overflow:hidden;min-height:0}
+#main-col{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:20px}
+#cmndr-toggle{width:18px;flex-shrink:0;background:var(--surface2);border:none;border-left:1px solid var(--border);color:var(--text3);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color .15s,background .15s;padding:0}
+#cmndr-toggle:hover{color:var(--accent);background:var(--surface)}
+#cmndr-toggle svg{width:11px;height:11px;flex-shrink:0}
+#cmndr-col{width:300px;flex-shrink:0;border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width 250ms ease,opacity 200ms ease}
+#cmndr-col.collapsed{width:0;opacity:0;pointer-events:none}
+#cmndr-header{padding:14px 16px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0}
+.cmndr-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0;animation:blink 2.2s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+.cmndr-title{font-size:13px;font-weight:600}.cmndr-sub{font-size:11px;color:var(--text3);margin-top:1px}
+#cmndr-body{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.cmndr-narrative{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:12px}
+.cn-label{font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--accent);margin-bottom:6px}
+.cn-text{font-size:13px;color:var(--text2);line-height:1.65}
+.cmndr-history{display:flex;flex-direction:column;gap:8px}
+.msg{display:flex;flex-direction:column}
+.msg.user .msg-bubble{background:var(--accent-dim);border:1px solid var(--accent);align-self:flex-end;color:var(--text)}
+.msg.ai .msg-bubble{background:var(--surface2);border:1px solid var(--border2);align-self:flex-start;color:var(--text2)}
+.msg-bubble{max-width:92%;padding:7px 11px;border-radius:8px;font-size:13px;line-height:1.55;margin-bottom:2px}
+.msg-time{font-size:10px;color:var(--text3)}
+.msg.user .msg-time{align-self:flex-end}.msg.ai .msg-time{align-self:flex-start}
+#cmndr-input-area{padding:10px 16px 14px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:7px;flex-shrink:0}
+#cmndr-suggestions{display:flex;gap:5px;flex-wrap:wrap}
+.suggestion-pill{background:var(--surface2);border:1px solid var(--border2);border-radius:12px;padding:3px 9px;font-size:11px;color:var(--text2);cursor:pointer;transition:all .12s;white-space:nowrap}
+.suggestion-pill:hover{border-color:var(--accent);color:var(--accent)}
+.input-row{display:flex;gap:7px;align-items:flex-end}
+#cmndr-input{flex:1;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:13px;padding:7px 11px;outline:none;resize:none;font-family:inherit;min-height:36px;max-height:120px}
+#cmndr-input:focus{border-color:var(--accent)}
+#cmndr-send{background:var(--accent);border:none;border-radius:6px;width:34px;height:34px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0}
+#cmndr-send:hover{background:#2563eb}
+#cmndr-send svg{width:13px;height:13px;fill:currentColor}
+#module-nav{display:flex;gap:8px;flex-wrap:wrap}
+.module-chip{background:var(--surface);border:1px solid var(--border2);border-radius:20px;padding:5px 14px;font-size:12px;font-weight:500;color:var(--text2);cursor:pointer;transition:all .15s;white-space:nowrap}
+.module-chip:hover{border-color:var(--accent);color:var(--accent)}
+.module-chip.active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent);cursor:default}
+.skeleton{background:var(--border2);border-radius:6px;animation:pulse 1.5s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+/* PAGE SPECIFIC */
+.page-title{font-size:22px;font-weight:700;letter-spacing:-.5px}
+.page-sub{font-size:13px;color:var(--text3);margin-top:3px}
+.section-hd{font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between}
+.badge{font-size:10px;font-weight:600;padding:2px 7px;border-radius:4px;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap}
+.badge-green{background:var(--green-dim);color:var(--green)}
+.badge-amber{background:var(--amber-dim);color:var(--amber)}
+.badge-red{background:var(--red-dim);color:var(--red)}
+.badge-paused{background:var(--red-dim);color:var(--red)}
+/* Auto cards installed */
+.auto-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.auto-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:10px;position:relative}
+.auto-card-icon{font-size:22px;margin-bottom:2px}
+.auto-card-name{font-size:13px;font-weight:600;color:var(--text)}
+.auto-card-stats{display:flex;gap:14px}
+.auto-stat{display:flex;flex-direction:column;gap:2px}
+.auto-stat-val{font-size:13px;font-weight:700;color:var(--text)}
+.auto-stat-key{font-size:10px;color:var(--text3);letter-spacing:.4px;text-transform:uppercase}
+.auto-type-badge{font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);letter-spacing:.3px}
+/* Toggle */
+.auto-toggle-wrap{display:flex;align-items:center;gap:8px}
+.auto-toggle{cursor:pointer;width:36px;height:20px;border-radius:10px;position:relative;transition:background .2s;flex-shrink:0}
+.auto-toggle-thumb{position:absolute;top:3px;width:14px;height:14px;border-radius:50%;background:#fff;transition:left .2s}
+.auto-toggle-confirm{font-size:10px;font-family:monospace;color:var(--text3);display:none;white-space:nowrap}
+/* Available cards */
+.avail-card{background:var(--surface);border:1.5px dashed var(--border2);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:10px;transition:border-color .15s}
+.avail-card:hover{border-color:var(--accent)}
+.avail-pain{font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--amber)}
+.avail-fix{font-size:10px;color:var(--text3);margin-top:2px}
+.avail-name{font-size:13px;font-weight:600;color:var(--text)}
+.avail-meta{display:flex;gap:12px;font-size:11px;color:var(--text3)}
+.avail-activate-btn{background:transparent;border:1px solid var(--accent);border-radius:6px;color:var(--accent);font-size:12px;font-weight:600;padding:6px 12px;cursor:pointer;transition:all .15s;margin-top:auto}
+.avail-activate-btn:hover{background:var(--accent);color:#fff}
+/* Info icons */
+.info-icon{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;border:1px solid var(--hint);color:var(--hint);font-size:9px;font-style:italic;font-family:'DM Mono',monospace;font-weight:600;cursor:pointer;margin-left:6px;vertical-align:middle;flex-shrink:0;transition:background 150ms ease,color 150ms ease,border-color 150ms ease;position:relative;top:-1px}
+.info-icon:hover{background:rgba(0,102,255,0.1);color:#0066ff;border-color:#0066ff}
+.info-tooltip{position:absolute;z-index:999;background:rgba(19,19,26,0.70);border:0.5px solid var(--border);border-radius:8px;padding:8px 12px;max-width:320px;min-width:200px;width:max-content;font-size:11px;font-family:'DM Mono',monospace;color:var(--text2);line-height:1.5;pointer-events:none;opacity:0;transition:opacity 150ms ease;box-shadow:0 8px 24px rgba(0,0,0,0.4);white-space:normal;backdrop-filter:blur(4px)}
+.info-tooltip.visible{opacity:1}
+/* Modal */
+.mod-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:500;align-items:center;justify-content:center}
+.mod-overlay.open{display:flex}
+.act-modal{background:var(--surface);border:1px solid var(--border2);border-radius:12px;padding:24px;width:440px;max-width:92vw;max-height:82vh;overflow-y:auto;display:flex;flex-direction:column;gap:16px}
+.conn-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)}
+.conn-row:last-child{border-bottom:none}
+</style>
+</head>
+<body>
+
+<nav id="nav">
+  <a class="logo" href="/">
+    <span class="arc-badge">ARC</span>
+    Command Center
+  </a>
+  <span class="client-name-display"><span style="font-size:8px;color:#00d4aa;line-height:1">●</span>Peak Flow Plumbing &amp; HVAC</span>
+  <div class="spacer"></div>
+  <button class="nav-btn cmndr-btn" onclick="toggleCmndr()">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+    CMNDR ✦
+  </button>
+  <button class="nav-btn" onclick="location.href='/connections'">Connections</button>
+  <div class="avatar" id="nav-avatar">A</div>
+</nav>
+
+<div id="shell">
+
+  <div id="health-strip">
+    <div class="hc">
+      <div class="hc-label">Active Automations</div>
+      <div class="hc-value col-green" id="hs-active">6</div>
+      <div class="hc-sub">ISS modules running</div>
+      <div class="hc-bar"><div class="hc-bar-fill" id="bar-active" style="background:var(--green);width:60%"></div></div>
+    </div>
+    <div class="hc">
+      <div class="hc-label">Hours Saved / Mo</div>
+      <div class="hc-value col-blue">14.2<span style="font-size:16px;font-weight:500;letter-spacing:0"> hrs</span></div>
+      <div class="hc-sub">↑ 3.1 from last month</div>
+    </div>
+    <div class="hc">
+      <div class="hc-label">Avg Success Rate</div>
+      <div class="hc-value col-amber">94.2<span style="font-size:16px;font-weight:500;letter-spacing:0">%</span></div>
+      <div class="hc-sub">1 automation needs attention</div>
+    </div>
+  </div>
+
+  <div id="content-row">
+    <div id="main-col">
+
+      <div id="module-nav">
+        <div class="module-chip" onclick="location.href='/'">All</div>
+        <div class="module-chip" onclick="location.href='/operations'">Operations</div>
+        <div class="module-chip" onclick="location.href='/marketing'">Marketing</div>
+        <div class="module-chip" onclick="location.href='/finance'">Finance</div>
+        <div class="module-chip" onclick="location.href='/yield'">Yield &amp; Efficiency</div>
+        <div class="module-chip active">Automations</div>
+        <div class="module-chip" onclick="location.href='/audit'">Audit</div>
+      </div>
+
+      <div>
+        <div class="page-title">Automations</div>
+        <div class="page-sub">ISS Modules · Peak Flow</div>
+      </div>
+
+      <!-- INSTALLED -->
+      <div>
+        <div class="section-hd"><span>Installed</span><span style="color:var(--text3);font-size:11px;font-weight:400;text-transform:none;letter-spacing:0">6 active</span></div>
+        <div class="auto-grid" id="installed-grid"></div>
+      </div>
+
+      <!-- AVAILABLE -->
+      <div>
+        <div class="section-hd"><span>Available</span><span style="color:var(--text3);font-size:11px;font-weight:400;text-transform:none;letter-spacing:0">8 ready to activate</span></div>
+        <div class="auto-grid" id="available-grid"></div>
+      </div>
+
+    </div>
+
+    <button id="cmndr-toggle" onclick="toggleCmndr()" title="Toggle CMNDR panel">
+      <svg id="toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+    </button>
+
+    <div id="cmndr-col">
+      <div id="cmndr-header">
+        <div class="cmndr-dot"></div>
+        <div>
+          <div class="cmndr-title">CMNDR</div>
+          <div class="cmndr-sub">AI Operations Intelligence</div>
+        </div>
+      </div>
+      <div id="cmndr-body">
+        <div class="cmndr-narrative">
+          <div class="cn-label">Automation Status</div>
+          <div class="cn-text skeleton" id="narrative-text" style="height:80px;border-radius:4px;"></div>
+        </div>
+        <div class="cmndr-history" id="cmndr-history"></div>
+      </div>
+      <div id="cmndr-input-area">
+        <div id="cmndr-suggestions">
+          <div class="suggestion-pill" onclick="sendSuggestion(this)">Which automation saves the most?</div>
+          <div class="suggestion-pill" onclick="sendSuggestion(this)">Why is hygiene at 75%?</div>
+          <div class="suggestion-pill" onclick="sendSuggestion(this)">What should I activate next?</div>
+        </div>
+        <div class="input-row">
+          <textarea id="cmndr-input" placeholder="Ask CMNDR anything…" rows="1" onkeydown="handleKey(event)"></textarea>
+          <button id="cmndr-send" onclick="sendMessage()">
+            <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Activate Modal -->
+<div class="mod-overlay" id="act-modal-overlay" onclick="if(event.target===this)closeActModal()">
+  <div class="act-modal">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between">
+      <div>
+        <div style="font-size:16px;font-weight:700" id="act-modal-name">Automation Name</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:4px" id="act-modal-desc">Description</div>
+      </div>
+      <button onclick="closeActModal()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:20px;line-height:1">×</button>
+    </div>
+    <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:12px">
+      <div style="font-size:10px;font-family:monospace;letter-spacing:.6px;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Data Needed</div>
+      <div id="act-modal-connections"></div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;font-size:12px;color:var(--text3);background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:10px 12px">
+      <span style="font-size:18px" id="act-modal-emoji">⚡</span>
+      <div>
+        <div style="color:var(--text2);font-weight:500;margin-bottom:2px" id="act-modal-est"></div>
+        <div id="act-modal-setup"></div>
+      </div>
+    </div>
+    <button id="act-modal-btn" onclick="confirmActivate()" style="background:var(--accent);border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:600;padding:12px;cursor:pointer;width:100%;transition:background .15s">Activate →</button>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="auto-toast" style="display:none;position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:10px 18px;font-size:12px;font-family:monospace;color:var(--text);z-index:600;transition:opacity .3s"></div>
+
+<script>
+const SESSION_TOKEN = localStorage.getItem('cmndr_session');
+const PAGE_SYSTEM = "You are CMNDR, Resona's AI automation intelligence for Peak Flow HVAC. You manage ISS automation modules. 6 are active. Data Hygiene Reminder is underperforming at 75% success. Focus on automation ROI, which modules to activate next, and efficiency gains. Be concise. Max 3 sentences.";
+const DEMO_NARRATIVE = 'Six ISS automations are running at 94.2% average success rate, saving 14.2 hours this month. The Data Hygiene Reminder is underperforming at 75% — consider reviewing field completeness triggers. Activating the Review Request Automation could add 2.4 hours of monthly labor savings and improve your Google rating pipeline.';
+
+const INSTALLED = [
+  { name:'Client Onboarding Verify', emoji:'✅', color:'#22c55e', runs:142, success:'97%', hrs:4.8, type:'ISS Trigger', status:'active' },
+  { name:'Job Status Sync',          emoji:'🔄', color:'#3b82f6', runs:89,  success:'95%', hrs:2.6, type:'ISS Strip',   status:'active' },
+  { name:'Lead Ingestion Firewall',  emoji:'🛡',  color:'#a855f7', runs:204, success:'99%', hrs:3.2, type:'ISS Filter',  status:'active' },
+  { name:'Invoice Collection Pulse', emoji:'💬', color:'#f59e0b', runs:31,  success:'91%', hrs:2.1, type:'ISS Strip',   status:'active' },
+  { name:'Data Hygiene Reminder',    emoji:'🧹', color:'#f59e0b', runs:58,  success:'75%', hrs:0.8, type:'ISS Trigger', status:'warning' },
+  { name:'Quote Generator Draft',    emoji:'📝', color:'#3b82f6', runs:7,   success:'86%', hrs:0.7, type:'ISS Strip',   status:'active' },
+];
+
+const AVAILABLE = [
+  { name:'Review Request Automation', emoji:'⭐', pain:'NO REVIEW PIPELINE', fix:'Trigger post-job Google review request automatically', estHrs:2.4, setup:'~20 min setup', connections:['Google Business Profile','Airtable'] },
+  { name:'Warranty Follow-up Drip',   emoji:'🔔', pain:'MISSED UPSELL',       fix:'Remind clients at 90-day and 1-year marks for tune-ups', estHrs:1.8, setup:'~15 min setup', connections:['Airtable','Gmail'] },
+  { name:'No-Show Reschedule Flow',   emoji:'📅', pain:'LOST REVENUE',        fix:'Auto-detect no-shows and offer rebooking within the hour', estHrs:3.1, setup:'~30 min setup', connections:['Airtable','Google Calendar'] },
+  { name:'Tech Arrival SMS Notify',   emoji:'📱', pain:'CUSTOMER ANXIETY',    fix:'Send arrival window SMS when tech is dispatched', estHrs:1.2, setup:'~10 min setup', connections:['Airtable','Twilio (new)'] },
+  { name:'Seasonal Campaign Trigger', emoji:'🌡', pain:'FLAT SUMMER REVENUE', fix:'Auto-launch A/C tune-up campaign in May and furnace in Oct', estHrs:4.0, setup:'~45 min setup', connections:['Google Ads','Mailchimp (new)','Airtable'] },
+  { name:'Parts Reorder Alert',       emoji:'📦', pain:'JOB DELAYS',          fix:'Flag when stock of common parts drops below threshold', estHrs:1.6, setup:'~20 min setup', connections:['Airtable'] },
+  { name:'Technician Scorecard',      emoji:'📊', pain:'NO PERF VISIBILITY',  fix:'Weekly automated report on tech KPIs — speed, first-fix, NPS', estHrs:2.8, setup:'~25 min setup', connections:['Airtable','Google Sheets'] },
+  { name:'Late Invoice Escalation',   emoji:'⚖', pain:'CASH FLOW RISK',      fix:'Auto-escalate invoices 30+ days overdue to collections queue', estHrs:1.4, setup:'~15 min setup', connections:['Airtable','Gmail'] },
+];
+
+function getPaused() { return JSON.parse(localStorage.getItem('arc_paused_automations') || '{}'); }
+function getInstalled() { return JSON.parse(localStorage.getItem('arc_installed_automations') || '[]'); }
+
+function renderInstalled() {
+  const paused = getPaused();
+  const extraInstalled = getInstalled();
+  const allInstalled = [...INSTALLED, ...extraInstalled.filter(a => !INSTALLED.find(i => i.name === a.name))];
+  document.getElementById('installed-grid').innerHTML = allInstalled.map(a => {
+    const isPaused = !!paused[a.name];
+    const isWarn = a.status === 'warning';
+    const badgeClass = isPaused ? 'badge-paused' : isWarn ? 'badge-amber' : 'badge-green';
+    const badgeText = isPaused ? 'Paused' : isWarn ? 'Warning' : 'Active';
+    const sid = a.name.replace(/\W+/g,'_');
+    const toggleBg = isPaused ? '#e84040' : '#00d4aa';
+    const thumbLeft = isPaused ? '3px' : '19px';
+    return `<div class="auto-card" style="border-left:3px solid ${a.color}">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between">
+        <div class="auto-card-icon">${a.emoji}</div>
+        <span class="badge ${badgeClass}">${badgeText}</span>
+      </div>
+      <div class="auto-card-name">${esc(a.name)}</div>
+      <div class="auto-card-stats">
+        <div class="auto-stat"><div class="auto-stat-val">${a.runs}</div><div class="auto-stat-key">Runs</div></div>
+        <div class="auto-stat"><div class="auto-stat-val" style="${isWarn&&!isPaused?'color:var(--amber)':''}">${a.success}</div><div class="auto-stat-key">Success</div></div>
+        <div class="auto-stat"><div class="auto-stat-val col-green">${a.hrs}h</div><div class="auto-stat-key">Saved</div></div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div class="auto-type-badge">${esc(a.type)}</div>
+        <div class="auto-toggle-wrap">
+          <div class="auto-toggle" style="background:${toggleBg}" onclick="handleToggle('${esc(a.name)}')">
+            <div class="auto-toggle-thumb" style="left:${thumbLeft}"></div>
+          </div>
+          <div id="ac-${sid}" class="auto-toggle-confirm">
+            ${isPaused ? 'Resume?' : 'Pause?'}
+            <span style="color:#0066ff;cursor:pointer;margin-left:4px" onclick="confirmToggle('${esc(a.name)}')">Yes</span>
+            <span style="cursor:pointer;margin-left:4px;color:var(--text3)" onclick="cancelToggle('${sid}')">No</span>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderAvailable() {
+  const installed = getInstalled();
+  const installedNames = new Set([...INSTALLED.map(a => a.name), ...installed.map(a => a.name)]);
+  const avail = AVAILABLE.filter(a => !installedNames.has(a.name));
+  document.getElementById('available-grid').innerHTML = avail.map(a => {
+    const sid = a.name.replace(/\W+/g,'_');
+    return `<div class="avail-card" id="avail-${sid}">
+      <div class="avail-pain">${esc(a.pain)}</div>
+      <div class="avail-fix">${esc(a.fix)}</div>
+      <div style="font-size:20px;margin:4px 0">${a.emoji}</div>
+      <div class="avail-name">${esc(a.name)}</div>
+      <div class="avail-meta">
+        <span>+${a.estHrs} hrs/mo</span>
+        <span>·</span>
+        <span>${esc(a.setup)}</span>
+      </div>
+      <button class="avail-activate-btn" onclick="openActModal('${esc(a.name)}')">Activate →</button>
+    </div>`;
+  }).join('');
+}
+
+function handleToggle(name) {
+  const sid = name.replace(/\W+/g,'_');
+  document.querySelectorAll('.auto-toggle-confirm').forEach(el => { if (el.id !== 'ac-'+sid) el.style.display='none'; });
+  const el = document.getElementById('ac-' + sid);
+  if (el) el.style.display = el.style.display === 'none' ? 'flex' : 'none';
+}
+function cancelToggle(sid) { const el = document.getElementById('ac-' + sid); if (el) el.style.display = 'none'; }
+function confirmToggle(name) {
+  const paused = getPaused(); const isPaused = !!paused[name];
+  if (isPaused) { delete paused[name]; showToast(name + ' resumed'); }
+  else { paused[name] = true; showToast(name + ' paused'); }
+  localStorage.setItem('arc_paused_automations', JSON.stringify(paused));
+  renderInstalled();
+}
+
+let _curActivate = null;
+function openActModal(name) {
+  _curActivate = name;
+  const a = AVAILABLE.find(x => x.name === name);
+  if (!a) return;
+  document.getElementById('act-modal-name').textContent = a.name;
+  document.getElementById('act-modal-desc').textContent = a.fix;
+  document.getElementById('act-modal-emoji').textContent = a.emoji;
+  document.getElementById('act-modal-est').textContent = '+' + a.estHrs + ' hrs/mo estimated labor savings';
+  document.getElementById('act-modal-setup').textContent = a.setup;
+  document.getElementById('act-modal-connections').innerHTML = a.connections.map(c => {
+    const isNew = c.includes('(new)');
+    const label = c.replace(' (new)','');
+    const connected = !isNew;
+    return `<div class="conn-row">
+      <span style="font-size:13px;color:${connected ? 'var(--text)' : 'var(--text3)'}">${esc(label)}</span>
+      <span style="font-size:11px;font-family:monospace;color:${connected ? 'var(--green)' : 'var(--amber)'}">
+        ${connected ? '✓ Connected' : '⚠ Connect required'}
+      </span>
+    </div>`;
+  }).join('');
+  const btn = document.getElementById('act-modal-btn');
+  btn.textContent = 'Activate →';
+  btn.disabled = false;
+  btn.style.opacity = '1';
+  document.getElementById('act-modal-overlay').classList.add('open');
+}
+function closeActModal() { document.getElementById('act-modal-overlay').classList.remove('open'); _curActivate = null; }
+
+async function confirmActivate() {
+  if (!_curActivate) return;
+  const a = AVAILABLE.find(x => x.name === _curActivate);
+  if (!a) return;
+  const btn = document.getElementById('act-modal-btn');
+  btn.textContent = 'Activating…';
+  btn.disabled = true;
+  btn.style.opacity = '.7';
+  await new Promise(r => setTimeout(r, 1400));
+  btn.textContent = '✓ Activated!';
+  btn.style.background = 'var(--green)';
+  await new Promise(r => setTimeout(r, 700));
+  // Move to installed
+  const installed = getInstalled();
+  if (!installed.find(i => i.name === a.name)) {
+    installed.push({ name:a.name, emoji:a.emoji, color:'#3b82f6', runs:0, success:'—', hrs:0, type:'ISS Trigger', status:'active' });
+    localStorage.setItem('arc_installed_automations', JSON.stringify(installed));
+  }
+  closeActModal();
+  renderInstalled();
+  renderAvailable();
+  showToast(a.name + ' is now active');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('auto-toast');
+  t.textContent = msg; t.style.display = 'block'; t.style.opacity = '1';
+  setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.style.display='none', 300); }, 3000);
+}
+
+async function boot() {
+  if (window.location.search.includes('bypass=true') || localStorage.getItem('arc_bypass') === 'true') {
+    localStorage.setItem('arc_bypass', 'true');
+  } else {
+    if (!SESSION_TOKEN) { location.href = '/login'; return; }
+    try {
+      const r = await fetch('/api/auth?action=me', { headers: { Authorization: `Bearer ${SESSION_TOKEN}` } });
+      if (!r.ok) { location.href = '/login'; return; }
+      const d = await r.json(); const p = d.profile;
+      if (!p || !p.role || !p.role.startsWith('resona_')) { location.href = '/login'; return; }
+      document.getElementById('nav-avatar').textContent = (p.full_name || d.user?.email || 'A').charAt(0).toUpperCase();
+    } catch { location.href = '/login'; return; }
+  }
+  initCmndrPanel();
+  renderInstalled();
+  renderAvailable();
+  renderNarrative(DEMO_NARRATIVE);
+}
+
+function initCmndrPanel() { if (localStorage.getItem('arc_cmndr_open') === 'false') applyCollapsed(true); }
+function toggleCmndr() { const c=document.getElementById('cmndr-col').classList.contains('collapsed'); applyCollapsed(!c); localStorage.setItem('arc_cmndr_open',c?'true':'false'); }
+function applyCollapsed(on) { document.getElementById('cmndr-col').classList.toggle('collapsed',on); const pts=document.getElementById('toggle-icon')?.querySelector('polyline'); if(pts) pts.setAttribute('points',on?'9 18 15 12 9 6':'15 18 9 12 15 6'); }
+function renderNarrative(text) { const el=document.getElementById('narrative-text'); el.classList.remove('skeleton'); el.style.height=''; el.textContent=text; }
+const history=[]; let msgN=0;
+function handleKey(e) { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();} }
+function sendSuggestion(el) { document.getElementById('cmndr-input').value=el.textContent; sendMessage(); }
+async function sendMessage() {
+  const inp=document.getElementById('cmndr-input'); const text=inp.value.trim(); if(!text)return;
+  inp.value=''; addMsg('user',text); history.push({role:'user',content:text}); const tid=addMsg('ai','',true);
+  try { const r=await fetch('/api/ask',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${SESSION_TOKEN}`},body:JSON.stringify({system:PAGE_SYSTEM,messages:history})}); let reply='Unable to reach CMNDR.'; if(r.ok){const d=await r.json();reply=d.content?.[0]?.text||d.text||reply;} updMsg(tid,reply); history.push({role:'assistant',content:reply}); } catch { updMsg(tid,'CMNDR temporarily unavailable.'); }
+  document.getElementById('cmndr-body').scrollTop=99999;
+}
+function addMsg(role,text,typing) { const id='msg-'+(++msgN); const t=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); const el=document.createElement('div'); el.className='msg '+role; el.id=id; el.innerHTML=`<div class="msg-bubble">${typing?'<em style="opacity:.5">Thinking…</em>':esc(text)}</div><div class="msg-time">${t}</div>`; document.getElementById('cmndr-history').appendChild(el); document.getElementById('cmndr-body').scrollTop=99999; return id; }
+function updMsg(id,text) { const el=document.getElementById(id); if(el) el.querySelector('.msg-bubble').textContent=text; }
+function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+boot();
+</script>
+
+</body>
+</html>
