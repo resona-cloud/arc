@@ -129,27 +129,35 @@
     <div class="error" id="err"></div>
   </form>
 </div>
-<script>
-  // Redirect if already signed in
-  (async () => {
-    const token = localStorage.getItem('cmndr_session');
-    if (!token) return;
-    try {
-      const r = await fetch('/api/auth?action=me', { headers: { Authorization: `Bearer ${token}` } });
-      if (r.ok) {
-        const { profile } = await r.json();
-        redirect(profile.role);
-      }
-    } catch (e) {}
-  })();
+<script type="module">
+  import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+  const SB_URL  = 'https://fklijhgqsjdlwvmwarwh.supabase.co';
+  const SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZrbGlqaGdxc2pkbHd2bXdhcndoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2OTk0OTgsImV4cCI6MjA5MTI3NTQ5OH0.qeWgD2elcfiQt3Kth6Q5J9Jt1z_O-p-Gc2QtpFZXybA';
+
+  const supabase = createClient(SB_URL, SB_ANON, { auth: { persistSession: true }, realtime: { enabled: false } });
 
   function redirect(role) {
-    if (role === 'resona_admin' || role === 'resona_user') {
+    if (role === 'admin') {
+      window.location.href = '/workbench';
+    } else if (role === 'resona_admin' || role === 'resona_advisor') {
       window.location.href = '/hub';
     } else {
-      window.location.href = '/app';
+      window.location.href = '/';
     }
   }
+
+  // Redirect if already signed in
+  (async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    const { data: userRow } = await supabase
+      .from('arc_users')
+      .select('role')
+      .eq('id', session.user.id)
+      .single();
+    if (userRow?.role) redirect(userRow.role);
+  })();
 
   document.getElementById('form').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -160,20 +168,24 @@
     btn.innerHTML = '<span class="spinner"></span>Signing in…';
 
     try {
-      const r = await fetch('/api/auth?action=login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: document.getElementById('email').value.trim(),
-          password: document.getElementById('password').value
-        })
-      });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error || 'Sign in failed');
+      const email    = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
 
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw new Error(error.message);
+
+      // Store token for backward-compat API calls
       localStorage.setItem('cmndr_session', data.session.access_token);
-      localStorage.setItem('cmndr_profile', JSON.stringify(data.profile));
-      redirect(data.profile.role);
+
+      const { data: userRow } = await supabase
+        .from('arc_users')
+        .select('role, client_id, business_name, full_name')
+        .eq('id', data.user.id)
+        .single();
+
+      if (!userRow) throw new Error('Account not found. Contact your administrator.');
+
+      redirect(userRow.role);
     } catch (e) {
       err.textContent = e.message;
       err.classList.add('visible');

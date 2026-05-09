@@ -932,7 +932,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       window.location.href = '/login.html';
       return;
     }
-    if (!profile.role || !profile.role.startsWith('resona_')) {
+    if (!profile.role || !['admin', 'resona_admin', 'resona_advisor'].includes(profile.role)) {
       window.location.href = '/login.html';
       return;
     }
