@@ -1,0 +1,3182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Peak Flow — CMNDR</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #ffffff; --bg2: #f5f5f3; --bg3: #efefec;
+      --text: #1a1a18; --text2: #6b6b67; --text3: #9c9a92;
+      --border: rgba(0,0,0,0.1); --border2: rgba(0,0,0,0.18);
+      --success: #1D9E75; --warning: #EF9F27; --danger: #E24B4A; --info: #378ADD;
+      --radius-md: 8px; --radius-lg: 12px;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1c1c1a; --bg2: #252523; --bg3: #2e2e2b;
+        --text: #e8e6de; --text2: #9c9a92; --text3: #6b6b67;
+        --border: rgba(255,255,255,0.1); --border2: rgba(255,255,255,0.18);
+      }
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg3); color: var(--text); min-height: 100vh; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 240px; min-height: 100vh; background: var(--bg);
+      border-right: 0.5px solid var(--border);
+      padding: 20px 16px 24px;
+      position: fixed; top: 0; left: 0; overflow-y: auto;
+      display: flex; flex-direction: column; z-index: 10;
+    }
+    .main { margin-left: 240px; margin-right: 280px; min-height: 100vh; transition: margin-right .15s; }
+    .main.no-panel { margin-right: 0; }
+
+    .logo { font-size: 12px; font-weight: 600; color: var(--text3); letter-spacing: .1em; text-transform: uppercase; margin-bottom: 24px; }
+    .logo em { font-style: normal; color: var(--text); }
+
+    .nav-lbl { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .08em; margin: 0 8px 6px; }
+
+    /* ── Nav Groups (accordion) ── */
+    .nav-group { margin-bottom: 2px; }
+    .nav-group-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 6px 10px; border-radius: var(--radius-md);
+      cursor: pointer; user-select: none;
+    }
+    .nav-group-header:hover { background: var(--bg2); }
+    .nav-group-lbl { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .08em; }
+    .nav-group-arrow { color: var(--text3); transition: transform .15s; flex-shrink: 0; }
+    .nav-group.collapsed .nav-group-arrow { transform: rotate(-90deg); }
+    .nav-group-items { overflow: hidden; transition: max-height .18s ease; }
+    .nav-group.collapsed .nav-group-items { max-height: 0 !important; }
+    .coming-soon-badge {
+      margin-left: auto; font-size: 9px; font-weight: 600; color: var(--text3);
+      background: var(--bg3); border-radius: 4px; padding: 1px 5px;
+      letter-spacing: .04em; text-transform: uppercase;
+    }
+
+    .nav-item {
+      display: flex; align-items: center; gap: 9px;
+      padding: 8px 10px; border-radius: var(--radius-md);
+      cursor: pointer; font-size: 13px; color: var(--text2);
+      margin-bottom: 1px; transition: background .1s, color .1s; user-select: none;
+    }
+    .nav-item:hover { background: var(--bg2); color: var(--text); }
+    .nav-item.active { background: var(--bg2); color: var(--text); font-weight: 500; }
+    .nav-icon { opacity: .65; flex-shrink: 0; }
+    .nav-item.active .nav-icon { opacity: 1; }
+
+    .sidebar-sep { height: 0.5px; background: var(--border); margin: 16px 0; }
+    .sidebar-lbl { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 8px; }
+
+    .range-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+    .range-btn { font-size: 12px; padding: 6px 8px; border-radius: var(--radius-md); border: 0.5px solid var(--border2); background: var(--bg2); color: var(--text2); cursor: pointer; text-align: center; transition: all .12s; }
+    .range-btn:hover { color: var(--text); }
+    .range-btn.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+
+    .sidebar-footer { margin-top: auto; padding-top: 20px; }
+    .client-chip { display: flex; align-items: center; gap: 9px; background: var(--bg2); border-radius: var(--radius-md); padding: 9px 10px; }
+    .chip-av { width: 28px; height: 28px; border-radius: 50%; background: var(--info); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; flex-shrink: 0; }
+    .chip-name { font-size: 12px; font-weight: 500; }
+    .chip-sub { font-size: 10px; color: var(--text2); margin-top: 1px; }
+    .signout-btn { display: none; width: 100%; margin-top: 8px; padding: 7px 10px; background: none; border: 1px solid var(--border); border-radius: var(--radius-md); color: var(--text3); font-size: 12px; cursor: pointer; text-align: left; transition: background .1s, color .1s; }
+    .signout-btn:hover { background: var(--bg2); color: var(--text); }
+
+    /* ── Pages ── */
+    .page { display: none; }
+    .page.active { display: block; }
+    .stub-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 80px 0; color: var(--text3); font-size: 13px; }
+
+    .page-inner { padding: 28px 32px 60px; max-width: 880px; margin: 0 auto; }
+    .page-head { margin-bottom: 22px; display: flex; justify-content: space-between; align-items: flex-end; }
+    .page-title { font-size: 19px; font-weight: 500; }
+    .page-meta { font-size: 12px; color: var(--text2); margin-top: 3px; }
+    .reload-btn { font-size: 11px; padding: 5px 12px; border-radius: var(--radius-md); border: 0.5px solid var(--border2); background: transparent; color: var(--text2); cursor: pointer; }
+    .reload-btn:hover { color: var(--text); }
+
+    /* ── Section label ── */
+    .sec-label { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .07em; margin: 22px 0 10px; }
+
+    /* ── KPI grid ── */
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+    .kpi { background: var(--bg); border-radius: var(--radius-md); padding: 13px 14px; border: 0.5px solid var(--border); }
+    .kpi-label { font-size: 11px; color: var(--text2); margin-bottom: 4px; }
+    .kpi-val { font-size: 21px; font-weight: 500; line-height: 1.1; }
+    .kpi-sub { font-size: 10px; color: var(--text3); margin-top: 3px; }
+
+    /* ── Card ── */
+    .card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 10px; }
+    .card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .card-title { font-size: 13px; font-weight: 500; }
+
+    /* ── Explain button + panel ── */
+    .explain-btn { font-size: 11px; padding: 4px 10px; border-radius: 6px; border: 0.5px solid #b5d4f4; background: transparent; color: var(--info); cursor: pointer; display: flex; align-items: center; gap: 5px; white-space: nowrap; transition: background .1s; flex-shrink: 0; }
+    .explain-btn:hover { background: #E6F1FB; }
+    .explain-panel { display: none; background: #f0f7ff; border: 0.5px solid #b5d4f4; border-radius: var(--radius-md); padding: 14px; margin-top: 14px; }
+    .explain-panel.open { display: block; }
+    .explain-lbl { font-size: 10px; font-weight: 600; color: var(--info); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 7px; }
+    .explain-txt { font-size: 13px; line-height: 1.7; }
+
+    /* ── Bar chart ── */
+    .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .bar-row:last-child { margin-bottom: 0; }
+    .bar-lbl { font-size: 11px; color: var(--text2); min-width: 84px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .bar-track { flex: 1; background: var(--bg2); border-radius: 4px; height: 14px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 4px; transition: width .7s ease; }
+    .bar-val { font-size: 11px; font-weight: 500; min-width: 60px; text-align: right; }
+
+    /* ── Table rows ── */
+    .trow { display: flex; justify-content: space-between; align-items: flex-start; padding: 9px 0; border-bottom: 0.5px solid var(--border); gap: 8px; }
+    .trow:last-child { border: none; padding-bottom: 0; }
+    .trow-main { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .trow-sub { font-size: 11px; color: var(--text2); margin-top: 2px; }
+    .trow-right { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+
+    /* ── Badges ── */
+    .badge { font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 500; white-space: nowrap; }
+    .b-done { background: #E1F5EE; color: #085041; }
+    .b-prog { background: #E6F1FB; color: #0C447C; }
+    .b-hi { background: #FAECE7; color: #712B13; }
+    .b-med { background: #FAEEDA; color: #633806; }
+    .b-lo { background: #f0f0ee; color: #6b6b67; border: 0.5px solid #e0e0de; }
+    .b-overdue { background: #FCEBEB; color: #791F1F; }
+    .b-paid { background: #E1F5EE; color: #085041; }
+    .b-sent { background: #E6F1FB; color: #0C447C; }
+
+    /* ── Tech rows ── */
+    .tech-row { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 0.5px solid var(--border); }
+    .tech-row:last-child { border: none; padding-bottom: 0; }
+    .tech-av { width: 30px; height: 30px; border-radius: 50%; background: #E6F1FB; color: #0C447C; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; flex-shrink: 0; }
+    .tech-name { font-size: 13px; font-weight: 500; }
+    .tech-meta { font-size: 11px; color: var(--text2); margin-top: 1px; }
+    .util-track { flex: 1; background: var(--bg2); border-radius: 4px; height: 4px; margin-top: 5px; }
+    .util-fill { height: 4px; border-radius: 4px; }
+    .util-pct { font-size: 12px; font-weight: 500; min-width: 36px; text-align: right; }
+
+    /* ── Alert rows ── */
+    .a-row { display: flex; gap: 10px; align-items: flex-start; padding: 9px 0; border-bottom: 0.5px solid var(--border); }
+    .a-row:last-child { border: none; padding-bottom: 0; }
+    .a-dot { width: 7px; height: 7px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
+    .d-critical { background: var(--danger); }
+    .d-warning { background: var(--warning); }
+    .d-info { background: var(--info); }
+
+    /* ── Recommended Actions panel ── */
+    .rec-panel { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 18px; }
+    .rec-head { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+    .rec-title { font-size: 13px; font-weight: 500; }
+    .rec-badge { font-size: 10px; padding: 2px 8px; border-radius: 10px; background: #E6F1FB; color: #0C447C; font-weight: 500; }
+    .rec-item { border-top: 0.5px solid var(--border); padding: 14px 0 4px; }
+    .rec-item-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 5px; }
+    .rec-item-title { font-size: 13px; font-weight: 500; flex: 1; }
+    .rec-item-desc { font-size: 12px; color: var(--text2); line-height: 1.55; margin-bottom: 10px; }
+    .rec-btns { display: flex; gap: 6px; }
+    .btn-approve { font-size: 11px; padding: 5px 14px; border-radius: 6px; border: none; background: var(--success); color: #fff; cursor: pointer; font-weight: 500; transition: opacity .12s; }
+    .btn-approve:hover { opacity: .85; }
+    .btn-defer { font-size: 11px; padding: 5px 14px; border-radius: 6px; border: 0.5px solid var(--border2); background: transparent; color: var(--text2); cursor: pointer; }
+    .btn-defer:hover { color: var(--text); }
+    .rec-status { font-size: 11px; font-weight: 500; }
+    .status-approved { color: var(--success); }
+    .status-deferred { color: var(--text3); }
+
+    /* ── Skeleton ── */
+    .skel { background: var(--bg2); border-radius: 4px; height: 13px; margin: 5px 0; animation: pulse 1.4s ease-in-out infinite; }
+    .empty { font-size: 13px; color: var(--text2); padding: 6px 0; }
+
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.45} }
+
+    /* ── Strategy Panel ── */
+    .strategy-panel {
+      width: 280px; position: fixed; top: 0; right: 0;
+      height: 100vh; overflow-y: auto;
+      background: var(--bg2); border-left: 0.5px solid var(--border);
+      padding: 20px 18px 40px; z-index: 10;
+      display: none;
+    }
+    .strategy-panel.visible { display: block; }
+
+    .sp-lbl { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 10px; }
+    .sp-course-name { font-size: 11px; color: var(--text3); margin-bottom: 5px; }
+    .sp-milestone { font-size: 15px; font-weight: 500; line-height: 1.35; color: var(--text); margin-bottom: 9px; }
+    .sp-status { display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 9px; border-radius: 10px; background: #FAEEDA; color: #633806; margin-bottom: 12px; }
+    .sp-prog-track { background: var(--bg3); border-radius: 4px; height: 5px; margin-bottom: 5px; overflow: hidden; }
+    .sp-prog-fill { height: 5px; border-radius: 4px; background: #EF9F27; transition: width .7s ease; }
+    .sp-prog-text { font-size: 11px; color: var(--text2); margin-bottom: 10px; }
+    .sp-next-lbl { font-size: 10px; color: var(--text3); margin-bottom: 2px; }
+    .sp-next-val { font-size: 12px; color: var(--text2); line-height: 1.4; }
+    .sp-sep { height: 0.5px; background: var(--border); margin: 16px 0; }
+    .sp-focus { font-size: 13px; line-height: 1.65; color: var(--text); }
+    .sp-notes { font-size: 12px; line-height: 1.7; color: var(--text2); }
+    .sp-notes p + p { margin-top: 10px; }
+    .sp-loading { display: flex; flex-direction: column; gap: 6px; }
+
+    /* Mobile top bar */
+    .mobile-topbar {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 48px;
+      background: var(--bg);
+      border-bottom: 0.5px solid var(--border);
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      z-index: 100;
+    }
+    .hamburger { background: none; border: none; cursor: pointer; padding: 8px; display: flex; flex-direction: column; gap: 5px; }
+    .hamburger span { width: 20px; height: 1.5px; background: var(--text); display: block; }
+    .mobile-drawer-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 150; }
+    .mobile-drawer-backdrop.open { display: block; }
+    .strategy-sheet-btn {
+      display: none;
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--text);
+      color: var(--bg);
+      border: none;
+      padding: 10px 24px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      z-index: 90;
+    }
+    .strategy-sheet {
+      display: none;
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 80vh;
+      background: var(--bg2);
+      border-radius: 16px 16px 0 0;
+      border-top: 0.5px solid var(--border);
+      z-index: 200;
+      overflow-y: auto;
+      padding: 20px;
+      transform: translateY(100%);
+      transition: transform 0.3s ease;
+    }
+    .strategy-sheet.open { transform: translateY(0); }
+    .strategy-sheet-handle { width: 36px; height: 4px; background: var(--border2); border-radius: 2px; margin: 0 auto 16px; }
+
+    /* Claude dots animation */
+    .claude-dots span { width:6px; height:6px; border-radius:50%; background:var(--text3); display:inline-block; animation: claudePulse 1.2s ease-in-out infinite; }
+    .claude-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .claude-dots span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes claudePulse { 0%,80%,100%{opacity:.2} 40%{opacity:1} }
+
+    @media (max-width: 768px) {
+      body { padding-top: 48px; }
+      .mobile-topbar { display: flex; }
+      .sidebar {
+        position: fixed;
+        top: 0; left: 0;
+        height: 100vh;
+        transform: translateX(-100%);
+        transition: transform 0.25s ease;
+        z-index: 160;
+        width: 240px;
+      }
+      .sidebar.open { transform: translateX(0); }
+      .main { margin-left: 0 !important; margin-right: 0 !important; padding: 16px; }
+      .right-panel { display: none !important; }
+      .right-sidebar { display: none !important; }
+      .strategy-sheet-btn { display: block; }
+      .strategy-sheet { display: block; }
+      .kpi-grid { grid-template-columns: repeat(2, 1fr) !important; }
+      .stats-row { grid-template-columns: 1fr 1fr !important; }
+      .col2 { grid-template-columns: 1fr !important; }
+      .kpi-val { font-size: 18px !important; }
+      .notif-bell-wrap { display: none !important; }
+      button, .btn, .action-btn, .range-btn { min-height: 44px; }
+      .tab-nav { display: flex; overflow-x: auto; gap: 6px; padding: 8px 0; border-bottom: 0.5px solid var(--border); margin-bottom: 16px; flex-wrap: nowrap; }
+      .tab-nav-item { white-space: nowrap; flex-shrink: 0; }
+    }
+
+    .toast { position: fixed; bottom: 24px; right: 24px; background: var(--text); color: var(--bg); font-size: 13px; padding: 10px 18px; border-radius: var(--radius-md); opacity: 0; transition: opacity .25s; pointer-events: none; z-index: 999; }
+    .toast.show { opacity: 1; }
+
+    /* ── Nav collapse ── */
+    .sidebar { transition: width .2s; overflow-x: hidden; }
+    .sidebar.collapsed { width: 56px; padding: 20px 10px 24px; }
+    .sidebar.collapsed .logo,
+    .sidebar.collapsed .nav-lbl,
+    .sidebar.collapsed .sidebar-sep,
+    .sidebar.collapsed .sidebar-lbl,
+    .sidebar.collapsed .range-grid,
+    .sidebar.collapsed .chip-name,
+    .sidebar.collapsed .chip-sub,
+    .sidebar.collapsed .signout-btn,
+    .sidebar.collapsed .nav-label { display: none; }
+    .sidebar.collapsed .nav-item { justify-content: center; padding: 8px; }
+    .sidebar.collapsed .client-chip { justify-content: center; padding: 8px; }
+    .nav-collapse-btn { display: flex; align-items: center; justify-content: flex-end; cursor: pointer; padding: 6px 0 0; color: var(--text3); background: none; border: none; width: 100%; margin-top: 10px; transition: color .12s; }
+    .nav-collapse-btn:hover { color: var(--text); }
+    .sidebar.collapsed .nav-collapse-btn { justify-content: center; }
+    .main { transition: margin-left .2s, margin-right .15s; }
+    .main.nav-collapsed { margin-left: 56px; }
+
+    /* ── Right sidebar ── */
+    .right-sidebar {
+      width: 280px; position: fixed; top: 0; right: 0;
+      height: 100vh; background: var(--bg); border-left: 0.5px solid var(--border);
+      display: flex; flex-direction: column; z-index: 10;
+      transition: width .2s; overflow-x: hidden; overflow-y: auto;
+    }
+    .right-sidebar.hidden-panel { display: none; }
+    .right-sidebar.collapsed { width: 48px; padding: 0; }
+    .right-sidebar.collapsed .rs-content { display: none; }
+    .rs-collapse-btn {
+      display: flex; align-items: center; justify-content: flex-start;
+      cursor: pointer; padding: 20px 16px 0; color: var(--text3);
+      background: none; border: none; width: 100%; transition: color .12s;
+      flex-shrink: 0;
+    }
+    .rs-collapse-btn:hover { color: var(--text); }
+    .right-sidebar.collapsed .rs-collapse-btn { justify-content: center; padding: 20px 0 0; }
+    .main.rs-collapsed { margin-right: 48px; }
+    .main { transition: margin-left .2s, margin-right .2s; }
+
+    /* Right sidebar accordion sections */
+    .rs-content { display: flex; flex-direction: column; flex: 1; overflow-y: auto; padding: 12px 0 40px; }
+    .rs-section { border-bottom: 0.5px solid var(--border); }
+    .rs-section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 16px; cursor: pointer; user-select: none;
+      transition: background .1s;
+    }
+    .rs-section-header:hover { background: var(--bg2); }
+    .rs-section-lbl { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .08em; }
+    .rs-section-icon { color: var(--text3); transition: transform .2s; flex-shrink: 0; }
+    .rs-section-header.open .rs-section-icon { transform: rotate(180deg); }
+    .rs-section-body { overflow: hidden; max-height: 0; transition: max-height .25s ease; }
+    .rs-section-body.open { max-height: 1000px; }
+    .rs-section-body-inner { padding: 12px 16px 14px; }
+
+    /* Overview specific: msg panel now in right sidebar */
+    .rs-msg-thread { max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 7px; margin-bottom: 10px; }
+    .rs-compose textarea { width: 100%; resize: none; font-size: 12px; padding: 7px 9px; border: 0.5px solid var(--border2); border-radius: var(--radius-md); background: var(--bg2); color: var(--text); outline: none; font-family: inherit; line-height: 1.4; }
+    .rs-compose textarea:focus { border-color: var(--info); }
+    .rs-compose button { width: 100%; margin-top: 5px; padding: 6px; border-radius: var(--radius-md); border: none; background: var(--info); color: #fff; font-size: 12px; font-weight: 500; cursor: pointer; }
+    .rs-compose button:hover { opacity: .85; }
+
+    /* ── CMNDR AI Chat ── */
+    .cmndr-thread { max-height: 240px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+    .cmndr-msg { display: flex; }
+    .cmndr-msg--user { justify-content: flex-end; }
+    .cmndr-msg--ai { justify-content: flex-start; }
+    .cmndr-bubble { font-size: 12px; line-height: 1.5; padding: 8px 10px; border-radius: var(--radius-md); max-width: 90%; }
+    .cmndr-msg--user .cmndr-bubble { background: var(--info); color: #fff; border-bottom-right-radius: 3px; }
+    .cmndr-msg--ai .cmndr-bubble { background: var(--bg2); color: var(--text); border-bottom-left-radius: 3px; }
+    .cmndr-bubble.loading { color: var(--text3); font-style: italic; }
+    .cmndr-compose { display: flex; gap: 6px; align-items: flex-end; }
+    .cmndr-compose textarea { flex: 1; resize: none; font-size: 12px; padding: 7px 9px; border: 0.5px solid var(--border2); border-radius: var(--radius-md); background: var(--bg2); color: var(--text); outline: none; font-family: inherit; line-height: 1.4; }
+    .cmndr-compose textarea:focus { border-color: var(--info); }
+    .cmndr-compose button { flex-shrink: 0; width: 30px; height: 30px; border-radius: var(--radius-md); border: none; background: var(--info); color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .cmndr-compose button:hover { opacity: .85; }
+    .cmndr-compose button:disabled { opacity: .4; cursor: default; }
+
+    /* ── Alert modal ── */
+    .alert-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 300; display: flex; align-items: center; justify-content: center; }
+    .alert-modal { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 24px; max-width: 440px; width: calc(100% - 32px); box-shadow: 0 12px 40px rgba(0,0,0,.15); }
+    .alert-modal-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; gap: 10px; }
+    .alert-modal-title { font-size: 15px; font-weight: 500; line-height: 1.3; flex: 1; }
+    .alert-modal-close { background: none; border: none; cursor: pointer; color: var(--text3); padding: 2px; font-size: 18px; flex-shrink: 0; line-height: 1; }
+    .alert-type-badge { font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; display: inline-block; margin-bottom: 12px; }
+    .alert-type-critical { background: #FCEBEB; color: #791F1F; }
+    .alert-type-warning { background: #FAEEDA; color: #633806; }
+    .alert-type-info { background: #E6F1FB; color: #0C447C; }
+    .alert-modal-msg { font-size: 14px; color: var(--text); line-height: 1.6; margin-bottom: 14px; }
+    .alert-power-box { background: rgba(55,138,221,0.06); border: 0.5px solid rgba(55,138,221,0.2); border-radius: var(--radius-md); padding: 12px 14px; margin-bottom: 18px; }
+    .alert-power-lbl { font-size: 10px; font-weight: 700; color: #378ADD; text-transform: uppercase; letter-spacing: .07em; text-shadow: 0 0 8px rgba(55,138,221,0.4); margin-bottom: 6px; }
+    .alert-power-text { font-size: 13px; color: var(--text); line-height: 1.6; }
+    .alert-modal-cta { width: 100%; padding: 10px; border-radius: var(--radius-md); background: var(--info); color: #fff; border: none; font-size: 13px; font-weight: 500; cursor: pointer; transition: opacity .15s; }
+    .alert-modal-cta:hover { opacity: .85; }
+    .alert-expand-btn { font-size: 11px; padding: 2px 8px; border-radius: 6px; border: 0.5px solid var(--border2); background: none; color: var(--text3); cursor: pointer; flex-shrink: 0; transition: color .1s; }
+    .alert-expand-btn:hover { color: var(--text); }
+
+    /* ── Power branding ── */
+    .power-lbl { font-size: 11px; font-weight: 700; color: #378ADD; text-transform: uppercase; letter-spacing: .07em; text-shadow: 0 0 8px rgba(55,138,221,0.4); }
+
+    /* ── Ops sub-report tabs ── */
+    .ops-tabs { display: flex; gap: 4px; margin-bottom: 18px; flex-wrap: wrap; }
+    .ops-tab { font-size: 12px; padding: 5px 12px; border-radius: 20px; border: 0.5px solid var(--border2); background: none; color: var(--text2); cursor: pointer; transition: all .12s; }
+    .ops-tab.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+    .ops-tab:hover:not(.active) { background: var(--bg2); color: var(--text); }
+
+    /* ── Funnel tooltip ── */
+    .funnel-bar-wrap { position: relative; }
+    .funnel-tooltip { position: absolute; left: 50%; top: -28px; transform: translateX(-50%); background: #1a1a2e; color: #fff; font-size: 11px; padding: 3px 8px; border-radius: 4px; white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity .15s; z-index: 10; }
+    .funnel-bar-wrap:hover .funnel-tooltip { opacity: 1; }
+
+    /* ── Table header rows ── */
+    .table-header-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0 8px; border-bottom: 0.5px solid var(--border2); margin-bottom: 2px; gap: 8px; }
+    .table-header-row span { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; }
+    .th-main { flex: 1; min-width: 0; }
+    .th-right { display: flex; gap: 6px; align-items: center; flex-shrink: 0; min-width: 120px; justify-content: flex-end; }
+    .tech-header-row { display: flex; align-items: center; gap: 12px; padding: 6px 0 8px; border-bottom: 0.5px solid var(--border2); margin-bottom: 2px; }
+    .tech-header-row span { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; }
+
+    /* ── Celebration banner ── */
+    .celebration { position: fixed; top: 0; left: 0; right: 0; z-index: 200; background: linear-gradient(135deg, #1D9E75, #1481a3); color: #fff; padding: 11px 20px; display: none; align-items: center; gap: 14px; box-shadow: 0 2px 12px rgba(0,0,0,0.15); }
+    .celebration.visible { display: flex; }
+    .celeb-icon { font-size: 20px; flex-shrink: 0; }
+    .celeb-text { flex: 1; font-size: 13px; line-height: 1.4; }
+    .celeb-title { font-weight: 600; margin-bottom: 2px; }
+    .celeb-sub { opacity: .85; font-size: 12px; }
+    .celeb-close { font-size: 18px; cursor: pointer; opacity: .8; padding: 4px; flex-shrink: 0; }
+    .celeb-close:hover { opacity: 1; }
+
+    /* ── Settings & Help ── */
+    .settings-toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 0.5px solid var(--border); font-size: 13px; gap: 16px; }
+    .settings-toggle-row:last-child { border-bottom: none; }
+    .settings-toggle-lbl { color: var(--text); }
+    .settings-toggle-sub { font-size: 11px; color: var(--text3); margin-top: 2px; }
+    .toggle-switch { position: relative; width: 38px; height: 22px; flex-shrink: 0; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider { position: absolute; cursor: pointer; inset: 0; background: var(--border2); border-radius: 22px; transition: background .2s; }
+    .toggle-slider:before { content: ''; position: absolute; width: 16px; height: 16px; border-radius: 50%; background: #fff; left: 3px; top: 3px; transition: transform .2s; }
+    .toggle-switch input:checked + .toggle-slider { background: var(--info); }
+    .toggle-switch input:checked + .toggle-slider:before { transform: translateX(16px); }
+
+    /* ── Forecast ── */
+    .forecast-hero { margin-bottom: 28px; }
+    .forecast-eyebrow { font-size: 10px; font-weight: 600; color: var(--info); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 8px; }
+    .forecast-title { font-size: 20px; font-weight: 600; margin-bottom: 6px; }
+    .forecast-sub { font-size: 13px; color: var(--text2); line-height: 1.6; max-width: 560px; }
+    .forecast-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 28px; }
+    .forecast-kpi { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 18px 20px; }
+    .forecast-kpi-label { font-size: 11px; color: var(--text2); margin-bottom: 6px; }
+    .forecast-kpi-val { font-size: 28px; font-weight: 700; line-height: 1; margin-bottom: 4px; }
+    .forecast-kpi-sub { font-size: 11px; color: var(--text3); line-height: 1.4; }
+    .forecast-chart-wrap { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 20px; }
+    .forecast-chart-title { font-size: 13px; font-weight: 500; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+    .forecast-donut-wrap { display: flex; align-items: center; gap: 40px; flex-wrap: wrap; }
+    .forecast-donut-svg { flex-shrink: 0; }
+    .forecast-legend { display: flex; flex-direction: column; gap: 12px; }
+    .forecast-legend-item { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+    .forecast-legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .forecast-legend-val { font-weight: 600; margin-left: auto; padding-left: 16px; }
+    .forecast-keywords { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; }
+    .forecast-keyword { font-size: 12px; padding: 4px 12px; background: var(--bg2); border: 0.5px solid var(--border2); border-radius: 20px; color: var(--text2); }
+    .forecast-keyword.primary { background: rgba(55,138,221,.1); border-color: rgba(55,138,221,.3); color: var(--info); }
+    .forecast-competitors { display: flex; flex-direction: column; gap: 6px; }
+    .forecast-comp-row { display: flex; align-items: center; gap: 12px; padding: 8px 12px; background: var(--bg2); border-radius: var(--radius-md); font-size: 12px; }
+    .forecast-comp-rank { font-size: 10px; font-weight: 700; color: var(--text3); min-width: 20px; }
+    .forecast-comp-domain { flex: 1; color: var(--text2); }
+    .forecast-ai-box { background: rgba(55,138,221,.05); border: 0.5px solid rgba(55,138,221,.2); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 20px; }
+    .forecast-ai-lbl { font-size: 10px; font-weight: 700; color: var(--info); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 8px; }
+    .forecast-ai-text { font-size: 13px; color: var(--text); line-height: 1.7; }
+    .forecast-no-keywords { text-align: center; padding: 60px 20px; color: var(--text3); }
+
+    /* ── Roadmap visualizer ── */
+    .rdmp-track { display: flex; align-items: flex-start; justify-content: center; padding: 40px 32px 24px; }
+    .rdmp-node-wrap { display: flex; flex-direction: column; align-items: center; flex: 1; max-width: 200px; }
+    .rdmp-node { width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 600; }
+    .rdmp-node.node-complete { background: var(--success); color: #fff; }
+    .rdmp-node.node-active { background: var(--info); color: #fff; animation: nodePulse 2s ease-in-out infinite; }
+    .rdmp-node.node-pending { background: var(--bg3); color: var(--text3); border: 1.5px solid var(--border2); }
+    @keyframes nodePulse { 0%,100% { box-shadow: 0 0 0 0 rgba(55,138,221,.4); } 50% { box-shadow: 0 0 0 10px rgba(55,138,221,0); } }
+    .rdmp-line { flex: 1; height: 2px; background: var(--border2); max-width: 80px; min-width: 20px; margin-top: 31px; }
+    .rdmp-line.line-complete { background: var(--success); }
+    .rdmp-node-title { font-size: 12px; font-weight: 600; margin-top: 10px; text-align: center; }
+    .rdmp-node-sub { font-size: 11px; color: var(--text3); margin-top: 3px; text-align: center; }
+    .rdmp-active-indicator { margin-top: 6px; display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--info); font-weight: 600; }
+    .rdmp-active-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--info); }
+    .rdmp-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 0 32px 40px; }
+    .rdmp-card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 16px; }
+    .rdmp-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; gap: 8px; }
+    .rdmp-card-title { font-size: 13px; font-weight: 500; }
+    .rdmp-badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 20px; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }
+    .rdmp-badge.badge-complete { background: rgba(29,158,117,.12); color: var(--success); }
+    .rdmp-badge.badge-active { background: rgba(55,138,221,.12); color: var(--info); }
+    .rdmp-badge.badge-pending { background: var(--bg3); color: var(--text3); }
+    .rdmp-card-desc { font-size: 12px; color: var(--text2); line-height: 1.55; }
+    .rdmp-milestones { margin-top: 10px; display: flex; flex-direction: column; gap: 5px; }
+    .rdmp-ms { font-size: 11px; color: var(--text2); display: flex; align-items: flex-start; gap: 6px; }
+    .rdmp-ms-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; margin-top: 3px; }
+    .rdmp-ms-dot.done { background: var(--success); }
+    .rdmp-ms-dot.current { background: var(--info); }
+    .rdmp-ms-dot.pending { background: var(--bg3); border: 1px solid var(--border2); }
+    .rdmp-sk-node { width: 64px; height: 64px; border-radius: 50%; background: var(--bg3); }
+    .rdmp-sk-line-h { flex: 1; height: 2px; background: var(--bg3); max-width: 80px; min-width: 20px; margin-top: 31px; }
+    .rdmp-sk-card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 16px; }
+    .rdmp-sk-bar { height: 10px; border-radius: 5px; background: var(--bg3); margin-bottom: 8px; }
+
+    /* Roadmap hero */
+    .rdmp-hero { padding: 36px 32px 28px; border-bottom: 0.5px solid var(--border); margin-bottom: 8px; }
+    .rdmp-hero-eyebrow { font-size: 10px; font-weight: 600; color: var(--info); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 10px; }
+    .rdmp-hero-title { font-size: 22px; font-weight: 600; margin-bottom: 10px; line-height: 1.2; }
+    .rdmp-hero-body { font-size: 13px; color: var(--text2); line-height: 1.7; max-width: 580px; margin-bottom: 20px; }
+    .rdmp-hero-stats { display: flex; gap: 32px; flex-wrap: wrap; }
+    .rdmp-hero-stat-val { font-size: 20px; font-weight: 700; margin-bottom: 2px; }
+    .rdmp-hero-stat-lbl { font-size: 11px; color: var(--text3); }
+
+    /* Roadmap cards — left aligned, full width stack */
+    .rdmp-cards { display: flex !important; flex-direction: column !important; gap: 8px !important; padding: 0 32px 40px !important; grid-template-columns: unset !important; }
+    .rdmp-card { cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+    .rdmp-card:hover { border-color: var(--border2); }
+    .rdmp-card.active-card { border-color: rgba(55,138,221,0.4); box-shadow: 0 0 12px rgba(55,138,221,0.08); }
+    .rdmp-card-header-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; user-select: none; }
+    .rdmp-card-left { display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0; }
+    .rdmp-card-node-dot { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+    .rdmp-card-node-dot.dot-complete { background: var(--success); color: #fff; }
+    .rdmp-card-node-dot.dot-active { background: var(--info); color: #fff; animation: nodePulse 2s ease-in-out infinite; }
+    .rdmp-card-node-dot.dot-pending { background: var(--bg3); color: var(--text3); border: 1.5px solid var(--border2); }
+    .rdmp-card-chevron { color: var(--text3); transition: transform .2s; flex-shrink: 0; }
+    .rdmp-card.open .rdmp-card-chevron { transform: rotate(180deg); }
+    .rdmp-card-body { overflow: hidden; max-height: 0; transition: max-height .3s ease, padding .2s; padding: 0 0 0 50px; }
+    .rdmp-card.open .rdmp-card-body { max-height: 600px; padding: 14px 0 4px 50px; }
+    .rdmp-card-detail-section { margin-bottom: 14px; }
+    .rdmp-card-detail-lbl { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 6px; }
+    .rdmp-card-detail-text { font-size: 13px; color: var(--text2); line-height: 1.6; }
+    .rdmp-goal-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 5px 12px; background: var(--bg2); border: 0.5px solid var(--border2); border-radius: 20px; color: var(--text2); margin: 2px 4px 2px 0; }
+    .rdmp-goal-chip.done { background: rgba(29,158,117,.1); border-color: rgba(29,158,117,.3); color: var(--success); }
+    .rdmp-goal-chip.active { background: rgba(55,138,221,.1); border-color: rgba(55,138,221,.3); color: var(--info); }
+
+    /* ── Overview layout ── */
+    #page-overview { height: 100vh; overflow: hidden; }
+    #page-overview.active { display: flex; }
+    #overview-frame { flex: 1; border: none; min-width: 0; height: 100%; display: block; }
+    .msg-panel-head { padding: 14px 14px 10px; border-bottom: 0.5px solid var(--border); flex-shrink: 0; }
+    .msg-panel-lbl { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 8px; }
+    .goal-banner { font-size: 12px; padding: 7px 9px; background: rgba(55,138,221,0.07); border: 0.5px solid rgba(55,138,221,0.2); border-radius: var(--radius-md); color: var(--text); line-height: 1.4; }
+    .goal-banner-lbl { font-size: 10px; font-weight: 600; color: var(--info); margin-bottom: 3px; display: flex; justify-content: space-between; align-items: center; }
+    .goal-edit-btn { font-size: 10px; padding: 1px 6px; border-radius: 4px; border: 0.5px solid rgba(55,138,221,0.3); background: none; color: var(--info); cursor: pointer; }
+    .goal-edit-form { margin-top: 6px; display: none; }
+    .goal-edit-form.visible { display: block; }
+    .goal-edit-input { width: 100%; font-size: 12px; padding: 5px 7px; border: 0.5px solid var(--border2); border-radius: var(--radius-md); background: var(--bg2); color: var(--text); outline: none; font-family: inherit; resize: none; }
+    .goal-edit-input:focus { border-color: var(--info); }
+    .goal-save-btn { margin-top: 5px; font-size: 11px; padding: 4px 12px; border-radius: var(--radius-md); border: none; background: var(--info); color: #fff; cursor: pointer; }
+    .health-badge { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 11px; }
+    .health-score { font-weight: 600; font-size: 13px; }
+    .health-label { color: var(--text3); }
+    .msg-thread { flex: 1; overflow-y: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 7px; }
+    .msg-bubble { max-width: 88%; font-size: 12px; line-height: 1.5; }
+    .msg-bubble.from-client { align-self: flex-start; }
+    .msg-bubble.from-resona { align-self: flex-end; }
+    .msg-content { padding: 7px 10px; border-radius: var(--radius-md); }
+    .msg-bubble.from-client .msg-content { background: var(--bg2); border: 0.5px solid var(--border); }
+    .msg-bubble.from-resona .msg-content { background: var(--info); color: #fff; }
+    .msg-meta { font-size: 10px; color: var(--text3); margin-top: 2px; }
+    .msg-bubble.from-resona .msg-meta { text-align: right; }
+    .msg-empty { font-size: 12px; color: var(--text3); text-align: center; padding: 20px 10px; }
+    .msg-compose { padding: 10px 12px; border-top: 0.5px solid var(--border); flex-shrink: 0; }
+    .msg-input { width: 100%; resize: none; font-size: 12px; padding: 7px 9px; border: 0.5px solid var(--border2); border-radius: var(--radius-md); background: var(--bg2); color: var(--text); outline: none; font-family: inherit; line-height: 1.4; }
+    .msg-input:focus { border-color: var(--info); }
+    .msg-send-btn { width: 100%; margin-top: 5px; padding: 6px; border-radius: var(--radius-md); border: none; background: var(--info); color: #fff; font-size: 12px; font-weight: 500; cursor: pointer; transition: opacity .12s; }
+    .msg-send-btn:hover { opacity: .85; }
+    .msg-send-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+    /* ── Strategy panel notes ── */
+    .sp-note-item { font-size: 12px; color: var(--text2); padding: 6px 8px; background: var(--bg); border-radius: var(--radius-md); border: 0.5px solid var(--border); margin-bottom: 4px; line-height: 1.5; }
+    .sp-note-item.pinned { border-left: 2px solid var(--warning); }
+    .sp-note-form { margin-top: 8px; }
+    .sp-note-textarea { width: 100%; resize: none; font-size: 12px; padding: 6px 8px; border: 0.5px solid var(--border2); border-radius: var(--radius-md); background: var(--bg); color: var(--text); outline: none; font-family: inherit; }
+    .sp-note-textarea:focus { border-color: var(--info); }
+    .sp-note-row { display: flex; gap: 6px; margin-top: 5px; align-items: center; }
+    .sp-note-pin { font-size: 11px; color: var(--text2); display: flex; align-items: center; gap: 4px; cursor: pointer; }
+    .sp-note-save { font-size: 11px; padding: 4px 12px; border-radius: var(--radius-md); border: none; background: var(--info); color: #fff; cursor: pointer; margin-left: auto; }
+    .sp-add-note-btn { width: 100%; margin-top: 6px; padding: 5px 8px; font-size: 11px; border-radius: var(--radius-md); border: 0.5px solid var(--border2); background: none; color: var(--text3); cursor: pointer; text-align: left; }
+    .sp-add-note-btn:hover { color: var(--text); background: var(--bg); }
+
+    /* ── Archive page ── */
+    .archive-toolbar {
+      display: flex; gap: 10px; margin-bottom: 16px;
+      flex-wrap: wrap; align-items: center;
+    }
+    .archive-search {
+      flex: 1; min-width: 180px;
+      font-size: 13px; padding: 8px 12px;
+      background: var(--bg); border: 0.5px solid var(--border2);
+      border-radius: var(--radius-md); color: var(--text);
+      outline: none; font-family: inherit;
+    }
+    .archive-search:focus { border-color: var(--info); }
+    .archive-filter {
+      font-size: 12px; padding: 8px 12px;
+      background: var(--bg); border: 0.5px solid var(--border2);
+      border-radius: var(--radius-md); color: var(--text2);
+      cursor: pointer; outline: none;
+    }
+    .archive-filter:focus { border-color: var(--info); }
+    .archive-count {
+      font-size: 12px; color: var(--text3);
+      white-space: nowrap; align-self: center;
+    }
+    .snap-card {
+      background: var(--bg); border: 0.5px solid var(--border);
+      border-radius: var(--radius-lg); margin-bottom: 8px;
+      overflow: hidden; cursor: pointer;
+      transition: border-color .15s;
+    }
+    .snap-card:hover { border-color: var(--border2); }
+    .snap-card-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 16px; gap: 12px; user-select: none;
+    }
+    .snap-card-left {
+      display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0;
+    }
+    .snap-page-pill {
+      font-size: 10px; font-weight: 600; padding: 3px 9px;
+      border-radius: 20px; white-space: nowrap; flex-shrink: 0;
+      text-transform: uppercase; letter-spacing: .04em;
+    }
+    .pill-operations { background: rgba(55,138,221,.12); color: var(--info); }
+    .pill-marketing { background: rgba(99,102,241,.12); color: #6366f1; }
+    .pill-finance { background: rgba(29,158,117,.12); color: var(--success); }
+    .pill-optimization { background: rgba(239,159,39,.12); color: var(--warning); }
+    .pill-overview { background: rgba(156,154,146,.12); color: var(--text2); }
+    .snap-card-date { font-size: 12px; color: var(--text2); }
+    .snap-card-metrics {
+      display: flex; gap: 16px; flex-wrap: wrap;
+    }
+    .snap-metric {
+      font-size: 11px; color: var(--text3);
+    }
+    .snap-metric strong { color: var(--text); font-weight: 500; }
+    .snap-chevron {
+      color: var(--text3); transition: transform .2s; flex-shrink: 0;
+    }
+    .snap-card.open .snap-chevron { transform: rotate(180deg); }
+    .snap-card-body {
+      overflow: hidden; max-height: 0;
+      transition: max-height .3s ease;
+      border-top: 0px solid var(--border);
+    }
+    .snap-card.open .snap-card-body {
+      max-height: 400px;
+      border-top-width: 0.5px;
+    }
+    .snap-card-body-inner {
+      padding: 14px 16px;
+    }
+    .snap-summary { font-size: 13px; color: var(--text2); line-height: 1.7; }
+    .snap-empty {
+      text-align: center; padding: 40px 20px;
+      color: var(--text3); font-size: 13px;
+    }
+
+    /* ── Welcome overlay ── */
+    .welcome-overlay { position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:200; display:flex; align-items:center; justify-content:center; }
+    .welcome-overlay.hidden { display:none; }
+    .welcome-card { background:var(--bg); border-radius:var(--radius-lg); padding:36px 32px; max-width:440px; width:calc(100% - 32px); border:0.5px solid var(--border); box-shadow:0 12px 40px rgba(0,0,0,.15); position:relative; }
+    .welcome-close { position:absolute; top:12px; right:16px; font-size:20px; color:var(--text3); cursor:pointer; background:none; border:none; line-height:1; padding:0; transition:color .12s; }
+    .welcome-close:hover { color:var(--text); }
+    .wc-program { font-size:11px; font-weight:600; color:var(--info); text-transform:uppercase; letter-spacing:.07em; margin-bottom:8px; }
+    .welcome-card h2 { font-size:20px; font-weight:500; margin:0 0 4px; }
+    .welcome-card .wc-sub { font-size:13px; color:var(--text3); margin:0 0 20px; }
+    .welcome-bullets { list-style:none; padding:0; margin:0 0 24px; display:flex; flex-direction:column; gap:10px; }
+    .welcome-bullets li { font-size:13px; color:var(--text2); display:flex; align-items:flex-start; gap:10px; line-height:1.5; }
+    .welcome-bullets li::before { content:'→'; color:var(--info); flex-shrink:0; margin-top:1px; }
+    .welcome-cta { width:100%; padding:11px; border-radius:var(--radius-md); background:var(--info); color:#fff; font-size:14px; font-weight:500; border:none; cursor:pointer; transition:opacity .15s; }
+    .welcome-cta:hover { opacity:.85; }
+
+    /* ── Notification bell ── */
+    .notif-bell-wrap { position:fixed; top:14px; right:14px; z-index:90; }
+    .notif-bell-btn { width:34px; height:34px; border-radius:50%; background:var(--bg); border:0.5px solid var(--border); display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--text2); transition:background .15s; position:relative; }
+    .notif-bell-btn:hover { background:var(--bg2); }
+    .notif-badge { position:absolute; top:-3px; right:-3px; min-width:16px; height:16px; border-radius:8px; background:#E24B4A; color:#fff; font-size:9px; font-weight:700; display:flex; align-items:center; justify-content:center; padding:0 4px; pointer-events:none; }
+    .notif-dd { position:absolute; top:40px; right:0; width:340px; max-height:460px; background:var(--bg); border:0.5px solid var(--border); border-radius:var(--radius-lg); box-shadow:0 8px 32px rgba(0,0,0,.15); overflow-y:auto; display:none; }
+    .notif-dd.open { display:block; }
+    .notif-dd-head { display:flex; justify-content:space-between; align-items:center; padding:11px 14px; border-bottom:0.5px solid var(--border); position:sticky; top:0; background:var(--bg); z-index:1; }
+    .notif-dd-title { font-size:12px; font-weight:600; }
+    .notif-dd-mark { font-size:11px; color:var(--info); cursor:pointer; }
+    .notif-dd-mark:hover { opacity:.7; }
+    .notif-nitem { display:flex; gap:10px; padding:10px 14px; border-bottom:0.5px solid var(--border); cursor:pointer; border-left:3px solid transparent; transition:background .1s; }
+    .notif-nitem:hover { background:var(--bg2); }
+    .notif-nitem.unread { background:var(--bg2); }
+    .notif-nitem.type-info.unread { border-left-color:var(--info); }
+    .notif-nitem.type-warning.unread { border-left-color:var(--warning); }
+    .notif-nitem.type-alert.unread { border-left-color:var(--danger); }
+    .notif-nitem.type-success.unread { border-left-color:var(--success); }
+    .notif-nitem-title { font-size:12px; font-weight:500; }
+    .notif-nitem-body { font-size:12px; color:var(--text3); margin-top:2px; line-height:1.4; }
+    .notif-nitem-time { font-size:10px; color:var(--text3); margin-top:4px; }
+    .notif-dd-empty { padding:24px; text-align:center; font-size:13px; color:var(--text3); }
+
+    /* ── Action history collapsible ── */
+    .act-hist-section { margin-top:20px; }
+    .act-hist-toggle { display:flex; align-items:center; gap:6px; cursor:pointer; font-size:12px; font-weight:500; color:var(--text2); padding:8px 0; border-top:0.5px solid var(--border); user-select:none; }
+    .act-hist-toggle:hover { color:var(--text); }
+    .act-hist-arrow { transition:transform .2s; display:flex; }
+    .act-hist-body { display:none; margin-top:8px; }
+    .act-hist-body.open { display:block; }
+    .act-hist-row { display:flex; align-items:center; gap:8px; padding:7px 10px; border-radius:var(--radius-md); border:0.5px solid var(--border); margin-bottom:4px; background:var(--bg2); }
+    .act-decision { font-size:10px; font-weight:600; padding:2px 7px; border-radius:4px; flex-shrink:0; text-transform:capitalize; }
+    .act-decision.approved { background:#1D9E7520; color:#1D9E75; }
+    .act-decision.deferred { background:#EF9F2720; color:#EF9F27; }
+    .act-hist-title { flex:1; font-size:12px; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .act-hist-date { font-size:10px; color:var(--text3); flex-shrink:0; }
+
+    /* ── Ask Claude ── */
+    .ask-section { margin-top:24px; border-top:0.5px solid var(--border); padding-top:16px; }
+    .ask-lbl { font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:.07em; margin-bottom:10px; display:flex; align-items:center; gap:6px; }
+    .ask-chips { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+    .ask-chip { font-size:11px; padding:4px 10px; border-radius:20px; border:0.5px solid var(--border2); background:var(--bg2); color:var(--text2); cursor:pointer; transition:background .1s, color .1s, border-color .1s; white-space:nowrap; }
+    .ask-chip:hover { background:var(--info); color:#fff; border-color:var(--info); }
+    .ask-thread { display:flex; flex-direction:column; gap:10px; margin-bottom:12px; max-height:280px; overflow-y:auto; }
+    .ask-q { font-size:12px; padding:8px 12px; border-radius:var(--radius-md); background:var(--bg2); color:var(--text3); }
+    .ask-a { font-size:12px; padding:10px 12px; border-radius:var(--radius-md); border:0.5px solid var(--info)40; color:var(--text); line-height:1.6; }
+    .ask-a-lbl { font-size:10px; font-weight:600; color:var(--info); margin-bottom:4px; }
+    .ask-thinking { font-size:12px; color:var(--text3); font-style:italic; padding:8px 0; }
+    .ask-form { display:flex; gap:8px; }
+    .ask-input { flex:1; font-size:12px; padding:8px 10px; border:0.5px solid var(--border2); border-radius:var(--radius-md); background:var(--bg2); color:var(--text); font-family:inherit; outline:none; }
+    .ask-input:focus { border-color:var(--info); }
+    .ask-submit { font-size:12px; padding:8px 14px; border-radius:var(--radius-md); background:var(--info); color:#fff; border:none; cursor:pointer; white-space:nowrap; flex-shrink:0; }
+    .ask-submit:disabled { opacity:.4; cursor:not-allowed; }
+
+    /* ── Goal section collapse ── */
+    .goal-section-header { display:flex; justify-content:space-between; align-items:center; cursor:pointer; user-select:none; margin-bottom:6px; }
+    .goal-section-header .msg-panel-lbl { margin-bottom:0; }
+    .goal-section-icon { color:var(--text3); background:none; border:none; cursor:pointer; padding:0; display:flex; align-items:center; transition:color .12s, transform .2s; flex-shrink:0; }
+    .goal-section-header:hover .goal-section-icon { color:var(--text); }
+    .goal-section-body { overflow:hidden; max-height:400px; opacity:1; transition:max-height .2s ease, opacity .15s ease; }
+    .goal-section-body.collapsed { max-height:0 !important; opacity:0; }
+
+    /* ── Strategy panel section collapse ── */
+    .sp-section-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; cursor:pointer; user-select:none; }
+    .sp-section-header .sp-lbl { margin-bottom:0; }
+    .sp-section-header:hover .sp-section-icon { color:var(--text); }
+    .sp-section-icon { color:var(--text3); background:none; border:none; cursor:pointer; padding:0; display:flex; align-items:center; transition:color .12s, transform .2s; flex-shrink:0; }
+    .sp-section-body { overflow:hidden; max-height:600px; opacity:1; transition:max-height .2s ease, opacity .15s ease; }
+    .sp-section-body.collapsed { max-height:0 !important; opacity:0; }
+  </style>
+</head>
+<body>
+
+<!-- Mobile top bar -->
+<div class="mobile-topbar" id="mobile-topbar">
+  <button class="hamburger" aria-label="Open menu">
+    <span></span><span></span><span></span>
+  </button>
+  <span style="font-size:13px;font-weight:600;letter-spacing:.08em;">CMNDR</span>
+  <button class="notif-bell-btn" id="mobile-notif-btn" onclick="toggleNotifDD()" aria-label="Notifications" style="width:34px;height:34px;border-radius:50%;background:var(--bg2);border:0.5px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text2);position:relative;">
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 1.5a4.5 4.5 0 00-4.5 4.5v2.25L1.5 10h12l-1.5-1.75V6a4.5 4.5 0 00-4.5-4.5zM6 11.5a1.5 1.5 0 003 0" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <div class="notif-badge" id="mobile-notif-badge" style="display:none">0</div>
+  </button>
+</div>
+<div class="mobile-drawer-backdrop" id="mobile-drawer-backdrop"></div>
+<button class="strategy-sheet-btn" id="strategy-sheet-btn">Strategy ↑</button>
+<div class="strategy-sheet" id="strategy-sheet">
+  <div class="strategy-sheet-handle"></div>
+  <div id="strategy-sheet-content">
+    <div class="sp-lbl">Your progress</div>
+    <div class="sp-loading">
+      <div class="skel" style="width:60%"></div>
+      <div class="skel" style="width:80%;height:18px;margin-top:4px;"></div>
+      <div class="skel" style="width:40%;margin-top:4px;"></div>
+    </div>
+  </div>
+</div>
+
+<div class="sidebar">
+  <div class="logo">CMNDR <em>Reports</em></div>
+
+  <!-- GROUP 1: Analyze -->
+  <div class="nav-group" id="nav-group-analyze">
+    <div class="nav-group-header" onclick="toggleNavGroup('analyze')">
+      <span class="nav-group-lbl">Analyze</span>
+      <svg class="nav-group-arrow" width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 3.5l3 3 3-3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="nav-group-items" id="nav-group-items-analyze">
+      <div class="nav-item active" data-page="overview" onclick="nav('overview')">
+        <svg class="nav-icon" width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="1.5" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="8.5" y="1.5" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="1.5" y="8.5" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="8.5" y="8.5" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.2"/></svg>
+        <span class="nav-label">Overview</span>
+      </div>
+      <div class="nav-item" data-page="forecast" onclick="nav('forecast')">
+        <svg class="nav-icon" width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2 10.5l3.5-4 3 2.5 4-5.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M1.5 13.5h12" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+        <span class="nav-label">Forecast</span>
+      </div>
+      <div class="nav-item" data-page="roadmap" onclick="nav('roadmap')">
+        <svg class="nav-icon" width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2 4.5h11M2 7.5h8M2 10.5h5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+        <span class="nav-label">3 Point Road Map</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- GROUP 2: Report -->
+  <div class="nav-group" id="nav-group-report">
+    <div class="nav-group-header" onclick="toggleNavGroup('report')">
+      <span class="nav-group-lbl">Report</span>
+      <svg class="nav-group-arrow" width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 3.5l3 3 3-3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="nav-group-items" id="nav-group-items-report">
+      <div class="nav-item" data-page="operations" onclick="nav('operations')">
+        <svg class="nav-icon" width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 1.5L2 4.5v6l5.5 3 5.5-3v-6L7.5 1.5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M7.5 1.5v13M2 4.5l5.5 3 5.5-3" stroke="currentColor" stroke-width="1.2"/></svg>
+        <span class="nav-label">Operations</span>
+      </div>
+      <div class="nav-item" data-page="marketing" onclick="nav('marketing')">
+        <svg class="nav-icon" width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2 11L5.5 7 8.5 9.5 13 3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M10.5 3.5h2.5v2.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="nav-label">Marketing</span>
+      </div>
+      <div class="nav-item" data-page="finance" onclick="nav('finance')">
+        <svg class="nav-icon" width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="3.5" width="12" height="9" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M1.5 6.5h12" stroke="currentColor" stroke-width="1.2"/><path d="M4.5 9.5h2M8.5 9.5h2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+        <span class="nav-label">Finance</span>
+      </div>
+      <div class="nav-item" data-page="optimization" onclick="nav('optimization')">
+        <svg class="nav-icon" width="15" height="15" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="2" stroke="currentColor" stroke-width="1.2"/><path d="M7.5 1.5v2M7.5 11.5v2M1.5 7.5h2M11.5 7.5h2M3.4 3.4l1.4 1.4M10.2 10.2l1.4 1.4M3.4 11.6l1.4-1.4M10.2 4.8l1.4-1.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+        <span class="nav-label">Optimization</span>
+      </div>
+      <div class="nav-item" data-page="history" onclick="nav('history')">
+        <svg class="nav-icon" width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 1.5a6 6 0 100 12 6 6 0 000-12z" stroke="currentColor" stroke-width="1.2"/><path d="M7.5 4.5v3l2 1.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="nav-label">Archive</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- GROUP 3: Control -->
+  <div class="nav-group" id="nav-group-control">
+    <div class="nav-group-header" onclick="toggleNavGroup('control')">
+      <span class="nav-group-lbl">Control</span>
+      <svg class="nav-group-arrow" width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 3.5l3 3 3-3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="nav-group-items" id="nav-group-items-control">
+      <div class="nav-item" onclick="window.location.href='/connections'">
+        <svg class="nav-icon" width="15" height="15" viewBox="0 0 15 15" fill="none"><circle cx="4" cy="7.5" r="1.5" stroke="currentColor" stroke-width="1.2"/><circle cx="11" cy="4" r="1.5" stroke="currentColor" stroke-width="1.2"/><circle cx="11" cy="11" r="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M5.5 7.5h2l2-3.5M5.5 7.5h2l2 3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+        <span class="nav-label">Relays</span>
+      </div>
+      <div class="nav-item" data-page="settings" onclick="nav('settings')">
+        <svg class="nav-icon" width="15" height="15" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="1.8" stroke="currentColor" stroke-width="1.2"/><path d="M7.5 1.5v1.2M7.5 12.3v1.2M1.5 7.5h1.2M12.3 7.5h1.2M3.3 3.3l.85.85M10.8 10.8l.85.85M3.3 11.7l.85-.85M10.8 4.2l.85-.85" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+        <span class="nav-label">Settings</span>
+      </div>
+      <div class="nav-item" data-page="help" onclick="nav('help')">
+        <svg class="nav-icon" width="15" height="15" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="6" stroke="currentColor" stroke-width="1.2"/><path d="M5.5 5.5a2 2 0 013.5 1.3c0 1.2-1.5 1.7-1.5 3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><circle cx="7.5" cy="11" r=".6" fill="currentColor"/></svg>
+        <span class="nav-label">Help</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="sidebar-sep"></div>
+
+  <div>
+    <div class="sidebar-lbl">Date range</div>
+    <div class="range-grid">
+      <button class="range-btn active" data-range="7d" onclick="setRange('7d')">7 days</button>
+      <button class="range-btn" data-range="30d" onclick="setRange('30d')">30 days</button>
+      <button class="range-btn" data-range="mtd" onclick="setRange('mtd')">Month</button>
+      <button class="range-btn" data-range="qtd" onclick="setRange('qtd')">Quarter</button>
+    </div>
+  </div>
+
+  <button class="nav-collapse-btn" id="nav-collapse-btn" onclick="toggleNavCollapse()" aria-label="Toggle sidebar">
+    <svg id="nav-collapse-icon" width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M8 2l-5 4.5L8 11" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </button>
+
+  <div class="sidebar-footer">
+    <div class="client-chip">
+      <div class="chip-av">PF</div>
+      <div>
+        <div class="chip-name">Loading…</div>
+        <div class="chip-sub">—</div>
+      </div>
+    </div>
+    <button class="signout-btn" id="signout-btn" onclick="signOut()">Sign out</button>
+  </div>
+</div>
+
+
+<div class="main">
+
+  <!-- Overview: iframe only (panels in right sidebar) -->
+  <div class="page active" id="page-overview">
+    <iframe id="overview-frame" title="Overview"></iframe>
+  </div>
+
+  <!-- Operations -->
+  <div class="page" id="page-operations">
+    <div class="page-inner">
+      <div class="page-head">
+        <div><div class="page-title">Operations</div><div class="page-meta" id="ops-meta">Loading...</div></div>
+        <button class="reload-btn" onclick="loadPage('operations',true)">Refresh</button>
+      </div>
+      <div id="ops-body">
+        <div class="kpi-grid">
+          <div class="kpi"><div class="skel" style="width:55%"></div><div class="skel" style="width:35%;height:22px;margin-top:8px;"></div></div>
+          <div class="kpi"><div class="skel" style="width:55%"></div><div class="skel" style="width:35%;height:22px;margin-top:8px;"></div></div>
+          <div class="kpi"><div class="skel" style="width:55%"></div><div class="skel" style="width:35%;height:22px;margin-top:8px;"></div></div>
+          <div class="kpi"><div class="skel" style="width:55%"></div><div class="skel" style="width:35%;height:22px;margin-top:8px;"></div></div>
+          <div class="kpi"><div class="skel" style="width:55%"></div><div class="skel" style="width:35%;height:22px;margin-top:8px;"></div></div>
+          <div class="kpi"><div class="skel" style="width:55%"></div><div class="skel" style="width:35%;height:22px;margin-top:8px;"></div></div>
+        </div>
+      </div>
+      <div class="sec-label">Recommended actions</div>
+      <div class="rec-panel" id="ops-actions"><div class="skel"></div><div class="skel" style="width:75%"></div></div>
+      <div id="ops-hist"></div>
+      <div id="ops-ask"></div>
+    </div>
+  </div>
+
+  <!-- Marketing -->
+  <div class="page" id="page-marketing">
+    <div class="page-inner">
+      <div class="page-head">
+        <div><div class="page-title">Marketing</div><div class="page-meta" id="mkt-meta">Loading...</div></div>
+        <button class="reload-btn" onclick="loadPage('marketing',true)">Refresh</button>
+      </div>
+      <div id="mkt-body">
+        <div class="kpi-grid">
+          <div class="kpi"><div class="skel" style="width:55%"></div><div class="skel" style="width:35%;height:22px;margin-top:8px;"></div></div>
+          <div class="kpi"><div class="skel" style="width:55%"></div><div class="skel" style="width:35%;height:22px;margin-top:8px;"></div></div>
+          <div class="kpi"><div class="skel" style="width:55%"></div><div class="skel" style="width:35%;height:22px;margin-top:8px;"></div></div>
+          <div class="kpi"><div class="skel" style="width:55%"></div><div class="skel" style="width:35%;height:22px;margin-top:8px;"></div></div>
+          <div class="kpi"><div class="skel" style="width:55%"></div><div class="skel" style="width:35%;height:22px;margin-top:8px;"></div></div>
+          <div class="kpi"><div class="skel" style="width:55%"></div><div class="skel" style="width:35%;height:22px;margin-top:8px;"></div></div>
+        </div>
+      </div>
+      <div class="sec-label">Recommended actions</div>
+      <div class="rec-panel" id="mkt-actions"><div class="skel"></div><div class="skel" style="width:75%"></div></div>
+      <div id="mkt-hist"></div>
+      <div id="mkt-ask"></div>
+    </div>
+  </div>
+
+  <!-- Finance -->
+  <div class="page" id="page-finance">
+    <div class="page-inner">
+      <div class="page-head">
+        <div><div class="page-title">Finance</div><div class="page-meta" id="fin-meta">Loading...</div></div>
+        <button class="reload-btn" onclick="loadPage('finance',true)">Refresh</button>
+      </div>
+      <div id="fin-body">
+        <div class="kpi-grid">
+          <div class="kpi"><div class="skel" style="width:55%"></div><div class="skel" style="width:35%;height:22px;margin-top:8px;"></div></div>
+          <div class="kpi"><div class="skel" style="width:55%"></div><div class="skel" style="width:35%;height:22px;margin-top:8px;"></div></div>
+          <div class="kpi"><div class="skel" style="width:55%"></div><div class="skel" style="width:35%;height:22px;margin-top:8px;"></div></div>
+          <div class="kpi"><div class="skel" style="width:55%"></div><div class="skel" style="width:35%;height:22px;margin-top:8px;"></div></div>
+          <div class="kpi"><div class="skel" style="width:55%"></div><div class="skel" style="width:35%;height:22px;margin-top:8px;"></div></div>
+          <div class="kpi"><div class="skel" style="width:55%"></div><div class="skel" style="width:35%;height:22px;margin-top:8px;"></div></div>
+        </div>
+      </div>
+      <div class="sec-label">Recommended actions</div>
+      <div class="rec-panel" id="fin-actions"><div class="skel"></div><div class="skel" style="width:75%"></div></div>
+      <div id="fin-hist"></div>
+      <div id="fin-ask"></div>
+    </div>
+  </div>
+
+  <!-- Optimization -->
+  <div class="page" id="page-optimization">
+    <div class="page-inner">
+      <div class="page-head">
+        <div><div class="page-title">Optimization</div><div class="page-meta" id="opt-meta">Loading...</div></div>
+        <button class="reload-btn" onclick="loadPage('optimization',true)">Refresh</button>
+      </div>
+      <div id="opt-body">
+        <div class="kpi-grid">
+          <div class="kpi"><div class="skel" style="width:55%"></div><div class="skel" style="width:35%;height:22px;margin-top:8px;"></div></div>
+          <div class="kpi"><div class="skel" style="width:55%"></div><div class="skel" style="width:35%;height:22px;margin-top:8px;"></div></div>
+          <div class="kpi"><div class="skel" style="width:55%"></div><div class="skel" style="width:35%;height:22px;margin-top:8px;"></div></div>
+          <div class="kpi"><div class="skel" style="width:55%"></div><div class="skel" style="width:35%;height:22px;margin-top:8px;"></div></div>
+          <div class="kpi"><div class="skel" style="width:55%"></div><div class="skel" style="width:35%;height:22px;margin-top:8px;"></div></div>
+          <div class="kpi"><div class="skel" style="width:55%"></div><div class="skel" style="width:35%;height:22px;margin-top:8px;"></div></div>
+        </div>
+      </div>
+      <div class="sec-label">Recommended actions</div>
+      <div class="rec-panel" id="opt-actions"><div class="skel"></div><div class="skel" style="width:75%"></div></div>
+      <div id="opt-hist"></div>
+      <div id="opt-ask"></div>
+    </div>
+  </div>
+
+  <!-- Stub pages (coming soon) -->
+  <div class="page" id="page-forecast">
+    <div class="page-inner" style="max-width:860px;">
+      <div class="page-head">
+        <div>
+          <div class="page-title">Forecast</div>
+          <div class="page-meta" id="forecast-meta">Market intelligence report</div>
+        </div>
+        <button class="reload-btn" onclick="loadForecast(true)">Refresh</button>
+      </div>
+      <div id="forecast-body">
+        <div class="forecast-skeleton">
+          <div class="skel" style="width:40%;height:20px;margin-bottom:8px;"></div>
+          <div class="skel" style="width:60%;height:14px;margin-bottom:32px;"></div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px;">
+            <div class="skel" style="height:90px;border-radius:10px;"></div>
+            <div class="skel" style="height:90px;border-radius:10px;"></div>
+            <div class="skel" style="height:90px;border-radius:10px;"></div>
+          </div>
+          <div class="skel" style="height:280px;border-radius:12px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="page" id="page-roadmap">
+    <div id="rdmp-skeleton" style="display:none">
+      <div class="rdmp-track">
+        <div class="rdmp-node-wrap"><div class="rdmp-sk-node"></div></div>
+        <div class="rdmp-sk-line-h"></div>
+        <div class="rdmp-node-wrap"><div class="rdmp-sk-node"></div></div>
+        <div class="rdmp-sk-line-h"></div>
+        <div class="rdmp-node-wrap"><div class="rdmp-sk-node"></div></div>
+      </div>
+      <div class="rdmp-cards">
+        <div class="rdmp-sk-card"><div class="rdmp-sk-bar" style="width:60%"></div><div class="rdmp-sk-bar"></div><div class="rdmp-sk-bar" style="width:75%"></div></div>
+        <div class="rdmp-sk-card"><div class="rdmp-sk-bar" style="width:60%"></div><div class="rdmp-sk-bar"></div><div class="rdmp-sk-bar" style="width:75%"></div></div>
+        <div class="rdmp-sk-card"><div class="rdmp-sk-bar" style="width:60%"></div><div class="rdmp-sk-bar"></div><div class="rdmp-sk-bar" style="width:75%"></div></div>
+      </div>
+    </div>
+    <div id="rdmp-content" style="display:none"></div>
+    <div id="rdmp-empty" style="display:none">
+      <div class="page-inner" style="max-width:760px;"><div class="page-head"><div><div class="page-title">3 Point Road Map</div><div class="page-meta" id="roadmap-meta">Your strategic milestones</div></div></div><div id="rdmp-skeleton"><div class="skel" style="width:60%;height:80px;margin:40px auto;"></div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:24px;"><div class="skel" style="height:120px;"></div><div class="skel" style="height:120px;"></div><div class="skel" style="height:120px;"></div></div></div><div id="rdmp-content" style="display:none;"></div><div id="rdmp-empty" style="display:none;text-align:center;padding:60px 20px;color:var(--text3);">No roadmap configured yet. Your advisor will set this up for you.</div></div>
+    </div>
+  </div>
+  <div class="page" id="page-relays">
+    <div class="page-inner"><div class="page-head"><div><div class="page-title">Relays</div><div class="page-meta">Coming soon</div></div></div><div class="stub-empty"><svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="8" cy="16" r="3" stroke="currentColor" stroke-width="1.5"/><circle cx="24" cy="8" r="3" stroke="currentColor" stroke-width="1.5"/><circle cx="24" cy="24" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M11 16h4l4-8M11 16h4l4 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><div>Relays is coming soon</div></div></div>
+  </div>
+  <div class="page" id="page-settings">
+    <div class="page-inner" style="max-width:640px;">
+      <div class="page-head">
+        <div>
+          <div class="page-title">Settings</div>
+          <div class="page-meta">Account preferences and configuration</div>
+        </div>
+      </div>
+
+      <div class="sec-label">Profile</div>
+      <div class="card">
+        <div class="settings-toggle-row">
+          <div><div class="settings-toggle-lbl">Account Name</div></div>
+          <div id="settings-account-name" style="font-size:13px;color:var(--text2);">—</div>
+        </div>
+        <div class="settings-toggle-row">
+          <div><div class="settings-toggle-lbl">Client ID</div></div>
+          <div id="settings-client-id" style="font-size:11px;color:var(--text3);font-family:monospace;background:var(--bg2);padding:3px 8px;border-radius:4px;">—</div>
+        </div>
+        <div class="settings-toggle-row">
+          <div><div class="settings-toggle-lbl">Role</div></div>
+          <div id="settings-role" style="font-size:13px;color:var(--text2);">—</div>
+        </div>
+      </div>
+
+      <div class="sec-label">Report Preferences</div>
+      <div class="card">
+        <div class="settings-toggle-row">
+          <div>
+            <div class="settings-toggle-lbl">Report Cadence</div>
+            <div class="settings-toggle-sub">Weekly — Every Monday at 8:00 AM EST</div>
+          </div>
+          <div style="font-size:11px;color:var(--text3);">Managed by advisor</div>
+        </div>
+        <div class="settings-toggle-row">
+          <div>
+            <div class="settings-toggle-lbl">Data Retention</div>
+            <div class="settings-toggle-sub">90 days of report history</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sec-label">Notifications</div>
+      <div class="card">
+        <div class="settings-toggle-row">
+          <div>
+            <div class="settings-toggle-lbl">Weekly report ready</div>
+            <div class="settings-toggle-sub">Get notified when your new report is available</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" checked onchange="toast('Notification preference saved')">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="settings-toggle-row">
+          <div>
+            <div class="settings-toggle-lbl">New advisor message</div>
+            <div class="settings-toggle-sub">Get notified when your advisor sends a message</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" checked onchange="toast('Notification preference saved')">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="settings-toggle-row">
+          <div>
+            <div class="settings-toggle-lbl">Milestone achieved</div>
+            <div class="settings-toggle-sub">Get notified when you advance to a new milestone</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" checked onchange="toast('Notification preference saved')">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="sec-label">Account</div>
+      <div class="card">
+        <div class="settings-toggle-row">
+          <div>
+            <div class="settings-toggle-lbl">Sign out</div>
+            <div class="settings-toggle-sub">Sign out of your CMNDR account</div>
+          </div>
+          <button onclick="signOut()" style="font-size:12px;padding:6px 16px;border-radius:var(--radius-md);border:0.5px solid var(--border2);background:none;color:var(--text2);cursor:pointer;" onmouseover="this.style.borderColor='var(--danger)';this.style.color='var(--danger)'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text2)'">Sign out</button>
+        </div>
+        <div class="settings-toggle-row">
+          <div>
+            <div class="settings-toggle-lbl">Contact your advisor</div>
+            <div class="settings-toggle-sub">Book a session or get support</div>
+          </div>
+          <a href="https://calendly.com/operations-resona/30min" target="_blank" style="font-size:12px;color:var(--info);text-decoration:none;">Book a call →</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="page" id="page-help">
+    <div class="page-inner" style="max-width:700px;">
+      <div class="page-head">
+        <div>
+          <div class="page-title">Help Center</div>
+          <div class="page-meta">Documentation and support resources</div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:28px;">
+        <a href="https://calendly.com/operations-resona/30min" target="_blank" style="text-decoration:none;">
+          <div class="card" style="cursor:pointer;transition:border-color .15s;" onmouseover="this.style.borderColor='var(--info)'" onmouseout="this.style.borderColor=''">
+            <div style="font-size:20px;margin-bottom:10px;">📞</div>
+            <div style="font-size:14px;font-weight:500;margin-bottom:4px;">Talk to your advisor</div>
+            <div style="font-size:12px;color:var(--text2);">Book a 30-minute session with your Resona advisor.</div>
+          </div>
+        </a>
+        <div class="card" style="cursor:pointer;transition:border-color .15s;" onclick="openRsSection('cmndr')" onmouseover="this.style.borderColor='var(--info)'" onmouseout="this.style.borderColor=''">
+          <div style="font-size:20px;margin-bottom:10px;">💬</div>
+          <div style="font-size:14px;font-weight:500;margin-bottom:4px;">Ask CMNDR</div>
+          <div style="font-size:12px;color:var(--text2);">Ask the AI assistant anything about your reports and data.</div>
+        </div>
+      </div>
+
+      <div class="sec-label">Frequently Asked Questions</div>
+      <div id="help-faq"></div>
+    </div>
+  </div>
+
+  <!-- Archive -->
+  <div class="page" id="page-history">
+    <div class="page-inner">
+      <div class="page-head">
+        <div><div class="page-title">Archive</div><div class="page-meta" id="hist-meta">Loading…</div></div>
+        <button class="reload-btn" onclick="loadPage('history',true)">Refresh</button>
+      </div>
+      <div id="hist-body">
+        <div class="skel"></div><div class="skel" style="width:75%"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Celebration banner (fixed top) -->
+<div class="celebration" id="celebration">
+  <div class="celeb-icon">🎉</div>
+  <div class="celeb-text">
+    <div class="celeb-title" id="celeb-title">Milestone complete!</div>
+    <div class="celeb-sub" id="celeb-sub">You've advanced to the next milestone in your program.</div>
+  </div>
+  <div class="celeb-close" onclick="document.getElementById('celebration').classList.remove('visible')">×</div>
+</div>
+
+
+<div class="toast" id="toast"></div>
+
+<!-- Welcome overlay (client_user first login) -->
+<div class="welcome-overlay hidden" id="welcome-overlay">
+  <div class="welcome-card">
+    <button class="welcome-close" onclick="dismissWelcome()">×</button>
+    <div class="wc-program" id="wc-program">CMNDR</div>
+    <h2 id="wc-title">Welcome to CMNDR</h2>
+    <p class="wc-sub">Your business intelligence dashboard — here's what's inside:</p>
+    <ul class="welcome-bullets">
+      <li>Your data is connected and analyzed across operations, marketing, finance, and optimization</li>
+      <li>Power Briefings give you plain-language insights and recommended actions every week</li>
+      <li>Your advisor monitors your progress and adjusts your strategy in real time</li>
+    </ul>
+    <button class="welcome-cta" onclick="window.location.href='/connections'">Connect my data</button>
+  </div>
+</div>
+
+<div class="right-sidebar hidden-panel" id="right-sidebar">
+  <button class="rs-collapse-btn" id="rs-collapse-btn" onclick="toggleRightSidebar()" aria-label="Toggle right panel">
+    <svg id="rs-collapse-icon" width="13" height="13" viewBox="0 0 13 13" fill="none">
+      <path d="M5 2l5 4.5L5 11" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </button>
+
+  <div class="rs-content" id="rs-content">
+
+    <!-- Section: Notifications -->
+    <div class="rs-section" id="rs-notif-section" style="display:none">
+      <div class="rs-section-header" id="rs-notif-header" onclick="toggleRsSection('notif')">
+        <span class="rs-section-lbl">Notifications</span>
+        <svg class="rs-section-icon" width="11" height="11" viewBox="0 0 11 11" fill="none">
+          <path d="M2 4l3.5 3.5L9 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="rs-section-body" id="rs-notif-body">
+        <div class="rs-section-body-inner">
+          <div id="rs-notif-list"><div class="msg-empty">No notifications</div></div>
+          <div style="margin-top:8px;text-align:right;">
+            <span style="font-size:11px;color:var(--info);cursor:pointer;" onclick="markAllNotifRead()">Mark all read</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section: Your Progress (sub-pages only) -->
+    <div class="rs-section" id="rs-progress-section">
+      <div class="rs-section-header" id="rs-progress-header" onclick="toggleRsSection('progress')">
+        <span class="rs-section-lbl">Your Progress</span>
+        <svg class="rs-section-icon" width="11" height="11" viewBox="0 0 11 11" fill="none">
+          <path d="M2 4l3.5 3.5L9 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="rs-section-body" id="rs-progress-body">
+        <div class="rs-section-body-inner" id="sp-content">
+          <div class="sp-loading">
+            <div class="skel" style="width:55%"></div>
+            <div class="skel" style="width:80%;height:18px;margin-top:6px;"></div>
+            <div class="skel" style="width:40%;margin-top:4px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section: Current Goal (overview only) -->
+    <div class="rs-section" id="rs-goal-section">
+      <div class="rs-section-header" id="rs-goal-header" onclick="toggleRsSection('goal')">
+        <span class="rs-section-lbl">Current Goal</span>
+        <svg class="rs-section-icon" width="11" height="11" viewBox="0 0 11 11" fill="none">
+          <path d="M2 4l3.5 3.5L9 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="rs-section-body" id="rs-goal-body">
+        <div class="rs-section-body-inner">
+          <div class="goal-banner" id="goal-banner">
+            <div class="goal-banner-lbl">
+              <span>Goal</span>
+              <button class="goal-edit-btn" id="goal-edit-btn" style="display:none" onclick="toggleGoalEdit()">Edit</button>
+            </div>
+            <div id="goal-text" style="color:var(--text3)">Loading…</div>
+            <div class="goal-edit-form" id="goal-edit-form">
+              <textarea class="goal-edit-input" id="goal-input" rows="2" placeholder="State the client's primary goal…"></textarea>
+              <button class="goal-save-btn" onclick="saveGoal()">Save goal</button>
+            </div>
+          </div>
+          <div class="health-badge" id="health-badge" style="display:none;margin-top:8px;">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1L7.5 4.5H11L8 7l1 3.5L6 8.5 3 10.5l1-3.5L1 4.5h3.5L6 1z" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/></svg>
+            <span class="health-score" id="health-score">—</span>
+            <span class="health-label" id="health-label">Health score</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section: CMNDR (AI chat) -->
+    <div class="rs-section" id="rs-messages-section">
+      <div class="rs-section-header" id="rs-messages-header" onclick="toggleRsSection('messages');loadCmndrHistory();">
+        <span class="rs-section-lbl">CMNDR</span>
+        <svg class="rs-section-icon" width="11" height="11" viewBox="0 0 11 11" fill="none">
+          <path d="M2 4l3.5 3.5L9 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="rs-section-body" id="rs-messages-body">
+        <div class="rs-section-body-inner">
+          <div class="cmndr-thread" id="cmndr-thread">
+            <div class="cmndr-msg cmndr-msg--ai cmndr-empty">
+              <div class="cmndr-bubble">Ask me anything about your business data.</div>
+            </div>
+          </div>
+          <div class="cmndr-compose">
+            <textarea id="cmndr-input" rows="2" placeholder="Ask CMNDR…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendCmndrMessage();}"></textarea>
+            <button id="cmndr-send-btn" onclick="sendCmndrMessage()">
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M11.5 6.5L1.5 1.5l2.5 5-2.5 5z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const API = '/api/pages';
+let CLIENT = 'peak-flow';
+let currentRange = '7d';
+let currentPage = 'overview';
+let currentOpsView = 'all';
+let USER_ROLE = null;
+let USER_NAME = '';
+const cache = {};
+
+// ── Helpers ──────────────────────────────────────────────────
+function fmt$(n) { return '$' + Math.round(n || 0).toLocaleString(); }
+function initials(name) { return (name || '?').split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase(); }
+function utilColor(pct) { return pct >= 85 ? '#E24B4A' : pct >= 70 ? '#EF9F27' : '#1D9E75'; }
+function prioBadge(p) {
+  const m = { high: 'b-hi', medium: 'b-med', low: 'b-lo' };
+  return `<span class="badge ${m[p] || 'b-lo'}">${p || 'low'}</span>`;
+}
+function parseActions(raw) {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw !== 'string') return [];
+  // Strip markdown code fences if Claude wrapped the JSON
+  const stripped = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
+  try { return JSON.parse(stripped); } catch (e) { return []; }
+}
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+function dateRange(preset) {
+  const now = new Date(), today = now.toISOString().split('T')[0];
+  if (preset === '7d') { const d = new Date(); d.setDate(d.getDate() - 7); return { from: d.toISOString().split('T')[0], to: today }; }
+  if (preset === '30d') { const d = new Date(); d.setDate(d.getDate() - 30); return { from: d.toISOString().split('T')[0], to: today }; }
+  if (preset === 'mtd') { return { from: new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0], to: today }; }
+  if (preset === 'qtd') { const q = Math.floor(now.getMonth() / 3); return { from: new Date(now.getFullYear(), q * 3, 1).toISOString().split('T')[0], to: today }; }
+  const d = new Date(); d.setDate(d.getDate() - 7); return { from: d.toISOString().split('T')[0], to: today };
+}
+function fmtRange(from, to) {
+  const f = new Date(from).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const t = new Date(to).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return `${f} – ${t}`;
+}
+const pfx = { operations: 'ops', marketing: 'mkt', finance: 'fin', optimization: 'opt', history: 'hist' };
+
+// ── Nav Groups ───────────────────────────────────────────────
+function toggleNavGroup(name) {
+  const group = document.getElementById('nav-group-' + name);
+  if (!group) return;
+  const items = document.getElementById('nav-group-items-' + name);
+  const isCollapsed = group.classList.toggle('collapsed');
+  items.style.maxHeight = isCollapsed ? '0' : items.scrollHeight + 'px';
+}
+
+function initNavGroups() {
+  ['analyze', 'report', 'control'].forEach(name => {
+    const items = document.getElementById('nav-group-items-' + name);
+    if (items) items.style.maxHeight = items.scrollHeight + 'px';
+  });
+}
+
+// ── CMNDR AI Chat ─────────────────────────────────────────────
+async function loadCmndrHistory() {
+  const thread = document.getElementById('cmndr-thread');
+  if (!thread) return;
+  try {
+    const res = await fetch(
+      `/api/pages?page=cmndr-history&client=${CLIENT}&from=&to=`
+    );
+    const data = await res.json();
+    const messages = data.messages || [];
+    if (!messages.length) return;
+    const empty = thread.querySelector('.cmndr-empty');
+    if (empty) empty.remove();
+    messages.forEach(m => {
+      const el = document.createElement('div');
+      if (m.role === 'user') {
+        el.className = 'cmndr-msg cmndr-msg--user';
+        el.innerHTML = `<div class="cmndr-bubble">${(m.content || '').replace(/</g,'&lt;')}</div>`;
+      } else {
+        el.className = 'cmndr-msg cmndr-msg--ai';
+        el.innerHTML = `<div class="cmndr-bubble">${(m.content || '').replace(/</g,'&lt;').replace(/\n/g,'<br>')}</div>`;
+      }
+      thread.appendChild(el);
+    });
+    thread.scrollTop = thread.scrollHeight;
+  } catch(e) {}
+}
+
+async function sendCmndrMessage() {
+  const input = document.getElementById('cmndr-input');
+  const sendBtn = document.getElementById('cmndr-send-btn');
+  const thread = document.getElementById('cmndr-thread');
+  const text = (input.value || '').trim();
+  if (!text) return;
+
+  input.value = '';
+  sendBtn.disabled = true;
+
+  // Remove the empty placeholder if still present
+  const empty = thread.querySelector('.cmndr-empty');
+  if (empty) empty.remove();
+
+  const userMsg = document.createElement('div');
+  userMsg.className = 'cmndr-msg cmndr-msg--user';
+  userMsg.innerHTML = `<div class="cmndr-bubble">${text.replace(/</g,'&lt;')}</div>`;
+  thread.appendChild(userMsg);
+
+  const loadingMsg = document.createElement('div');
+  loadingMsg.className = 'cmndr-msg cmndr-msg--ai';
+  loadingMsg.innerHTML = '<div class="cmndr-bubble loading">Thinking\u2026</div>';
+  thread.appendChild(loadingMsg);
+  thread.scrollTop = thread.scrollHeight;
+
+  try {
+    const res = await fetch('/api/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ client_id: CLIENT, page: currentPage, question: text }),
+    });
+    const data = await res.json();
+    const answer = data.answer || data.error || 'No response.';
+    loadingMsg.innerHTML = `<div class="cmndr-bubble">${answer.replace(/</g,'&lt;').replace(/\n/g,'<br>')}</div>`;
+  } catch {
+    loadingMsg.innerHTML = '<div class="cmndr-bubble loading">Error \u2014 please try again.</div>';
+  }
+  sendBtn.disabled = false;
+  thread.scrollTop = thread.scrollHeight;
+}
+
+// ── Settings ──────────────────────────────────────────────────
+function loadSettings() {
+  const accountName = document.querySelector('.chip-name')?.textContent || '—';
+  const role = typeof USER_ROLE !== 'undefined' ? USER_ROLE : '—';
+  const clientId = typeof CLIENT !== 'undefined' ? CLIENT : '—';
+  document.getElementById('settings-account-name').textContent = accountName;
+  document.getElementById('settings-role').textContent = role;
+  document.getElementById('settings-client-id').textContent = clientId;
+}
+
+// ── Help ───────────────────────────────────────────────────────
+const FAQ_ITEMS = [
+  { q: 'How often is my report updated?', a: 'Your report is generated every Monday at 8:00 AM EST. You\'ll receive a notification when it\'s ready. Your advisor can also generate a fresh report on demand from their dashboard.' },
+  { q: 'What does my health score mean?', a: 'Your health score (0–100) reflects the overall performance of your business across Operations, Marketing, Finance, and Optimization. A score above 70 is healthy. Below 55 indicates areas that need attention.' },
+  { q: 'How do I connect my data sources?', a: 'Go to Relays in the left menu. From there you can upload a spreadsheet or connect live data sources like Google Analytics. Your advisor can also configure connections on your behalf.' },
+  { q: 'What is the 3 Point Road Map?', a: 'The 3PR is your strategic roadmap broken into three focused milestones. Each milestone builds on the last. As you complete each phase, your business grows in stability, reach, and efficiency. Your advisor configures and advances your milestones.' },
+  { q: 'What is the Forecast page?', a: 'Forecast uses your keyword profile and market data to show your projected market share, wallet share, and competitive landscape. It updates weekly alongside your main report.' },
+  { q: 'How do I advance to the next milestone?', a: 'Your Resona advisor reviews your progress and advances your milestone when the goals for the current phase are met. You can discuss your progress anytime by booking a call or messaging through CMNDR.' },
+  { q: 'Can I change my report date range?', a: 'Yes — use the Date Range selector in the bottom of the left menu. You can view 7 days, 30 days, Month-to-date, or Quarter-to-date. This affects all report pages.' },
+  { q: 'How do I get more keywords added to my Forecast?', a: 'Contact your Resona advisor and they will update your keyword profile. Keywords are used to generate your market intelligence reports.' }
+];
+
+function loadHelp() {
+  const faqEl = document.getElementById('help-faq');
+  if (!faqEl) return;
+  faqEl.innerHTML = FAQ_ITEMS.map((item, i) => `
+    <div class="card" style="margin-bottom:8px;cursor:pointer;padding:0;" onclick="toggleHelpItem(${i})">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;gap:12px;">
+        <div style="font-size:13px;font-weight:500;">${item.q}</div>
+        <svg id="help-chevron-${i}" width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;color:var(--text3);transition:transform .2s;">
+          <path d="M3 5l4 4 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div id="help-body-${i}" style="max-height:0;overflow:hidden;transition:max-height .3s ease;padding:0 16px;">
+        <div style="font-size:13px;color:var(--text2);line-height:1.7;padding-bottom:14px;">${item.a}</div>
+      </div>
+    </div>`).join('');
+}
+
+function toggleHelpItem(i) {
+  const body = document.getElementById('help-body-' + i);
+  const chevron = document.getElementById('help-chevron-' + i);
+  if (!body) return;
+  const isOpen = body.style.maxHeight !== '0px' && body.style.maxHeight !== '';
+  body.style.maxHeight = isOpen ? '0px' : '200px';
+  if (chevron) chevron.style.transform = isOpen ? '' : 'rotate(180deg)';
+}
+
+// ── Forecast ──────────────────────────────────────────────────
+async function loadForecast(force = false) {
+  const body = document.getElementById('forecast-body');
+  const meta = document.getElementById('forecast-meta');
+  if (!body) return;
+
+  body.innerHTML = `<div class="forecast-skeleton">
+    <div class="skel" style="width:40%;height:20px;margin-bottom:8px;"></div>
+    <div class="skel" style="width:60%;height:14px;margin-bottom:32px;"></div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px;">
+      <div class="skel" style="height:90px;border-radius:10px;"></div>
+      <div class="skel" style="height:90px;border-radius:10px;"></div>
+      <div class="skel" style="height:90px;border-radius:10px;"></div>
+    </div>
+    <div class="skel" style="height:280px;border-radius:12px;"></div>
+  </div>`;
+
+  try {
+    const res = await fetch(`/api/pages?page=forecast&client=${CLIENT}${force ? '&force=1' : ''}`);
+    const data = await res.json();
+
+    if (data.no_keywords) {
+      body.innerHTML = `<div class="forecast-no-keywords">
+        <div style="font-size:32px;margin-bottom:16px;">🔍</div>
+        <div style="font-size:15px;font-weight:500;margin-bottom:8px;">No keywords configured yet</div>
+        <div style="font-size:13px;max-width:360px;margin:0 auto;">Your Resona advisor will configure your market keywords during onboarding to unlock this report.</div>
+      </div>`;
+      return;
+    }
+
+    if (meta) meta.textContent = data.from_cache
+      ? 'Cached report · ' + new Date(data.generatedAt).toLocaleDateString()
+      : 'Live report · ' + new Date().toLocaleDateString();
+
+    renderForecast(data);
+  } catch(e) {
+    body.innerHTML = '<p class="empty">Failed to load forecast data.</p>';
+  }
+}
+
+function renderForecast(data) {
+  const body = document.getElementById('forecast-body');
+  const keywords = data.keywords || [];
+  const serpData = data.serp_data || [];
+  const market = data.market_share || 0;
+  const wallet = data.wallet_share || 0;
+
+  const cx = 90, cy = 90, r = 70, stroke = 22;
+  const circ = 2 * Math.PI * r;
+  function arc(pct, offset, color) {
+    const dash = (pct / 100) * circ;
+    return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="${stroke}"
+      stroke-dasharray="${dash} ${circ - dash}" stroke-dashoffset="${-offset * circ / 100}"
+      transform="rotate(-90 ${cx} ${cy})"/>`;
+  }
+  const donutSvg = `<svg class="forecast-donut-svg" width="180" height="180" viewBox="0 0 180 180">
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--border)" stroke-width="${stroke}"/>
+    ${arc(market, 0, 'var(--info)')}
+    ${arc(wallet, market, 'var(--success)')}
+    ${arc(Math.max(0, 100 - market - wallet), market + wallet, 'var(--warning)')}
+    <text x="${cx}" y="${cy - 6}" text-anchor="middle" font-size="22" font-weight="700" fill="var(--text)">${market}%</text>
+    <text x="${cx}" y="${cy + 14}" text-anchor="middle" font-size="11" fill="var(--text3)">Market</text>
+  </svg>`;
+
+  const keywordsHtml = keywords.map((k, i) =>
+    `<span class="forecast-keyword ${i < 3 ? 'primary' : ''}">${k}</span>`
+  ).join('');
+
+  const competitorsHtml = serpData.length
+    ? serpData.map(s => `<div class="forecast-comp-row">
+        <span class="forecast-comp-rank">#${s.position}</span>
+        <span class="forecast-comp-domain">${s.domain}</span>
+      </div>`).join('')
+    : '<p style="font-size:12px;color:var(--text3);">No competitor data available.</p>';
+
+  body.innerHTML = `
+    <div class="forecast-hero">
+      <div class="forecast-eyebrow">Market Intelligence</div>
+      <div class="forecast-title">Market Forecast</div>
+      <div class="forecast-sub">Based on your keyword profile, here's how your market looks right now — who's competing, what demand looks like, and where your opportunity sits.</div>
+    </div>
+    <div class="forecast-kpis">
+      <div class="forecast-kpi">
+        <div class="forecast-kpi-label">Projected Market Share</div>
+        <div class="forecast-kpi-val" style="color:var(--info);">${market}%</div>
+        <div class="forecast-kpi-sub">Estimated share of search demand your keywords can capture</div>
+      </div>
+      <div class="forecast-kpi">
+        <div class="forecast-kpi-label">Projected Wallet Share</div>
+        <div class="forecast-kpi-val" style="color:var(--success);">${wallet}%</div>
+        <div class="forecast-kpi-sub">Estimated portion of searchers with active purchase intent</div>
+      </div>
+      <div class="forecast-kpi">
+        <div class="forecast-kpi-label">Est. Competitive CPC</div>
+        <div class="forecast-kpi-val" style="color:var(--warning);">$${data.competitive_cpc || '—'}</div>
+        <div class="forecast-kpi-sub">Average cost-per-click in your keyword market</div>
+      </div>
+    </div>
+    ${data.ai_summary ? `<div class="forecast-ai-box">
+      <div class="forecast-ai-lbl"><span style="font-weight:700;text-shadow:0 0 8px rgba(55,138,221,.5);">Power</span> Analysis</div>
+      <div class="forecast-ai-text">${data.ai_summary}</div>
+    </div>` : ''}
+    <div class="forecast-chart-wrap">
+      <div class="forecast-chart-title">
+        <span>Market Composition</span>
+        <span style="font-size:11px;color:var(--text3);">Based on ${keywords.length} keywords</span>
+      </div>
+      <div class="forecast-donut-wrap">
+        ${donutSvg}
+        <div class="forecast-legend">
+          <div class="forecast-legend-item">
+            <div class="forecast-legend-dot" style="background:var(--info);"></div>
+            <span>Market Share</span>
+            <span class="forecast-legend-val">${market}%</span>
+          </div>
+          <div class="forecast-legend-item">
+            <div class="forecast-legend-dot" style="background:var(--success);"></div>
+            <span>Wallet Share</span>
+            <span class="forecast-legend-val">${wallet}%</span>
+          </div>
+          <div class="forecast-legend-item">
+            <div class="forecast-legend-dot" style="background:var(--warning);"></div>
+            <span>Contested</span>
+            <span class="forecast-legend-val">${Math.max(0, 100 - market - wallet)}%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div class="forecast-chart-wrap" style="margin-bottom:0;">
+        <div class="forecast-chart-title">Your Keywords</div>
+        <div class="forecast-keywords">${keywordsHtml}</div>
+      </div>
+      <div class="forecast-chart-wrap" style="margin-bottom:0;">
+        <div class="forecast-chart-title">Top Competitors</div>
+        <div class="forecast-competitors">${competitorsHtml}</div>
+      </div>
+    </div>`;
+}
+
+// ── Roadmap ───────────────────────────────────────────────────
+function toggleRdmpCard(id) {
+  const card = document.getElementById(id);
+  if (!card) return;
+  card.classList.toggle('open');
+}
+
+function loadRoadmap() {
+  const skeleton = document.getElementById('rdmp-skeleton');
+  const content = document.getElementById('rdmp-content');
+  const empty = document.getElementById('rdmp-empty');
+  skeleton.style.display = '';
+  content.style.display = 'none';
+  empty.style.display = 'none';
+  fetch(`/api/pages?page=roadmap&client=${CLIENT}`)
+    .then(r => r.json())
+    .then(d => {
+      skeleton.style.display = 'none';
+      if (!d.roadmap) { empty.style.display = ''; return; }
+      content.innerHTML = renderRoadmap(d.roadmap);
+      content.style.display = '';
+    })
+    .catch(() => { skeleton.style.display = 'none'; empty.style.display = ''; });
+}
+
+function renderRoadmap(roadmap) {
+  const nodes = roadmap.nodes || [];
+  if (!nodes.length) return '<p class="empty">No roadmap data available.</p>';
+
+  const currentNode = roadmap.current_node || 1;
+  const completedCount = nodes.filter(n => n.status === 'complete').length;
+
+  const heroHtml = `
+    <div class="rdmp-hero">
+      <div class="rdmp-hero-eyebrow">Strategic Roadmap</div>
+      <div class="rdmp-hero-title">Your 3-Point Growth Plan</div>
+      <div class="rdmp-hero-body">
+        Your roadmap breaks your strategy into three focused milestones —
+        each one building on the last. As you complete each phase,
+        your business compounds in stability, reach, and efficiency.
+        This is the structure behind your growth.
+      </div>
+      <div class="rdmp-hero-stats">
+        <div>
+          <div class="rdmp-hero-stat-val" style="color:var(--info)">Phase ${currentNode} of ${nodes.length}</div>
+          <div class="rdmp-hero-stat-lbl">Current Phase</div>
+        </div>
+        <div>
+          <div class="rdmp-hero-stat-val" style="color:var(--success)">${completedCount} Complete</div>
+          <div class="rdmp-hero-stat-lbl">Milestones Done</div>
+        </div>
+        <div>
+          <div class="rdmp-hero-stat-val" style="color:var(--text2)">${nodes.length - completedCount} Remaining</div>
+          <div class="rdmp-hero-stat-lbl">Milestones Ahead</div>
+        </div>
+      </div>
+    </div>`;
+
+  let trackHtml = '<div class="rdmp-track">';
+  nodes.forEach((node, i) => {
+    const cls = node.status === 'complete' ? 'node-complete' : node.status === 'active' ? 'node-active' : 'node-pending';
+    const icon = node.status === 'complete' ? '✓' : (i + 1);
+    trackHtml += `<div class="rdmp-node-wrap">
+      <div class="rdmp-node ${cls}">${icon}</div>
+      <div class="rdmp-node-title">${node.title || 'Phase ' + (i + 1)}</div>
+      ${node.subtitle ? `<div class="rdmp-node-sub">${node.subtitle}</div>` : ''}
+      ${node.status === 'active' ? '<div class="rdmp-active-indicator"><div class="rdmp-active-dot"></div>In Progress</div>' : ''}
+    </div>`;
+    if (i < nodes.length - 1) {
+      trackHtml += `<div class="rdmp-line${node.status === 'complete' ? ' line-complete' : ''}"></div>`;
+    }
+  });
+  trackHtml += '</div>';
+
+  let cardsHtml = '<div class="rdmp-cards">';
+  nodes.forEach((node, i) => {
+    const badgeCls = node.status === 'complete' ? 'badge-complete' : node.status === 'active' ? 'badge-active' : 'badge-pending';
+    const badgeLabel = node.status === 'complete' ? 'Complete' : node.status === 'active' ? 'Active' : 'Upcoming';
+    const dotCls = node.status === 'complete' ? 'dot-complete' : node.status === 'active' ? 'dot-active' : 'dot-pending';
+    const dotIcon = node.status === 'complete' ? '✓' : (i + 1);
+    const milestones = node.milestones || [];
+    const goalsHtml = milestones.length
+      ? milestones.map(m => {
+          const chipCls = m.status === 'completed' ? 'done' : m.status === 'in_progress' ? 'active' : '';
+          const chipIcon = m.status === 'completed' ? '✓ ' : m.status === 'in_progress' ? '→ ' : '○ ';
+          return `<span class="rdmp-goal-chip ${chipCls}">${chipIcon}${m.label || m.title || ''}</span>`;
+        }).join('')
+      : '<span style="font-size:12px;color:var(--text3);">Goals will appear here as your advisor configures this phase.</span>';
+    const cardId = 'rdmp-card-' + i;
+    cardsHtml += `<div class="rdmp-card" id="${cardId}" onclick="toggleRdmpCard('${cardId}')">
+      <div class="rdmp-card-header-row">
+        <div class="rdmp-card-left">
+          <div class="rdmp-card-node-dot ${dotCls}">${dotIcon}</div>
+          <div>
+            <div style="font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px;">Milestone 0${i + 1}</div>
+            <div style="font-size:14px;font-weight:500;">${node.title || 'Phase ' + (i + 1)}</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+          <span class="rdmp-badge ${badgeCls}">${badgeLabel}</span>
+          <svg class="rdmp-card-chevron" width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M3 5l4 4 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+      </div>
+      <div class="rdmp-card-body">
+        <div class="rdmp-card-detail-section">
+          <div class="rdmp-card-detail-lbl">What this phase is about</div>
+          <div class="rdmp-card-detail-text">${node.description || 'Details coming soon.'}</div>
+        </div>
+        ${node.subtitle ? `<div class="rdmp-card-detail-section">
+          <div class="rdmp-card-detail-lbl">Timeline</div>
+          <div class="rdmp-card-detail-text">${node.subtitle}</div>
+        </div>` : ''}
+        <div class="rdmp-card-detail-section">
+          <div class="rdmp-card-detail-lbl">Goals &amp; Targets</div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">${goalsHtml}</div>
+        </div>
+        ${node.status === 'active' ? `<div class="rdmp-card-detail-section">
+          <div class="rdmp-card-detail-lbl">Current Focus</div>
+          <div class="rdmp-card-detail-text" style="color:var(--info);">● This is your active phase. Work with your advisor and CMNDR to complete the goals above and advance to the next milestone.</div>
+        </div>` : ''}
+      </div>
+    </div>`;
+  });
+  cardsHtml += '</div>';
+
+  setTimeout(() => {
+    const activeIdx = nodes.findIndex(n => n.status === 'active');
+    if (activeIdx >= 0) {
+      const el = document.getElementById('rdmp-card-' + activeIdx);
+      if (el) el.classList.add('open');
+    }
+  }, 50);
+
+  return heroHtml + trackHtml + cardsHtml;
+}
+
+// ── Navigation ───────────────────────────────────────────────
+const STUB_PAGES = new Set(['relays']);
+
+function nav(page) {
+  currentPage = page;
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.page === page));
+  document.querySelectorAll('.page').forEach(el => el.classList.toggle('active', el.id === 'page-' + page));
+  const rs = document.getElementById('right-sidebar');
+  const main = document.querySelector('.main');
+
+  // Clear overview iframe when leaving overview to prevent bleed
+  if (page !== 'overview') {
+    const frame = document.getElementById('overview-frame');
+    if (frame) frame.src = '';
+  }
+
+  if (STUB_PAGES.has(page)) {
+    rs.classList.add('hidden-panel');
+    main.classList.add('no-panel');
+  } else if (page === 'roadmap') {
+    rs.classList.remove('hidden-panel');
+    main.classList.remove('no-panel');
+    document.getElementById('rs-progress-section').style.display = 'none';
+    document.getElementById('rs-goal-section').style.display = '';
+    document.getElementById('rs-messages-section').style.display = '';
+    openRsSection('goal');
+    openRsSection('messages');
+    loadRoadmap();
+  } else if (page === 'overview') {
+    rs.classList.remove('hidden-panel');
+    main.classList.remove('no-panel');
+    document.getElementById('rs-progress-section').style.display = 'none';
+    document.getElementById('rs-goal-section').style.display = '';
+    document.getElementById('rs-messages-section').style.display = '';
+    openRsSection('goal');
+    openRsSection('messages');
+    setTimeout(loadCmndrHistory, 300);
+    updateOverviewFrame();
+    loadOverviewPanel();
+  } else if (page === 'forecast') {
+    rs.classList.remove('hidden-panel');
+    main.classList.remove('no-panel');
+    document.getElementById('rs-progress-section').style.display = 'none';
+    document.getElementById('rs-goal-section').style.display = '';
+    document.getElementById('rs-messages-section').style.display = '';
+    openRsSection('goal');
+    openRsSection('messages');
+    loadForecast();
+  } else if (page === 'settings') {
+    rs.classList.add('hidden-panel');
+    main.classList.add('no-panel');
+    loadSettings();
+  } else if (page === 'help') {
+    rs.classList.add('hidden-panel');
+    main.classList.add('no-panel');
+    loadHelp();
+  } else if (page === 'history') {
+    rs.classList.add('hidden-panel');
+    main.classList.add('no-panel');
+    loadPage('history');
+  } else {
+    rs.classList.remove('hidden-panel');
+    main.classList.remove('no-panel');
+    document.getElementById('rs-progress-section').style.display = '';
+    document.getElementById('rs-goal-section').style.display = 'none';
+    document.getElementById('rs-messages-section').style.display = 'none';
+    openRsSection('progress');
+    showPanelSkeleton();
+    loadPage(page);
+  }
+  if (!rs.classList.contains('hidden-panel') && !rs.classList.contains('collapsed')) {
+    main.style.marginRight = '280px';
+  }
+}
+
+function updateOverviewFrame() {
+  document.getElementById('overview-frame').src = `/?client=${CLIENT}&range=${currentRange}`;
+}
+
+function setRange(r) {
+  currentRange = r;
+  document.querySelectorAll('.range-btn').forEach(b => b.classList.toggle('active', b.dataset.range === r));
+  Object.keys(cache).forEach(k => delete cache[k]);
+  if (currentPage === 'overview') {
+    updateOverviewFrame();
+  } else {
+    loadPage(currentPage, true);
+  }
+}
+
+// ── Data loading ─────────────────────────────────────────────
+async function loadPage(page, force = false) {
+  if (!force && cache[page]) { renderPage(page, cache[page]); return; }
+  // Inject skeletons immediately before fetch
+  if (page !== 'history') injectPageSkeletons(page);
+  const { from, to } = dateRange(currentRange);
+  try {
+    const res = await fetch(`${API}?page=${page}&client=${CLIENT}&from=${from}&to=${to}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    cache[page] = data;
+    renderPage(page, data);
+  } catch (err) {
+    const meta = document.getElementById(pfx[page] + '-meta');
+    if (meta) meta.textContent = 'Error loading data';
+    const body = document.getElementById(pfx[page] + '-body');
+    if (body) body.innerHTML = errorState(pfx[page] + '-body');
+    toast('Failed to load ' + page);
+  }
+}
+
+function renderPage(page, data) {
+  if (page === 'history') { renderHistory(data); return; }
+  const meta = document.getElementById(pfx[page] + '-meta');
+  if (meta) meta.textContent = fmtRange(data.from, data.to);
+  if (page === 'operations') renderOperations(data);
+  if (page === 'marketing') renderMarketing(data);
+  if (page === 'finance') renderFinance(data);
+  if (page === 'optimization') renderOptimization(data);
+  // Data sufficiency warnings — prepend to body
+  const warnings = dataSufficiencyWarning(data, page);
+  if (warnings.length) {
+    const body = document.getElementById(pfx[page] + '-body');
+    if (body) body.insertAdjacentHTML('afterbegin', renderWarnings(warnings));
+  }
+  renderStrategyPanel(data);
+  // Mirror strategy panel content to mobile sheet
+  const sheet = document.getElementById('strategy-sheet-content');
+  const spContent = document.getElementById('sp-content');
+  if (sheet && spContent) sheet.innerHTML = spContent.innerHTML;
+  if (data.milestone_just_advanced) showCelebration(data.course);
+  // Action history + Ask Claude (skip ask for operations)
+  renderActionHistory(page);
+  if (page !== 'operations') renderAskSection(page);
+}
+
+// ── Explain helpers ───────────────────────────────────────────
+function explainBtn(id) {
+  return `<button class="explain-btn" onclick="toggleExplain('${id}')">
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1.2"/><path d="M6 5.5v3M6 3.5v.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+    Explain this
+  </button>`;
+}
+function explainPanel(id, summary) {
+  return `<div class="explain-panel" id="explain-${id}">
+    <div class="explain-lbl power-lbl">Power analysis</div>
+    <div class="explain-txt">${summary || 'No explanation available.'}</div>
+  </div>`;
+}
+function toggleExplain(id) {
+  const el = document.getElementById('explain-' + id);
+  if (el) el.classList.toggle('open');
+}
+
+// ── Actions renderer ─────────────────────────────────────────
+function renderActions(containerId, actionsRaw) {
+  const el = document.getElementById(containerId);
+  const actions = parseActions(actionsRaw);
+  if (!actions.length) { el.innerHTML = emptyState('action_history'); return; }
+  el.innerHTML = `
+    <div class="rec-head">
+      <div class="rec-title">Recommended Actions</div>
+      <span class="rec-badge">Power · ${actions.length} actions</span>
+    </div>
+    ${actions.map((a, i) => `
+      <div class="rec-item">
+        <div class="rec-item-head">
+          <div class="rec-item-title">${a.title || 'Action'}</div>
+          ${prioBadge(a.priority)}
+        </div>
+        <div class="rec-item-desc">${a.description || ''}</div>
+        <div class="rec-btns" id="rbtn-${containerId}-${i}">
+          <button class="btn-approve" onclick="approveAction('${containerId}',${i})">Approve</button>
+          <button class="btn-defer" onclick="deferAction('${containerId}',${i})">Defer</button>
+        </div>
+      </div>
+    `).join('')}`;
+}
+async function approveAction(cid, i) {
+  const el = document.getElementById(`rbtn-${cid}-${i}`);
+  const titleEl = el?.closest('.rec-item')?.querySelector('.rec-item-title');
+  const descEl = el?.closest('.rec-item')?.querySelector('.rec-item-desc');
+  if (el) el.innerHTML = '<span class="rec-status status-approved">Approving…</span>';
+  try {
+    const r = await fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ client_id: CLIENT, action_title: titleEl?.textContent || 'Action', action_desc: descEl?.textContent || '', page: currentPage, decision: 'approved', decided_by: USER_NAME })
+    });
+    const data = await r.json();
+    if (data.executed) {
+      if (el) el.innerHTML = '<span class="rec-status status-approved">⚡ Approved & executing</span>';
+      toast('Action approved & executing');
+    } else {
+      if (el) el.innerHTML = '<span class="rec-status status-approved">✓ Approved — added to task list</span>';
+      toast('Approved — no automation configured yet');
+    }
+  } catch(e) {
+    if (el) el.innerHTML = '<span class="rec-status status-approved">✓ Approved</span>';
+    toast('Action approved');
+  }
+}
+function deferAction(cid, i) {
+  const el = document.getElementById(`rbtn-${cid}-${i}`);
+  const titleEl = el?.closest('.rec-item')?.querySelector('.rec-item-title');
+  if (el) el.innerHTML = '<span class="rec-status status-deferred">Deferred</span>';
+  fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ client_id: CLIENT, action_title: titleEl?.textContent || 'Action', page: currentPage, decision: 'deferred', decided_by: USER_NAME })
+  }).catch(() => {});
+}
+
+// ── Bar chart helper ──────────────────────────────────────────
+function barChart(rows) {
+  if (!rows.length) return '<p class="empty">No data available.</p>';
+  const max = Math.max(...rows.map(r => r.val), 1);
+  return rows.map(r => `<div class="bar-row">
+    <span class="bar-lbl" title="${r.label}">${r.label}</span>
+    <div class="bar-track"><div class="bar-fill" style="width:${Math.round(r.val / max * 100)}%;background:${r.color || '#378ADD'};"></div></div>
+    <span class="bar-val">${r.display}</span>
+  </div>`).join('');
+}
+
+// ── Operations ───────────────────────────────────────────────
+function renderOperations(d) {
+  const jobs = d.jobs || [], techs = d.technicians || [], alerts = d.alerts || [], metrics = d.service_metrics || [];
+  const completed = jobs.filter(j => j.status === 'completed').length;
+  const inprog = jobs.filter(j => j.status === 'in-progress').length;
+  const rev = jobs.filter(j => j.revenue).reduce((a, j) => a + j.revenue, 0);
+  const revJobs = jobs.filter(j => j.revenue);
+  const avg = revJobs.length ? rev / revJobs.length : 0;
+  const rate = jobs.length ? Math.round(completed / jobs.length * 100) : 0;
+  const activeAlerts = alerts.filter(a => !a.resolved);
+
+  const metricsRows = metrics.slice(0, 6).map(m => ({
+    label: m.week_start ? new Date(m.week_start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—',
+    val: m.total_revenue || 0,
+    display: fmt$(m.total_revenue || 0),
+    color: '#378ADD'
+  }));
+
+  const techHeaderRow = `<div class="tech-header-row">
+    <span style="width:30px;flex-shrink:0;"></span>
+    <span style="flex:1;min-width:0;">Technician</span>
+    <span style="min-width:80px;">Specialty</span>
+    <span style="min-width:48px;text-align:center;">Active</span>
+    <span style="min-width:60px;text-align:center;">Completed</span>
+    <span style="min-width:60px;text-align:right;">Utilization</span>
+  </div>`;
+  const techRows = techs.slice(0, 6).map(t => `
+    <div class="tech-row">
+      <div class="tech-av">${initials(t.name)}</div>
+      <div style="flex:1;min-width:0;">
+        <div class="tech-name">${t.name}</div>
+        <div class="tech-meta">${t.specialty || '—'} · ${t.completed_this_week || 0} completed · ${t.active_jobs || 0} active</div>
+        <div class="util-track"><div class="util-fill" style="width:${t.utilization_pct || 0}%;background:${utilColor(t.utilization_pct || 0)};"></div></div>
+      </div>
+      <div class="util-pct" style="color:${utilColor(t.utilization_pct || 0)};">${t.utilization_pct || 0}%</div>
+    </div>`).join('') || emptyState('jobs');
+
+  const alertRows = activeAlerts.slice(0, 5).map((a, i) => `
+    <div class="a-row">
+      <div class="a-dot d-${a.type || 'info'}"></div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;">${a.message || '—'}</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:2px;">${(a.type || 'info').charAt(0).toUpperCase() + (a.type || 'info').slice(1)} · ${a.created_at ? new Date(a.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}</div>
+      </div>
+      <button class="alert-expand-btn" onclick="showAlertModal(${JSON.stringify(a).replace(/"/g, '&quot;')})">View</button>
+    </div>`).join('') || emptyState('alerts');
+
+  const statusMap = { completed: 'b-done', 'in-progress': 'b-prog', scheduled: 'b-lo', cancelled: 'b-overdue' };
+  const statusLabel = { completed: 'Done', 'in-progress': 'In progress', scheduled: 'Scheduled', cancelled: 'Cancelled' };
+  const jobHeaderRow = `<div class="table-header-row">
+    <span class="th-main">Job Title</span>
+    <div class="th-right">
+      <span style="min-width:50px;">Status</span>
+      <span style="min-width:44px;">Priority</span>
+      <span style="min-width:44px;text-align:right;">Revenue</span>
+    </div>
+  </div>`;
+  const jobRows = jobs.slice(0, 8).map(j => `
+    <div class="trow">
+      <div style="flex:1;min-width:0;">
+        <div class="trow-main">${j.title || '—'}</div>
+        <div class="trow-sub">${j.assigned_to || '—'} · ${j.service_type || '—'} · ${j.scheduled_date ? new Date(j.scheduled_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}</div>
+      </div>
+      <div class="trow-right">
+        ${prioBadge(j.priority)}
+        <span class="badge ${statusMap[j.status] || 'b-lo'}">${statusLabel[j.status] || j.status}</span>
+        <span style="font-size:11px;color:var(--text2);min-width:44px;text-align:right;">${j.revenue ? fmt$(j.revenue) : '—'}</span>
+      </div>
+    </div>`).join('') || emptyState('jobs');
+
+  document.getElementById('ops-body').innerHTML = `
+    <div class="ops-tabs" id="ops-tabs">
+      <button class="ops-tab active" data-view="all" onclick="setOpsView('all')">All</button>
+      <button class="ops-tab" data-view="jobs" onclick="setOpsView('jobs')">Jobs</button>
+      <button class="ops-tab" data-view="technicians" onclick="setOpsView('technicians')">Technicians</button>
+      <button class="ops-tab" data-view="alerts" onclick="setOpsView('alerts')">Alerts</button>
+    </div>
+
+    <div id="ops-overview-section">
+      <div class="kpi-grid">
+        <div class="kpi"><div class="kpi-label">Total jobs</div><div class="kpi-val">${jobs.length}</div><div class="kpi-sub">In period</div></div>
+        <div class="kpi"><div class="kpi-label">Completed</div><div class="kpi-val" style="color:#1D9E75">${completed}</div><div class="kpi-sub" style="color:#1D9E75">${rate}% rate</div></div>
+        <div class="kpi"><div class="kpi-label">In progress</div><div class="kpi-val" style="color:#185FA5">${inprog}</div><div class="kpi-sub">Active now</div></div>
+        <div class="kpi"><div class="kpi-label">Period revenue</div><div class="kpi-val">${fmt$(rev)}</div><div class="kpi-sub">Completed jobs</div></div>
+        <div class="kpi"><div class="kpi-label">Avg job value</div><div class="kpi-val">${fmt$(avg)}</div><div class="kpi-sub">Per job</div></div>
+        <div class="kpi"><div class="kpi-label">Active alerts</div><div class="kpi-val" style="color:${activeAlerts.length > 0 ? '#E24B4A' : '#1D9E75'}">${activeAlerts.length}</div><div class="kpi-sub">Unresolved</div></div>
+      </div>
+
+      <div class="sec-label">Weekly revenue trend</div>
+      <div class="card">
+        <div class="card-head"><div class="card-title">Service metrics</div>${explainBtn('ops-metrics')}</div>
+        ${barChart(metricsRows)}
+        ${explainPanel('ops-metrics', d.summary)}
+      </div>
+    </div>
+
+    <div id="ops-techs-section">
+      <div class="sec-label">Technician workload</div>
+      <div class="card">
+        <div class="card-head"><div class="card-title">Team utilization</div>${explainBtn('ops-techs')}</div>
+        ${techHeaderRow}${techRows}
+        ${explainPanel('ops-techs', d.summary)}
+      </div>
+    </div>
+
+    <div id="ops-jobs-section">
+      <div class="sec-label">Jobs in period</div>
+      <div class="card">
+        <div class="card-head"><div class="card-title">Recent jobs</div>${explainBtn('ops-jobs')}</div>
+        ${jobHeaderRow}${jobRows}
+        ${explainPanel('ops-jobs', d.summary)}
+      </div>
+    </div>
+
+    <div id="ops-alerts-section">
+      <div class="sec-label">Active alerts</div>
+      <div class="card">
+        <div class="card-head"><div class="card-title">System alerts</div>${explainBtn('ops-alerts')}</div>
+        ${alertRows}
+        ${explainPanel('ops-alerts', d.summary)}
+      </div>
+    </div>`;
+
+  renderActions('ops-actions', d.actions);
+  setOpsView(currentOpsView);
+}
+
+// ── Marketing ────────────────────────────────────────────────
+function renderMarketing(d) {
+  const leads = d.leads || [], campaigns = d.campaigns || [];
+  const converted = leads.filter(l => l.status === 'converted').length;
+  const convRate = leads.length ? Math.round(converted / leads.length * 100) : 0;
+  const totalSpend = campaigns.reduce((a, c) => a + (c.spend || 0), 0);
+  const totalRev = campaigns.reduce((a, c) => a + (c.revenue_attributed || 0), 0);
+  const roi = totalSpend ? Math.round((totalRev - totalSpend) / totalSpend * 100) : 0;
+
+  const sourceMap = leads.reduce((a, l) => { a[l.source] = (a[l.source] || 0) + 1; return a; }, {});
+  const sourceRows = Object.entries(sourceMap).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([src, cnt]) => ({
+    label: src || 'Unknown', val: cnt, display: cnt + ' leads', color: '#7F77DD'
+  }));
+
+  const campRows = campaigns.slice(0, 5).map(c => {
+    const campRoi = c.spend ? Math.round((c.revenue_attributed - c.spend) / c.spend * 100) : 0;
+    return { label: c.name || '—', val: c.revenue_attributed || 0, display: (campRoi > 0 ? '+' : '') + campRoi + '% ROI', color: '#1D9E75' };
+  });
+
+  const leadStatusMap = { converted: 'b-done', qualified: 'b-prog', lost: 'b-overdue', new: 'b-lo' };
+  const leadRows = leads.slice(0, 8).map(l => `
+    <div class="trow">
+      <div style="flex:1;min-width:0;">
+        <div class="trow-main">${l.name || '—'}</div>
+        <div class="trow-sub">${l.source || '—'} · ${l.created_at ? new Date(l.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}</div>
+      </div>
+      <div class="trow-right">
+        <span class="badge ${leadStatusMap[l.status] || 'b-lo'}">${l.status || '—'}</span>
+        ${l.value ? `<span style="font-size:11px;color:var(--text2);">${fmt$(l.value)}</span>` : ''}
+      </div>
+    </div>`).join('') || emptyState('leads');
+
+  document.getElementById('mkt-body').innerHTML = `
+    <div class="kpi-grid">
+      <div class="kpi"><div class="kpi-label">Total leads</div><div class="kpi-val">${leads.length}</div><div class="kpi-sub">In period</div></div>
+      <div class="kpi"><div class="kpi-label">Converted</div><div class="kpi-val" style="color:#1D9E75">${converted}</div><div class="kpi-sub" style="color:#1D9E75">${convRate}% rate</div></div>
+      <div class="kpi"><div class="kpi-label">Campaign spend</div><div class="kpi-val">${fmt$(totalSpend)}</div><div class="kpi-sub">Total invested</div></div>
+      <div class="kpi"><div class="kpi-label">Revenue attributed</div><div class="kpi-val">${fmt$(totalRev)}</div><div class="kpi-sub">From campaigns</div></div>
+      <div class="kpi"><div class="kpi-label">Blended ROI</div><div class="kpi-val" style="color:${roi >= 0 ? '#1D9E75' : '#E24B4A'}">${roi}%</div><div class="kpi-sub">Spend vs revenue</div></div>
+      <div class="kpi"><div class="kpi-label">Campaigns</div><div class="kpi-val">${campaigns.length}</div><div class="kpi-sub">Active tracked</div></div>
+    </div>
+
+    <div class="sec-label">Lead sources</div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">Where leads are coming from</div>${explainBtn('mkt-sources')}</div>
+      ${barChart(sourceRows)}
+      ${explainPanel('mkt-sources', d.summary)}
+    </div>
+
+    <div class="sec-label">Campaign performance</div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">Revenue attributed by campaign</div>${explainBtn('mkt-campaigns')}</div>
+      ${barChart(campRows)}
+      ${explainPanel('mkt-campaigns', d.summary)}
+    </div>
+
+    <div class="sec-label">Lead pipeline</div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">Recent leads</div>${explainBtn('mkt-leads')}</div>
+      ${leadRows}
+      ${explainPanel('mkt-leads', d.summary)}
+    </div>`;
+
+  renderActions('mkt-actions', d.actions);
+}
+
+// ── Finance ──────────────────────────────────────────────────
+function renderFinance(d) {
+  const invoices = d.invoices || [], snapshots = d.snapshots || [], totals = d.totals || {};
+  const paid = totals.paid || invoices.filter(i => i.status === 'paid').reduce((a, i) => a + i.amount, 0);
+  const outstanding = totals.outstanding || invoices.filter(i => i.status === 'sent').reduce((a, i) => a + i.amount, 0);
+  const overdue = totals.overdue || invoices.filter(i => i.status === 'overdue').reduce((a, i) => a + i.amount, 0);
+  const total = paid + outstanding + overdue;
+  const collRate = total ? Math.round(paid / total * 100) : 0;
+
+  const snapRows = snapshots.slice(0, 6).map(s => ({
+    label: s.period_start ? new Date(s.period_start).toLocaleDateString('en-US', { month: 'short', year: '2-digit' }) : '—',
+    val: s.total_revenue || 0,
+    display: fmt$(s.total_revenue || 0),
+    color: '#1D9E75'
+  }));
+
+  const statusBars = [
+    { label: 'Paid', val: paid, display: fmt$(paid), color: '#1D9E75' },
+    { label: 'Outstanding', val: outstanding, display: fmt$(outstanding), color: '#378ADD' },
+    { label: 'Overdue', val: overdue, display: fmt$(overdue), color: '#E24B4A' },
+  ];
+
+  const invStatusMap = { paid: 'b-paid', sent: 'b-sent', overdue: 'b-overdue', draft: 'b-lo' };
+  const invRows = invoices.slice(0, 8).map(inv => `
+    <div class="trow">
+      <div style="flex:1;min-width:0;">
+        <div class="trow-main">${inv.client_name || inv.invoice_number || 'Invoice'}</div>
+        <div class="trow-sub">#${inv.invoice_number || '—'} · ${inv.issued_date ? new Date(inv.issued_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}</div>
+      </div>
+      <div class="trow-right">
+        <span class="badge ${invStatusMap[inv.status] || 'b-lo'}">${inv.status || '—'}</span>
+        <span style="font-size:12px;font-weight:500;">${fmt$(inv.amount || 0)}</span>
+      </div>
+    </div>`).join('') || emptyState('invoices');
+
+  document.getElementById('fin-body').innerHTML = `
+    <div class="kpi-grid">
+      <div class="kpi"><div class="kpi-label">Paid revenue</div><div class="kpi-val" style="color:#1D9E75">${fmt$(paid)}</div><div class="kpi-sub">Collected</div></div>
+      <div class="kpi"><div class="kpi-label">Outstanding</div><div class="kpi-val" style="color:#185FA5">${fmt$(outstanding)}</div><div class="kpi-sub">Awaiting payment</div></div>
+      <div class="kpi"><div class="kpi-label">Overdue</div><div class="kpi-val" style="color:${overdue > 0 ? '#E24B4A' : '#1D9E75'}">${fmt$(overdue)}</div><div class="kpi-sub">Past due date</div></div>
+      <div class="kpi"><div class="kpi-label">Total invoiced</div><div class="kpi-val">${fmt$(total)}</div><div class="kpi-sub">In period</div></div>
+      <div class="kpi"><div class="kpi-label">Collection rate</div><div class="kpi-val" style="color:${collRate >= 80 ? '#1D9E75' : '#EF9F27'}">${collRate}%</div><div class="kpi-sub">Paid / total</div></div>
+      <div class="kpi"><div class="kpi-label">Invoice count</div><div class="kpi-val">${invoices.length}</div><div class="kpi-sub">In period</div></div>
+    </div>
+
+    <div class="sec-label">Revenue trend</div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">Monthly revenue (6 months)</div>${explainBtn('fin-trend')}</div>
+      ${barChart(snapRows)}
+      ${explainPanel('fin-trend', d.summary)}
+    </div>
+
+    <div class="sec-label">Receivables breakdown</div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">Invoice status overview</div>${explainBtn('fin-status')}</div>
+      ${barChart(statusBars)}
+      ${explainPanel('fin-status', d.summary)}
+    </div>
+
+    <div class="sec-label">Invoice ledger</div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">Recent invoices</div>${explainBtn('fin-invoices')}</div>
+      ${invRows}
+      ${explainPanel('fin-invoices', d.summary)}
+    </div>`;
+
+  renderActions('fin-actions', d.actions);
+}
+
+// ── Optimization ─────────────────────────────────────────────
+function renderOptimization(d) {
+  const logs = d.automation_logs || [], aiUsage = d.ai_usage || [], opps = d.opportunities || [], totals = d.totals || {};
+  const runs = logs.length;
+  const successCount = logs.filter(l => l.status === 'success').length;
+  const failedCount = logs.filter(l => l.status === 'failed').length;
+  const successRate = totals.successRate || (runs ? Math.round(successCount / runs * 100) : 0);
+  const totalTokens = totals.totalTokens || aiUsage.reduce((a, l) => a + (l.total_tokens || 0), 0);
+  const totalCost = totals.totalCost || aiUsage.reduce((a, l) => a + (parseFloat(l.cost_usd) || 0), 0);
+  const potSavings = totals.potentialSavings || opps.filter(o => o.status !== 'dismissed').reduce((a, o) => a + (o.estimated_cost_saving || 0), 0);
+
+  const autoBars = [
+    { label: 'Success', val: successCount, display: successCount + ' runs', color: '#1D9E75' },
+    { label: 'Failed', val: failedCount, display: failedCount + ' runs', color: '#E24B4A' },
+    { label: 'Other', val: runs - successCount - failedCount, display: (runs - successCount - failedCount) + ' runs', color: '#9c9a92' },
+  ];
+
+  const cxMap = { low: 'b-done', medium: 'b-med', high: 'b-hi' };
+  const oppRows = opps.slice(0, 8).map(o => `
+    <div class="trow">
+      <div style="flex:1;min-width:0;">
+        <div class="trow-main">${o.title || '—'}</div>
+        <div class="trow-sub">${o.category || '—'} · ${o.complexity || '—'} complexity</div>
+      </div>
+      <div class="trow-right">
+        <span class="badge ${cxMap[o.complexity] || 'b-lo'}">${o.complexity || '—'}</span>
+        <span style="font-size:12px;font-weight:500;color:#1D9E75;">${fmt$(o.estimated_cost_saving || 0)}/yr</span>
+      </div>
+    </div>`).join('') || emptyState('pipeline');
+
+  const aiRows = aiUsage.slice(0, 6).map(l => `
+    <div class="trow">
+      <div style="flex:1;min-width:0;">
+        <div class="trow-main">${l.feature || l.prompt_type || 'AI call'}</div>
+        <div class="trow-sub">${l.ran_at ? new Date(l.ran_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}</div>
+      </div>
+      <div class="trow-right">
+        <span style="font-size:11px;color:var(--text2);">${(l.total_tokens || 0).toLocaleString()} tokens</span>
+        <span style="font-size:11px;color:var(--text2);">$${(parseFloat(l.cost_usd) || 0).toFixed(4)}</span>
+      </div>
+    </div>`).join('') || '<p class="empty">No AI usage logs.</p>';
+
+  document.getElementById('opt-body').innerHTML = `
+    <div class="kpi-grid">
+      <div class="kpi"><div class="kpi-label">Automation runs</div><div class="kpi-val">${runs}</div><div class="kpi-sub">In period</div></div>
+      <div class="kpi"><div class="kpi-label">Success rate</div><div class="kpi-val" style="color:${successRate >= 80 ? '#1D9E75' : '#EF9F27'}">${successRate}%</div><div class="kpi-sub">Of all runs</div></div>
+      <div class="kpi"><div class="kpi-label">AI tokens</div><div class="kpi-val">${(totalTokens / 1000).toFixed(1)}k</div><div class="kpi-sub">Total used</div></div>
+      <div class="kpi"><div class="kpi-label">AI cost</div><div class="kpi-val">$${totalCost.toFixed(2)}</div><div class="kpi-sub">Total spend</div></div>
+      <div class="kpi"><div class="kpi-label">Opportunities</div><div class="kpi-val">${opps.length}</div><div class="kpi-sub">Identified</div></div>
+      <div class="kpi"><div class="kpi-label">Potential savings</div><div class="kpi-val" style="color:#1D9E75">${fmt$(potSavings)}</div><div class="kpi-sub">Annual estimate</div></div>
+    </div>
+
+    <div class="sec-label">Automation runs</div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">Run status breakdown</div>${explainBtn('opt-auto')}</div>
+      ${barChart(autoBars)}
+      ${explainPanel('opt-auto', d.summary)}
+    </div>
+
+    <div class="sec-label">Savings opportunities</div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">Cost savings identified</div>${explainBtn('opt-opps')}</div>
+      ${oppRows}
+      ${explainPanel('opt-opps', d.summary)}
+    </div>
+
+    <div class="sec-label">AI usage log</div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">Recent AI activity</div>${explainBtn('opt-ai')}</div>
+      ${aiRows}
+      ${explainPanel('opt-ai', d.summary)}
+    </div>`;
+
+  renderActions('opt-actions', d.actions);
+}
+
+// ── Strategy Panel ───────────────────────────────────────────
+function showPanelSkeleton() {
+  const skeletonHtml = `
+    <div class="sp-loading">
+      <div class="skel" style="width:55%"></div>
+      <div class="skel" style="width:75%;height:18px;margin-top:6px;"></div>
+      <div class="skel" style="width:35%;margin-top:6px;"></div>
+      <div class="skel" style="width:100%;height:5px;margin-top:10px;border-radius:4px;"></div>
+      <div class="skel" style="width:45%"></div>
+    </div>`;
+  const spContent = document.getElementById('sp-content');
+  if (spContent) spContent.innerHTML = skeletonHtml;
+  const sheet = document.getElementById('strategy-sheet-content');
+  if (sheet) sheet.innerHTML = skeletonHtml;
+}
+
+function formatNotes(text) {
+  if (!text) return '<p>No strategy notes available.</p>';
+  return text.split(/\n\n+/).filter(p => p.trim()).map(p => `<p>${p.trim()}</p>`).join('') || `<p>${text}</p>`;
+}
+
+function renderStrategyPanel(data) {
+  const course = data.course;
+
+  let progressHtml = '';
+  if (course && course.milestone_display) {
+    const pct = course.total_milestones > 0 ? Math.round(course.completed_milestones / course.total_milestones * 100) : 0;
+    progressHtml = `
+      ${course.course_display ? `<div class="sp-course-name">${course.course_display}</div>` : ''}
+      <div class="sp-milestone">${course.milestone_display}</div>
+      <div><span class="sp-status">In Progress</span></div>
+      <div class="sp-prog-track"><div class="sp-prog-fill" style="width:${pct}%;"></div></div>
+      <div class="sp-prog-text">${course.completed_milestones} of ${course.total_milestones} complete</div>
+      ${course.next_milestone_display ? `<div class="sp-next-lbl">Next up</div><div class="sp-next-val">${course.next_milestone_display}</div>` : ''}`;
+  } else {
+    progressHtml = `<div class="sp-course-name" style="color:var(--text2);">No active program</div>`;
+  }
+
+  // Account notes (resona users only)
+  const notes = data.notes || [];
+  const isResona = USER_ROLE && USER_ROLE.startsWith('resona_');
+  let notesHtml = '';
+  if (isResona) {
+    const noteItems = notes.slice(0, 5).map(n => `
+      <div class="sp-note-item${n.pinned ? ' pinned' : ''}">
+        ${n.pinned ? '📌 ' : ''}<strong style="font-size:10px;color:var(--text3)">${n.author_name || 'Resona'}</strong><br>
+        ${n.note}
+      </div>`).join('') || '<div style="font-size:12px;color:var(--text3)">No account notes yet.</div>';
+    notesHtml = `
+      <div class="sp-sep"></div>
+      <div class="sp-lbl">Account notes</div>
+      ${noteItems}
+      <button class="sp-add-note-btn" onclick="toggleNoteForm()">+ Add note</button>
+      <div class="sp-note-form" id="sp-note-form">
+        <textarea class="sp-note-textarea" id="sp-note-text" rows="2" placeholder="Add an account note…"></textarea>
+        <div class="sp-note-row">
+          <label class="sp-note-pin"><input type="checkbox" id="sp-note-pin"> Pin this note</label>
+          <button class="sp-note-save" onclick="saveNote()">Save</button>
+        </div>
+      </div>`;
+  }
+
+  const spContent = document.getElementById('sp-content');
+  const spHtml = `
+    ${progressHtml}
+    <div class="sp-sep"></div>
+    <div class="sp-lbl">This week's focus</div>
+    <div class="sp-focus">${data.focus || 'No guidance available.'}</div>
+    <div class="sp-sep"></div>
+    <div class="sp-lbl">Strategy notes</div>
+    <div class="sp-notes">${formatNotes(data.strategyNotes)}</div>
+    ${notesHtml}`;
+  if (spContent) spContent.innerHTML = spHtml;
+}
+
+
+// ── Notes (strategy panel) ────────────────────────────────────
+function toggleNoteForm() {
+  const f = document.getElementById('sp-note-form');
+  if (f) f.style.display = f.style.display === 'block' ? 'none' : 'block';
+}
+
+async function saveNote() {
+  const text = document.getElementById('sp-note-text')?.value?.trim();
+  const pinned = document.getElementById('sp-note-pin')?.checked || false;
+  if (!text) return;
+  try {
+    await fetch(`${API}?action=note`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ client_id: CLIENT, author_name: USER_NAME || 'Resona', author_role: USER_ROLE || 'resona_user', note: text, pinned })
+    });
+    toast('Note saved');
+    // Reload current page to refresh notes
+    if (cache[currentPage]) delete cache[currentPage];
+    loadPage(currentPage, true);
+  } catch(e) { toast('Failed to save note'); }
+}
+
+// ── Celebration ───────────────────────────────────────────────
+function showCelebration(course) {
+  const el = document.getElementById('celebration');
+  const titleEl = document.getElementById('celeb-title');
+  const subEl = document.getElementById('celeb-sub');
+  if (!el) return;
+  titleEl.textContent = 'Milestone complete!';
+  subEl.textContent = course?.milestone_display
+    ? `"${course.milestone_display}" is now complete. You're moving to the next milestone.`
+    : "You've advanced to the next milestone in your program.";
+  el.classList.add('visible');
+  setTimeout(() => el.classList.remove('visible'), 8000);
+}
+
+// ── Overview panel (goal + messages + health) ─────────────────
+async function loadOverviewPanel() {
+  // Load goal
+  try {
+    const r = await fetch(`/api/goal?client=${CLIENT}`);
+    const { goal } = await r.json();
+    const textEl = document.getElementById('goal-text');
+    const editBtn = document.getElementById('goal-edit-btn');
+    if (textEl) {
+      textEl.textContent = goal?.stated_goal || 'No goal set yet.';
+      textEl.style.color = goal?.stated_goal ? '' : 'var(--text3)';
+    }
+    if (editBtn && USER_ROLE?.startsWith('resona_')) editBtn.style.display = 'inline-block';
+    if (goal?.stated_goal) {
+      const inputEl = document.getElementById('goal-input');
+      if (inputEl) inputEl.value = goal.stated_goal;
+    }
+  } catch(e) {}
+
+  // Load health score
+  try {
+    const r = await fetch(`/api/health?client=${CLIENT}`);
+    const { health } = await r.json();
+    if (health) {
+      const badge = document.getElementById('health-badge');
+      const scoreEl = document.getElementById('health-score');
+      const labelEl = document.getElementById('health-label');
+      if (badge) badge.style.display = 'flex';
+      if (scoreEl) { scoreEl.textContent = health.score + '/100'; scoreEl.style.color = health.color || 'var(--text)'; }
+      if (labelEl) labelEl.textContent = (health.score_label || 'unknown').replace(/_/g, ' ');
+    }
+  } catch(e) {}
+
+  // Load messages
+  loadMessages();
+}
+
+async function loadMessages() {
+  try {
+    const r = await fetch(`${API}?page=messages&client=${CLIENT}`);
+    const { messages } = await r.json();
+    renderMessages(messages || []);
+  } catch(e) {}
+}
+
+function timeAgo(dateStr) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return m + 'm ago';
+  const h = Math.floor(m / 60);
+  if (h < 24) return h + 'h ago';
+  return Math.floor(h / 24) + 'd ago';
+}
+
+function renderMessages(messages) {
+  const thread = document.getElementById('msg-thread');
+  if (!thread) return;
+  if (!messages.length) {
+    thread.innerHTML = '<div class="msg-empty">No messages yet. Send your advisor a message.</div>';
+    return;
+  }
+  const isResona = r => r === 'resona_admin' || r === 'resona_user';
+  thread.innerHTML = messages.map(m => {
+    const fromResona = isResona(m.sender_role);
+    const cls = fromResona ? 'from-resona' : 'from-client';
+    return `<div class="msg-bubble ${cls}">
+      <div class="msg-content">${m.message || ''}</div>
+      <div class="msg-meta">${m.sender_name || '—'} · ${timeAgo(m.created_at)}</div>
+    </div>`;
+  }).join('');
+  thread.scrollTop = thread.scrollHeight;
+}
+
+async function sendMessage() {
+  const input = document.getElementById('msg-input');
+  const btn = document.getElementById('msg-send-btn');
+  const text = input?.value?.trim();
+  if (!text) return;
+  btn.disabled = true;
+  try {
+    await fetch(`${API}?action=message`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        client_id: CLIENT,
+        period_label: currentRange,
+        sender_role: USER_ROLE || 'client_user',
+        sender_name: USER_NAME || 'Client',
+        message: text
+      })
+    });
+    input.value = '';
+    await loadMessages();
+  } catch(e) { toast('Failed to send message'); }
+  btn.disabled = false;
+}
+
+// ── Goal editing ──────────────────────────────────────────────
+function toggleGoalEdit() {
+  const form = document.getElementById('goal-edit-form');
+  if (form) form.classList.toggle('visible');
+}
+
+async function saveGoal() {
+  const val = document.getElementById('goal-input')?.value?.trim();
+  if (!val) return;
+  try {
+    await fetch(`/api/goal?client=${CLIENT}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stated_goal: val, set_by: USER_NAME || 'resona' })
+    });
+    const textEl = document.getElementById('goal-text');
+    if (textEl) { textEl.textContent = val; textEl.style.color = ''; }
+    document.getElementById('goal-edit-form')?.classList.remove('visible');
+    toast('Goal saved');
+  } catch(e) { toast('Failed to save goal'); }
+}
+
+// ── History page ──────────────────────────────────────────────
+function renderHistory(data) {
+  const el = document.getElementById('hist-body');
+  const meta = document.getElementById('hist-meta');
+  const snaps = data.snapshots || [];
+  if (meta) meta.textContent = snaps.length + ' reports';
+
+  if (!snaps.length) {
+    el.innerHTML = '<div class="snap-empty">No archived reports yet. Reports are saved automatically each week.</div>';
+    return;
+  }
+
+  function pillClass(page) {
+    const map = {
+      operations: 'pill-operations', marketing: 'pill-marketing',
+      finance: 'pill-finance', optimization: 'pill-optimization',
+      overview: 'pill-overview'
+    };
+    return map[page] || 'pill-overview';
+  }
+
+  function formatDate(str) {
+    if (!str) return '—';
+    return new Date(str).toLocaleDateString('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric'
+    });
+  }
+
+  function getMetrics(snap) {
+    const kpis = snap.snapshot_data?.kpis || {};
+    const entries = Object.entries(kpis).slice(0, 3);
+    if (!entries.length) return '';
+    return entries.map(([k, v]) =>
+      `<span class="snap-metric"><strong>${v}</strong> ${k.replace(/_/g,' ')}</span>`
+    ).join('');
+  }
+
+  function renderCards(list) {
+    if (!list.length) return '<div class="snap-empty">No reports match your filter.</div>';
+    return list.map((s, i) => {
+      const page = s.page || (s.period_label?.split('·')[0]?.trim()) || 'report';
+      const metrics = getMetrics(s);
+      const summary = s.ai_summary || s.snapshot_data?.summary || '';
+      return `
+        <div class="snap-card" id="snap-${i}" onclick="toggleSnap(${i})">
+          <div class="snap-card-header">
+            <div class="snap-card-left">
+              <span class="snap-page-pill ${pillClass(page)}">
+                ${page.charAt(0).toUpperCase() + page.slice(1)}
+              </span>
+              <div>
+                <div class="snap-card-date">
+                  ${formatDate(s.created_at)}
+                  ${s.period_from ? '· ' + s.period_from + (s.period_to !== s.period_from ? ' to ' + s.period_to : '') : ''}
+                </div>
+                ${metrics ? `<div class="snap-card-metrics" style="margin-top:4px;">${metrics}</div>` : ''}
+              </div>
+            </div>
+            <svg class="snap-chevron" width="14" height="14"
+              viewBox="0 0 14 14" fill="none">
+              <path d="M3 5l4 4 4-4" stroke="currentColor"
+                stroke-width="1.4" stroke-linecap="round"
+                stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="snap-card-body">
+            <div class="snap-card-body-inner">
+              ${summary
+                ? `<div class="snap-summary">${summary}</div>`
+                : '<div class="snap-summary" style="color:var(--text3);">No summary available for this report.</div>'}
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  // Get unique pages for filter dropdown
+  const pages = [...new Set(snaps.map(s =>
+    s.page || s.period_label?.split('·')[0]?.trim() || 'report'
+  ))];
+
+  el.innerHTML = `
+    <div class="archive-toolbar">
+      <input class="archive-search" type="text"
+        placeholder="Search reports..."
+        oninput="filterArchive()"
+        id="archive-search"/>
+      <select class="archive-filter" id="archive-type-filter"
+        onchange="filterArchive()">
+        <option value="">All report types</option>
+        ${pages.map(p =>
+          `<option value="${p}">${p.charAt(0).toUpperCase() + p.slice(1)}</option>`
+        ).join('')}
+      </select>
+      <span class="archive-count" id="archive-count">
+        ${snaps.length} reports
+      </span>
+    </div>
+    <div id="archive-cards">${renderCards(snaps)}</div>`;
+
+  // Store snaps on window for filtering
+  window._archiveSnaps = snaps;
+  window._renderArchiveCards = renderCards;
+  window._pillClass = pillClass;
+}
+
+function toggleSnap(i) {
+  const card = document.getElementById('snap-' + i);
+  if (!card) return;
+  card.classList.toggle('open');
+}
+
+function filterArchive() {
+  const search = document.getElementById('archive-search')?.value?.toLowerCase() || '';
+  const typeFilter = document.getElementById('archive-type-filter')?.value || '';
+  const snaps = window._archiveSnaps || [];
+
+  const filtered = snaps.filter(s => {
+    const page = s.page || s.period_label?.split('·')[0]?.trim() || '';
+    const summary = (s.ai_summary || '').toLowerCase();
+    const label = (s.period_label || '').toLowerCase();
+    const matchesSearch = !search ||
+      summary.includes(search) ||
+      label.includes(search) ||
+      page.toLowerCase().includes(search);
+    const matchesType = !typeFilter || page === typeFilter;
+    return matchesSearch && matchesType;
+  });
+
+  const cardsEl = document.getElementById('archive-cards');
+  const countEl = document.getElementById('archive-count');
+  if (cardsEl && window._renderArchiveCards) {
+    cardsEl.innerHTML = window._renderArchiveCards(filtered);
+  }
+  if (countEl) countEl.textContent = filtered.length + ' reports';
+}
+
+// ── Welcome overlay ───────────────────────────────────────────
+async function checkWelcome() {
+  if (USER_ROLE !== 'client_user') return;
+  if (localStorage.getItem('cmndr_welcome_dismissed') === 'true') return;
+  try {
+    const r = await fetch(`/api/goal?action=onboarding&client=${CLIENT}`);
+    const { state } = await r.json();
+    if (state && state.welcome_dismissed) { localStorage.setItem('cmndr_welcome_dismissed', 'true'); return; }
+    const overlay = document.getElementById('welcome-overlay');
+    if (overlay) overlay.classList.remove('hidden');
+    // Try to populate course name from any cached data
+    if (cache.operations?.course?.course_display) {
+      const prog = document.getElementById('wc-program');
+      const title = document.getElementById('wc-title');
+      if (prog) prog.textContent = cache.operations.course.course_display;
+      if (title) title.textContent = `Welcome to ${cache.operations.course.course_display}`;
+    }
+  } catch(e) {}
+}
+
+async function dismissWelcome() {
+  document.getElementById('welcome-overlay')?.classList.add('hidden');
+  localStorage.setItem('cmndr_welcome_dismissed', 'true');
+  fetch(`/api/goal?action=onboarding&client=${CLIENT}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' } }).catch(() => {});
+}
+
+// ── Notification bell ─────────────────────────────────────────
+let notifPollTimer = null;
+let notifData = [];
+
+function toggleNotifDD() {
+  // Notifications now in right sidebar; open the section on mobile tap
+  openRsSection('notif');
+  loadNotifications();
+}
+
+async function loadNotifications() {
+  try {
+    const r = await fetch(`/api/notifications?client=${CLIENT}`);
+    const { notifications } = await r.json();
+    notifData = notifications || [];
+    renderNotifList();
+    updateNotifBadge();
+  } catch(e) {}
+}
+
+function updateNotifBadge() {
+  const unread = notifData.filter(n => !n.read).length;
+  const badge = document.getElementById('notif-badge');
+  if (!badge) return;
+  if (unread > 0) { badge.style.display = 'flex'; badge.textContent = unread > 9 ? '9+' : unread; }
+  else { badge.style.display = 'none'; }
+}
+
+function renderNotifList() {
+  const list = document.getElementById('rs-notif-list');
+  if (!list) return;
+  if (!notifData.length) { list.innerHTML = '<div class="msg-empty">No notifications</div>'; return; }
+  list.innerHTML = notifData.map(n => `
+    <div class="notif-nitem type-${n.type || 'info'}${!n.read ? ' unread' : ''}" onclick="markNotifRead('${n.id}')">
+      <div style="flex:1;min-width:0;">
+        ${n.title ? `<div class="notif-nitem-title">${n.title}</div>` : ''}
+        <div class="notif-nitem-body">${n.message || '—'}</div>
+        <div class="notif-nitem-time">${n.created_at ? timeAgo(n.created_at) : '—'}</div>
+      </div>
+    </div>`).join('');
+}
+
+async function markNotifRead(id) {
+  const item = notifData.find(n => n.id === id);
+  if (!item || item.read) return;
+  item.read = true;
+  renderNotifList();
+  updateNotifBadge();
+  fetch(`/api/notifications?id=${id}`, { method: 'PATCH' }).catch(() => {});
+}
+
+async function markAllNotifRead() {
+  notifData.forEach(n => n.read = true);
+  renderNotifList();
+  updateNotifBadge();
+  fetch(`/api/notifications?action=mark_all_read&client=${CLIENT}`, { method: 'PATCH' }).catch(() => {});
+}
+
+function initNotifications() {
+  const notifSection = document.getElementById('rs-notif-section');
+  if (notifSection) notifSection.style.display = '';
+  loadNotifications();
+  notifPollTimer = setInterval(loadNotifications, 60000);
+}
+
+// ── Action history ─────────────────────────────────────────────
+const actHistState = {};
+
+async function renderActionHistory(page) {
+  const el = document.getElementById(pfx[page] + '-hist');
+  if (!el) return;
+  try {
+    const r = await fetch(`/api/actions?client=${CLIENT}`);
+    const { actions } = await r.json();
+    const pageActions = (actions || []).filter(a => a.page === page);
+    if (!pageActions.length) { el.innerHTML = ''; return; }
+    el.innerHTML = `
+      <div class="act-hist-section">
+        <div class="act-hist-toggle" onclick="toggleActHist('${page}')">
+          <div class="act-hist-arrow" id="act-hist-arrow-${page}">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 4l3 3 3-3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          Action history (${pageActions.length})
+        </div>
+        <div class="act-hist-body" id="act-hist-body-${page}">
+          ${pageActions.slice(0, 10).map(a => `
+            <div class="act-hist-row">
+              <span class="act-decision ${a.decision}">${a.decision}</span>
+              <span class="act-hist-title">${a.action_title}${a.outcome ? ' <span title="Executed via automation" style="color:var(--warning)">⚡</span>' : ''}</span>
+              <span class="act-hist-date">${a.decided_at ? new Date(a.decided_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '—'}</span>
+            </div>`).join('')}
+        </div>
+      </div>`;
+  } catch(e) {}
+}
+
+function toggleActHist(page) {
+  const body = document.getElementById('act-hist-body-' + page);
+  const arrow = document.getElementById('act-hist-arrow-' + page);
+  if (!body) return;
+  body.classList.toggle('open');
+  if (arrow) arrow.style.transform = body.classList.contains('open') ? 'rotate(180deg)' : '';
+}
+
+// ── Ask Claude ─────────────────────────────────────────────────
+const askThreads = {};
+const pageChips = {
+  operations: ["What's causing the most delays?", "How is technician utilization trending?", "Which jobs have the highest revenue?", "What's our completion rate?"],
+  marketing: ["Which lead source converts best?", "What's our best campaign this period?", "How is lead volume trending?", "What's our blended ROI?"],
+  finance: ["What's our biggest payment risk?", "How is collection rate trending?", "Which invoices are most overdue?", "What's our cash position?"],
+  optimization: ["Which automation is failing most?", "Where are we spending most on AI?", "What are top savings opportunities?", "How has success rate trended?"]
+};
+
+function renderAskSection(page) {
+  const el = document.getElementById(pfx[page] + '-ask');
+  if (!el) return;
+  const chips = pageChips[page] || [];
+  el.innerHTML = `
+    <div class="ask-section">
+      <div class="ask-lbl">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1.2"/><path d="M4.5 4.5C4.5 3.7 5.1 3 6 3s1.5.7 1.5 1.5c0 1-1.5 1.5-1.5 2.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><circle cx="6" cy="9.5" r=".5" fill="currentColor"/></svg>
+        Ask about this data
+      </div>
+      <div class="ask-chips">${chips.map(c => `<span class="ask-chip" onclick="askQ('${page}',\`${c}\`)">${c}</span>`).join('')}</div>
+      <div class="ask-thread" id="ask-thread-${page}">${renderAskThread(page)}</div>
+      <div class="ask-form">
+        <input class="ask-input" id="ask-in-${page}" placeholder="Ask a question about this data…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();askQ('${page}')}">
+        <button class="ask-submit" id="ask-btn-${page}" onclick="askQ('${page}')">Ask</button>
+      </div>
+    </div>`;
+}
+
+function renderAskThread(page) {
+  const thread = askThreads[page] || [];
+  return thread.map(m => m.role === 'user'
+    ? `<div class="ask-q">${m.content}</div>`
+    : `<div class="ask-a"><div class="ask-a-lbl power-lbl">Power</div>${m.content}</div>`
+  ).join('') || '';
+}
+
+async function askQ(page, question) {
+  const inputEl = document.getElementById('ask-in-' + page);
+  const btnEl = document.getElementById('ask-btn-' + page);
+  const threadEl = document.getElementById('ask-thread-' + page);
+  const q = question || inputEl?.value?.trim();
+  if (!q) return;
+  if (inputEl) inputEl.value = '';
+  if (btnEl) btnEl.disabled = true;
+  if (!askThreads[page]) askThreads[page] = [];
+  askThreads[page].push({ role: 'user', content: q });
+  if (threadEl) {
+    threadEl.innerHTML = renderAskThread(page) + '<div class="ask-thinking">Claude is thinking…</div>';
+    threadEl.scrollTop = threadEl.scrollHeight;
+  }
+  try {
+    const ctx = cache[page] ? JSON.stringify(cache[page]).slice(0, 2000) : null;
+    const r = await fetch('/api/ask', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ client_id: CLIENT, page, question: q, context_data: ctx })
+    });
+    const { answer, error } = await r.json();
+    askThreads[page].push({ role: 'assistant', content: answer || error || 'No response.' });
+  } catch(e) {
+    askThreads[page].push({ role: 'assistant', content: 'Sorry, something went wrong. Please try again.' });
+  }
+  if (threadEl) { threadEl.innerHTML = renderAskThread(page); threadEl.scrollTop = threadEl.scrollHeight; }
+  if (btnEl) btnEl.disabled = false;
+}
+
+// ── Ops sub-report switcher ───────────────────────────────────
+function setOpsView(view) {
+  currentOpsView = view;
+  document.querySelectorAll('#ops-tabs .ops-tab').forEach(t => t.classList.toggle('active', t.dataset.view === view));
+  const isAll = view === 'all';
+  const overviewSection = document.getElementById('ops-overview-section');
+  const techsSection = document.getElementById('ops-techs-section');
+  const jobsSection = document.getElementById('ops-jobs-section');
+  const alertsSection = document.getElementById('ops-alerts-section');
+
+  if (isAll) {
+    if (overviewSection) overviewSection.style.display = '';
+    if (techsSection) techsSection.style.display = '';
+    if (jobsSection) jobsSection.style.display = '';
+    if (alertsSection) alertsSection.style.display = '';
+  } else {
+    if (overviewSection) overviewSection.style.display = 'none';
+    if (techsSection) techsSection.style.display = view === 'technicians' ? '' : 'none';
+    if (jobsSection) jobsSection.style.display = view === 'jobs' ? '' : 'none';
+    if (alertsSection) alertsSection.style.display = view === 'alerts' ? '' : 'none';
+  }
+}
+
+// ── Alert modal ───────────────────────────────────────────────
+function showAlertModal(alert) {
+  const typeClass = { critical: 'alert-type-critical', warning: 'alert-type-warning', info: 'alert-type-info' };
+  const typeLabel = { critical: 'Critical', warning: 'Warning', info: 'Info' };
+  const t = alert.type || 'info';
+  const html = `<div class="alert-modal-overlay" id="alert-modal" onclick="if(event.target===this)closeAlertModal()">
+    <div class="alert-modal">
+      <div class="alert-modal-head">
+        <div class="alert-modal-title">${alert.message || 'Alert'}</div>
+        <button class="alert-modal-close" onclick="closeAlertModal()">×</button>
+      </div>
+      <div class="alert-type-badge ${typeClass[t] || 'alert-type-info'}">${typeLabel[t] || t}</div>
+      <div class="alert-modal-msg">${alert.message || '—'}</div>
+      <div class="alert-power-box">
+        <div class="alert-power-lbl">Power analysis</div>
+        <div class="alert-power-text">This alert was flagged based on recent operational data. Review the affected area and take corrective action if needed. Your advisor will follow up on persistent alerts in your next session.</div>
+      </div>
+      <button class="alert-modal-cta" onclick="closeAlertModal()">Mark as Reviewed</button>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function closeAlertModal() {
+  document.getElementById('alert-modal')?.remove();
+}
+
+// ── Right sidebar ─────────────────────────────────────────────
+function toggleRightSidebar() {
+  const rs = document.getElementById('right-sidebar');
+  const main = document.querySelector('.main');
+  const icon = document.getElementById('rs-collapse-icon');
+  const collapsed = rs.classList.toggle('collapsed');
+  if (collapsed) {
+    main.style.marginRight = '48px';
+    if (icon) icon.querySelector('path').setAttribute('d', 'M8 2l-5 4.5L8 11');
+  } else {
+    main.style.marginRight = '280px';
+    if (icon) icon.querySelector('path').setAttribute('d', 'M5 2l5 4.5L5 11');
+  }
+  localStorage.setItem('cmndr_rs_collapsed', collapsed ? '1' : '');
+}
+
+function initRightSidebar() {
+  if (localStorage.getItem('cmndr_rs_collapsed') === '1') {
+    const rs = document.getElementById('right-sidebar');
+    const main = document.querySelector('.main');
+    const icon = document.getElementById('rs-collapse-icon');
+    if (rs) rs.classList.add('collapsed');
+    if (main) main.style.marginRight = '48px';
+    if (icon) icon.querySelector('path').setAttribute('d', 'M8 2l-5 4.5L8 11');
+  }
+  // Restore open sections from localStorage
+  ['progress','goal','messages','notif'].forEach(s => {
+    if (localStorage.getItem('cmndr_rs_open_' + s) === '1') {
+      openRsSection(s);
+    }
+  });
+}
+
+function toggleRsSection(name) {
+  const body = document.getElementById('rs-' + name + '-body');
+  const header = document.getElementById('rs-' + name + '-header');
+  if (!body) return;
+  const isOpen = body.classList.toggle('open');
+  if (header) header.classList.toggle('open', isOpen);
+  localStorage.setItem('cmndr_rs_open_' + name, isOpen ? '1' : '');
+}
+
+function openRsSection(name) {
+  const body = document.getElementById('rs-' + name + '-body');
+  const header = document.getElementById('rs-' + name + '-header');
+  if (body) body.classList.add('open');
+  if (header) header.classList.add('open');
+}
+
+// ── Nav collapse ──────────────────────────────────────────────
+function toggleNavCollapse() {
+  const sidebar = document.querySelector('.sidebar');
+  const main = document.querySelector('.main');
+  const icon = document.getElementById('nav-collapse-icon');
+  const collapsed = sidebar.classList.toggle('collapsed');
+  if (main) main.classList.toggle('nav-collapsed', collapsed);
+  if (icon) icon.style.transform = collapsed ? 'rotate(180deg)' : '';
+  localStorage.setItem('cmndr_nav_collapsed', collapsed ? '1' : '');
+}
+
+function initNavCollapse() {
+  if (localStorage.getItem('cmndr_nav_collapsed') === '1') {
+    const sidebar = document.querySelector('.sidebar');
+    const main = document.querySelector('.main');
+    const icon = document.getElementById('nav-collapse-icon');
+    if (sidebar) sidebar.classList.add('collapsed');
+    if (main) main.classList.add('nav-collapsed');
+    if (icon) icon.style.transform = 'rotate(180deg)';
+  }
+}
+
+
+// ── Auth ─────────────────────────────────────────────────────
+let SESSION_TOKEN = null;
+
+function applyBranding(b) {
+  if (!b) return;
+  if (b.accent_color) document.documentElement.style.setProperty('--info', b.accent_color);
+  if (b.company_name) {
+    document.title = b.company_name + ' — CMNDR';
+    const emEl = document.querySelector('.logo em');
+    if (emEl) emEl.textContent = b.company_name;
+  }
+}
+
+async function initAuth() {
+  const token = localStorage.getItem('cmndr_session');
+  if (!token) { window.location.href = '/login'; return; }
+  try {
+    const r = await fetch('/api/auth?action=me', { headers: { Authorization: `Bearer ${token}` } });
+    if (!r.ok) throw new Error('invalid');
+    const { user, profile, branding } = await r.json();
+    SESSION_TOKEN = token;
+    USER_ROLE = profile.role;
+    USER_NAME = profile.full_name || user.email || '';
+    // Lock client to profile (client_viewer/client_user see only their client)
+    const locked = ['client_user', 'client_viewer', 'display'];
+    if (locked.includes(profile.role) && profile.client_id) {
+      CLIENT = profile.client_id;
+    }
+    // Update sidebar user chip
+    document.querySelector('.chip-av').textContent = USER_NAME.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase();
+    document.querySelector('.chip-name').textContent = USER_NAME;
+    document.querySelector('.chip-sub').textContent = profile.role.replace(/_/g, ' ');
+    document.getElementById('signout-btn').style.display = 'block';
+    // Apply white-label branding
+    if (branding) applyBranding(branding);
+  } catch (e) {
+    localStorage.removeItem('cmndr_session');
+    localStorage.removeItem('cmndr_profile');
+    window.location.href = '/login';
+  }
+}
+
+function signOut() {
+  const token = localStorage.getItem('cmndr_session');
+  fetch('/api/auth?action=logout', { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+  localStorage.removeItem('cmndr_session');
+  localStorage.removeItem('cmndr_profile');
+  window.location.href = '/login';
+}
+
+// ── Skeleton templates ────────────────────────────────────────
+const SKELETONS = {
+  kpis: `<div class="kpi-grid">${Array(6).fill('<div class="kpi"><div class="skel" style="width:60%;height:12px;margin-bottom:8px;"></div><div class="skel" style="width:40%;height:20px;"></div></div>').join('')}</div>`,
+  funnel: Array(5).fill('<div class="bar-row"><div class="skel" style="width:76px;height:12px;"></div><div class="skel" style="flex:1;height:18px;margin:0 10px;"></div><div class="skel" style="width:56px;height:12px;"></div></div>').join(''),
+  jobs: Array(5).fill('<div class="trow"><div style="flex:1"><div class="skel" style="width:70%;height:13px;margin-bottom:6px;"></div><div class="skel" style="width:50%;height:11px;"></div></div><div class="skel" style="width:80px;height:20px;margin-left:8px;"></div></div>').join(''),
+  techs: Array(3).fill('<div class="tech-row"><div class="skel" style="width:34px;height:34px;border-radius:50%;flex-shrink:0;"></div><div style="flex:1;padding-left:12px"><div class="skel" style="width:60%;height:13px;margin-bottom:6px;"></div><div class="skel" style="width:80%;height:11px;margin-bottom:8px;"></div><div class="skel" style="width:100%;height:5px;"></div></div></div>').join(''),
+  alerts: Array(3).fill('<div class="a-row"><div class="skel" style="width:8px;height:8px;border-radius:50%;margin-top:4px;flex-shrink:0;"></div><div style="flex:1;padding-left:10px"><div class="skel" style="width:80%;height:13px;margin-bottom:6px;"></div><div class="skel" style="width:40%;height:11px;"></div></div></div>').join(''),
+  aiText: '<div class="skel" style="width:100%;height:13px;margin-bottom:6px;"></div><div class="skel" style="width:85%;height:13px;margin-bottom:6px;"></div><div class="skel" style="width:70%;height:13px;"></div>',
+  claudeLoading: '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;"><div style="display:flex;gap:4px;" class="claude-dots"><span></span><span></span><span></span></div><span style="font-size:12px;color:var(--text2);">Claude is analyzing your data...</span></div>',
+  audioPlayer: '<div class="skel" style="width:100%;height:48px;border-radius:8px;"></div>',
+};
+
+function injectPageSkeletons(page) {
+  const prefix = pfx[page];
+  if (!prefix) return;
+  const body = document.getElementById(prefix + '-body');
+  if (body) body.innerHTML = SKELETONS.kpis;
+  const actions = document.getElementById(prefix + '-actions');
+  if (actions) actions.innerHTML = SKELETONS.claudeLoading + SKELETONS.aiText;
+}
+
+// ── Error & empty states ──────────────────────────────────────
+function errorState(sectionId) {
+  return `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:8px;text-align:center;">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1L15 14H1L8 1Z" stroke="#EF9F27" stroke-width="1.5" fill="none"/><line x1="8" y1="6" x2="8" y2="10" stroke="#EF9F27" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="12" r="0.75" fill="#EF9F27"/></svg>
+    <p style="font-size:13px;font-weight:500;margin:0;">Couldn't load this section</p>
+    <p style="font-size:12px;color:var(--text2);margin:0;">Check your connection and refresh</p>
+    <button onclick="retrySection('${sectionId}')" style="font-size:12px;padding:6px 14px;margin-top:4px;min-height:0;">Try again</button>
+  </div>`;
+}
+
+const EMPTY_STATES = {
+  jobs: "No jobs in this period — try expanding the date range",
+  leads: "No leads recorded in this period",
+  invoices: "No invoices in this period",
+  alerts: "No active alerts — things are looking good",
+  messages: "No messages yet — start the conversation",
+  notifications: "You're all caught up",
+  action_history: "No actions logged yet",
+  history: "No report history yet — history builds automatically as you view reports",
+  campaigns: "No campaigns in this period",
+  pipeline: "No pipeline data for this period",
+};
+
+function emptyState(type) {
+  return `<p style="font-size:13px;color:var(--text2);text-align:center;padding:20px 0;margin:0;">${EMPTY_STATES[type] || 'No data available'}</p>`;
+}
+
+function retrySection(sectionId) {
+  if (currentPage && currentPage !== 'overview') {
+    delete cache[currentPage];
+    loadPage(currentPage, true);
+  }
+}
+
+// ── Data sufficiency warnings ─────────────────────────────────
+function dataSufficiencyWarning(data, page) {
+  const warnings = [];
+  if (page === 'overview' || page === 'operations') {
+    if ((data.jobs || []).length < 5) warnings.push(`Analysis based on limited data (${(data.jobs||[]).length} jobs) — expand the date range for more reliable insights`);
+  }
+  if (page === 'marketing') {
+    if ((data.leads || []).length < 3) warnings.push(`Analysis based on limited lead data (${(data.leads||[]).length} leads) — expand the date range for more reliable insights`);
+  }
+  if (page === 'finance') {
+    if ((data.invoices || []).length < 3) warnings.push(`Analysis based on limited invoice data (${(data.invoices||[]).length} invoices) — expand the date range for more reliable insights`);
+  }
+  return warnings;
+}
+
+function renderWarnings(warnings) {
+  if (!warnings.length) return '';
+  return warnings.map(w => `
+    <div style="background:#FAEEDA;border-left:3px solid #EF9F27;border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#633806;">
+      ${w}
+    </div>`).join('');
+}
+
+// ── Mobile init ───────────────────────────────────────────────
+function initMobile() {
+  const hamburger = document.querySelector('.hamburger');
+  const sidebar = document.querySelector('.sidebar');
+  const backdrop = document.getElementById('mobile-drawer-backdrop');
+  const stratBtn = document.getElementById('strategy-sheet-btn');
+  const stratSheet = document.getElementById('strategy-sheet');
+
+  if (hamburger) {
+    hamburger.addEventListener('click', () => {
+      sidebar.classList.toggle('open');
+      backdrop.classList.toggle('open');
+    });
+  }
+  if (backdrop) {
+    backdrop.addEventListener('click', () => {
+      sidebar.classList.remove('open');
+      backdrop.classList.remove('open');
+    });
+  }
+  if (stratBtn) {
+    stratBtn.addEventListener('click', () => {
+      stratSheet.classList.toggle('open');
+    });
+  }
+}
+
+// ── Init ─────────────────────────────────────────────────────
+const pathMap = { '/operations': 'operations', '/marketing': 'marketing', '/finance': 'finance', '/optimization': 'optimization' };
+initAuth().then(() => {
+  nav(pathMap[location.pathname] || 'overview');
+  // Notifications: show bell for client roles
+  if (USER_ROLE && !USER_ROLE.startsWith('resona_') && USER_ROLE !== 'display') {
+    initNotifications();
+    // Also show mobile bell
+    const mobileBtn = document.getElementById('mobile-notif-btn');
+    if (mobileBtn) mobileBtn.style.display = 'flex';
+  }
+  // Welcome overlay: client_user only
+  if (USER_ROLE === 'client_user') {
+    setTimeout(checkWelcome, 800);
+  }
+  initMobile();
+  initNavCollapse();
+  initNavGroups();
+  initRightSidebar();
+});
+</script>
+</body>
+</html>

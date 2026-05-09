@@ -1,0 +1,2530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>
+window.ARC_CONFIG_READY = fetch('/api/config').then(function(r){return r.json();}).then(function(cfg){
+  window.ARC_CONFIG = cfg;
+  var _fetch = window.fetch;
+  window.fetch = function(url, opts) {
+    if (typeof url === 'string' && url.indexOf('/api/') === 0 && url.indexOf('/api/config') !== 0) {
+      opts = Object.assign({}, opts);
+      opts.headers = Object.assign({}, opts.headers, {'x-arc-key': (cfg && cfg.apiKey) || ''});
+    }
+    return _fetch.call(this, url, opts);
+  };
+  return cfg;
+}).catch(function(){ window.ARC_CONFIG = {}; });
+</script>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>CMNDR — Hub</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #ffffff; --bg2: #f5f5f3; --bg3: #efefec;
+    --text: #1a1a18; --text2: #6b6b67; --text3: #9c9a92;
+    --border: rgba(0,0,0,0.1); --border2: rgba(0,0,0,0.18);
+    --success: #1D9E75; --warning: #EF9F27; --danger: #E24B4A; --info: #378ADD;
+    --radius-md: 8px; --radius-lg: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1a; --bg2: #252523; --bg3: #2e2e2b;
+      --text: #e8e6de; --text2: #9c9a92; --text3: #6b6b67;
+      --border: rgba(255,255,255,0.1); --border2: rgba(255,255,255,0.18);
+    }
+    .client-pill.active { background: rgba(55,138,221,0.15) !important; }
+    .preview-badge { background: rgba(239,184,73,0.18) !important; color: #e8a93a !important; }
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg3); color: var(--text); min-height: 100vh; }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    width: 240px; min-height: 100vh; background: var(--bg);
+    border-right: 0.5px solid var(--border);
+    padding: 20px 16px 20px;
+    position: fixed; top: 0; left: 0;
+    display: flex; flex-direction: column;
+    overflow-y: auto; z-index: 10;
+  }
+  .main { margin-left: 240px; min-height: 100vh; }
+
+  .wordmark { font-size: 13px; font-weight: 500; color: var(--text3); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 16px; }
+  .wordmark span { color: var(--text); }
+
+  .user-block { background: var(--bg2); border-radius: var(--radius-md); padding: 10px; margin-bottom: 20px; }
+  .user-row { display: flex; align-items: center; gap: 8px; }
+  .user-av { width: 28px; height: 28px; border-radius: 50%; background: var(--info); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; flex-shrink: 0; }
+  .user-name { font-size: 12px; font-weight: 500; line-height: 1.3; }
+  .role-pill { display: inline-block; margin-top: 4px; font-size: 10px; padding: 1px 7px; border-radius: 10px; background: rgba(55,138,221,0.12); color: var(--info); font-weight: 500; }
+
+  .nav-section { margin-bottom: 4px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 9px;
+    padding: 8px 10px; border-radius: var(--radius-md);
+    cursor: pointer; font-size: 13px; color: var(--text2);
+    margin-bottom: 1px; transition: background .1s, color .1s; user-select: none;
+  }
+  .nav-item:hover { background: var(--bg2); color: var(--text); }
+  .nav-item.active { background: var(--bg2); color: var(--text); font-weight: 500; }
+  .nav-icon { flex-shrink: 0; opacity: .6; }
+  .nav-item.active .nav-icon, .nav-item:hover .nav-icon { opacity: 1; }
+  .nav-divider { height: 0.5px; background: var(--border); margin: 8px 0; }
+  .nav-item.signout { color: var(--text3); }
+  .nav-item.signout:hover { color: var(--danger); background: rgba(226,75,74,0.07); }
+
+  /* ── Views ── */
+  .view { display: none; padding: 28px 28px; }
+  .view.active { display: block; }
+
+  /* ── Hub view ── */
+  .greeting { font-size: 22px; font-weight: 500; margin-bottom: 2px; }
+  .greeting-sub { font-size: 13px; color: var(--text2); margin-bottom: 28px; }
+
+  .section-title { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 12px; }
+
+  /* Notifications */
+  .notif-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 28px; }
+  .notif-card {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--bg); border: 0.5px solid var(--border);
+    border-radius: var(--radius-md); padding: 11px 14px;
+    border-left-width: 3px;
+  }
+  .notif-card.red { border-left-color: var(--danger); }
+  .notif-card.amber { border-left-color: var(--warning); }
+  .notif-card.blue { border-left-color: var(--info); }
+  .notif-card.green { border-left-color: var(--success); }
+  .notif-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .notif-card.red .notif-dot { background: var(--danger); }
+  .notif-card.amber .notif-dot { background: var(--warning); }
+  .notif-card.blue .notif-dot { background: var(--info); }
+  .notif-card.green .notif-dot { background: var(--success); }
+  .notif-body { flex: 1; }
+  .notif-msg { font-size: 13px; }
+  .notif-time { font-size: 11px; color: var(--text3); margin-top: 2px; }
+  .notif-dismiss { font-size: 11px; color: var(--text3); cursor: pointer; padding: 3px 7px; border-radius: 5px; border: 0.5px solid var(--border); background: none; transition: background .1s; flex-shrink: 0; }
+  .notif-dismiss:hover { background: var(--bg2); }
+
+  /* Bottom two-col grid */
+  .hub-grid { display: grid; grid-template-columns: 60fr 40fr; gap: 20px; }
+
+  /* Assigned Tracker */
+  .tracker-card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+  .tracker-head { display: grid; grid-template-columns: 1.4fr 1.4fr 1.4fr 0.9fr 1fr 1.4fr; gap: 0; padding: 9px 14px; border-bottom: 0.5px solid var(--border); background: var(--bg2); }
+  .th { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; }
+  .tracker-row { display: grid; grid-template-columns: 1.4fr 1.4fr 1.4fr 0.9fr 1fr 1.4fr; gap: 0; padding: 11px 14px; border-bottom: 0.5px solid var(--border); align-items: center; }
+  .tracker-row:last-child { border-bottom: none; }
+  .td { font-size: 12px; color: var(--text); line-height: 1.4; padding-right: 8px; }
+  .td.muted { color: var(--text2); }
+  .td-client { font-weight: 500; }
+  .milestone-tag { display: inline-block; font-size: 10px; padding: 2px 7px; border-radius: 4px; background: rgba(55,138,221,0.1); color: var(--info); font-weight: 500; margin-top: 2px; }
+  .open-wb-btn { font-size: 11px; padding: 4px 9px; border-radius: 5px; border: 0.5px solid var(--border2); background: var(--bg2); color: var(--text); cursor: pointer; white-space: nowrap; transition: background .1s; }
+  .open-wb-btn:hover { background: var(--text); color: var(--bg); }
+
+  /* Resources */
+  .resources-card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+  .resource-item { display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-bottom: 0.5px solid var(--border); text-decoration: none; transition: background .1s; }
+  .resource-item:last-child { border-bottom: none; }
+  .resource-item:hover { background: var(--bg2); }
+  .resource-label { flex: 1; font-size: 12px; color: var(--text); }
+  .cat-pill { font-size: 9px; font-weight: 600; padding: 2px 7px; border-radius: 4px; text-transform: uppercase; letter-spacing: .04em; flex-shrink: 0; }
+  .cat-sop { background: rgba(226,75,74,0.1); color: var(--danger); }
+  .cat-playbook { background: rgba(99,102,241,0.1); color: #6366f1; }
+  .cat-training { background: rgba(29,158,117,0.1); color: var(--success); }
+  .cat-automation { background: rgba(239,159,39,0.1); color: var(--warning); }
+  .cat-technical { background: rgba(55,138,221,0.1); color: var(--info); }
+  .resource-arrow { color: var(--text3); flex-shrink: 0; }
+
+
+  .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 18px; }
+  .stat-card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-md); padding: 12px; }
+  .stat-lbl { font-size: 11px; color: var(--text2); margin-bottom: 4px; }
+  .stat-val { font-size: 20px; font-weight: 500; }
+
+  .preview-frame { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+  .preview-toolbar { display: flex; align-items: center; gap: 8px; padding: 9px 14px; border-bottom: 0.5px solid var(--border); background: var(--bg2); }
+  .preview-url-txt { font-size: 11px; color: var(--text3); flex: 1; font-family: monospace; }
+  .reload-btn { font-size: 11px; padding: 4px 10px; border-radius: 6px; border: 0.5px solid var(--border2); background: var(--bg); color: var(--text); cursor: pointer; }
+  .iframe-wrap { width: 100%; height: 820px; }
+  .iframe-wrap iframe { width: 100%; height: 100%; border: none; }
+  .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 520px; color: var(--text3); gap: 12px; }
+  .empty-icon { width: 48px; height: 48px; border-radius: 50%; background: var(--bg2); display: flex; align-items: center; justify-content: center; }
+  .empty-title { font-size: 15px; font-weight: 500; color: var(--text2); }
+  .empty-sub { font-size: 13px; text-align: center; max-width: 260px; }
+
+  .toast { position: fixed; bottom: 24px; right: 24px; background: var(--text); color: var(--bg); font-size: 13px; padding: 10px 18px; border-radius: var(--radius-md); opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 999; }
+  .toast.show { opacity: 1; }
+
+  /* Mobile top bar */
+  .mobile-topbar {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 48px;
+    background: var(--bg);
+    border-bottom: 0.5px solid var(--border);
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    z-index: 100;
+  }
+  .hamburger { background: none; border: none; cursor: pointer; padding: 8px; display: flex; flex-direction: column; gap: 5px; }
+  .hamburger span { width: 20px; height: 1.5px; background: var(--text); display: block; }
+  .mobile-drawer-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 150; }
+  .mobile-drawer-backdrop.open { display: block; }
+
+  @media (max-width: 768px) {
+    body { padding-top: 48px; }
+    .mobile-topbar { display: flex; }
+    .sidebar {
+      position: fixed;
+      top: 0; left: 0;
+      height: 100vh;
+      transform: translateX(-100%);
+      transition: transform 0.25s ease;
+      z-index: 160;
+      width: 240px;
+    }
+    .sidebar.open { transform: translateX(0); }
+    .main { margin-left: 0 !important; }
+    .view { padding: 16px !important; }
+    .portfolio-grid { grid-template-columns: 1fr !important; }
+    .hub-grid { grid-template-columns: 1fr !important; }
+    .pipeline-summary { grid-template-columns: 1fr 1fr !important; }
+    .pip-row, .pip-head-row { font-size: 12px; }
+    #view-strategy > div:last-child { flex-direction: column !important; }
+    button { min-height: 44px; }
+    .stats-row { grid-template-columns: 1fr 1fr !important; }
+  }
+
+  /* ── Health badge ── */
+  .health-pill { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; }
+  .hp-excellent,.hp-healthy { background: rgba(29,158,117,0.12); color: #1D9E75; }
+  .hp-stable { background: rgba(239,159,39,0.12); color: #b87200; }
+  .hp-at_risk,.hp-critical { background: rgba(226,75,74,0.12); color: #E24B4A; }
+
+  /* ── Hub header row ── */
+  .hub-section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .new-client-btn { font-size: 12px; padding: 5px 12px; border-radius: var(--radius-md); border: none; background: var(--info); color: #fff; cursor: pointer; font-weight: 500; display: flex; align-items: center; gap: 5px; transition: opacity .15s; }
+  .new-client-btn:hover { opacity: .85; }
+
+  /* ── Portfolio card grid ── */
+  .portfolio-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .portfolio-card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .portfolio-card.add-card { border-style: dashed; align-items: center; justify-content: center; cursor: pointer; min-height: 160px; }
+  .portfolio-card.add-card:hover { background: var(--bg2); }
+  .pc-top { display: flex; justify-content: space-between; align-items: flex-start; }
+  .pc-name { font-size: 14px; font-weight: 500; }
+  .pc-industry { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 10px; background: var(--bg2); color: var(--text3); text-transform: uppercase; letter-spacing: .04em; }
+  .pc-health { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 600; }
+  .pc-course { font-size: 12px; color: var(--text2); margin-top: -4px; }
+  .pc-milestone { font-size: 11px; color: var(--text3); margin-top: 2px; }
+  .pc-dims { display: flex; flex-direction: column; gap: 5px; }
+  .pc-dim { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text3); }
+  .pc-dim-label { min-width: 70px; }
+  .pc-dim-track { flex: 1; height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden; }
+  .pc-dim-fill { height: 100%; border-radius: 2px; }
+  .pc-dim-val { font-size: 10px; color: var(--text2); min-width: 26px; text-align: right; }
+  .pc-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; }
+  .pc-last { font-size: 11px; color: var(--text3); }
+  .pc-alerts { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 4px; background: rgba(226,75,74,0.1); color: var(--danger); }
+  .pc-btns { display: flex; gap: 6px; }
+  .pc-btn { font-size: 11px; padding: 4px 10px; border-radius: var(--radius-md); border: 0.5px solid var(--border2); background: var(--bg2); color: var(--text); cursor: pointer; transition: background .1s; white-space: nowrap; }
+  .pc-btn:hover { background: var(--text); color: var(--bg); }
+  .pc-btn.primary { background: var(--info); color: #fff; border-color: var(--info); }
+  .pc-btn.primary:hover { opacity: .85; background: var(--info); }
+
+  /* ── Pipeline view ── */
+  #view-pipeline { padding: 28px; }
+  .pipeline-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+  .pip-stat { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-md); padding: 14px; }
+  .pip-stat-lbl { font-size: 11px; color: var(--text3); margin-bottom: 4px; }
+  .pip-stat-val { font-size: 22px; font-weight: 500; }
+  .pip-client-section { margin-bottom: 20px; }
+  .pip-client-head { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 8px; padding-bottom: 6px; border-bottom: 0.5px solid var(--border); }
+  .pip-card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+  .pip-row { display: grid; grid-template-columns: 2fr 0.6fr 1fr 1fr 0.8fr 0.8fr 0.7fr; gap: 0; padding: 10px 14px; border-bottom: 0.5px solid var(--border); align-items: center; font-size: 12px; }
+  .pip-row:last-child { border-bottom: none; }
+  .pip-row.errored { border-left: 3px solid var(--danger); background: rgba(226,75,74,0.04); }
+  .pip-head-row { background: var(--bg2); padding: 8px 14px; display: grid; grid-template-columns: 2fr 0.6fr 1fr 1fr 0.8fr 0.8fr 0.7fr; gap: 0; }
+  .pip-th { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .05em; }
+  .pip-name { font-weight: 500; color: var(--text); }
+  .pip-status-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+  .pip-status-dot.active { background: var(--success); }
+  .pip-status-dot.inactive { background: var(--text3); }
+  .pip-status-dot.error { background: var(--danger); }
+  .pip-bar-wrap { display: flex; align-items: center; gap: 6px; }
+  .pip-bar-track { flex: 1; height: 5px; background: var(--bg3); border-radius: 3px; overflow: hidden; max-width: 80px; }
+  .pip-bar-fill { height: 100%; border-radius: 3px; background: var(--info); }
+  .pip-pill { font-size: 9px; font-weight: 600; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; }
+  .pip-pill.active { background: rgba(29,158,117,0.12); color: var(--success); }
+  .pip-pill.inactive { background: var(--bg2); color: var(--text3); }
+  .pip-pill.error { background: rgba(226,75,74,0.12); color: var(--danger); }
+  .pip-empty { padding: 32px; text-align: center; font-size: 13px; color: var(--text3); }
+
+  /* ── QA Report panel ── */
+  .qa-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 50; display: none; align-items: flex-start; justify-content: flex-end; }
+  .qa-overlay.visible { display: flex; }
+  .qa-panel { width: 480px; height: 100vh; background: var(--bg); border-left: 0.5px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+  .qa-head { display: flex; justify-content: space-between; align-items: center; padding: 18px 20px; border-bottom: 0.5px solid var(--border); flex-shrink: 0; }
+  .qa-title { font-size: 16px; font-weight: 500; }
+  .qa-close { font-size: 20px; cursor: pointer; color: var(--text3); padding: 2px 6px; }
+  .qa-close:hover { color: var(--text); }
+  .qa-body { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+  .qa-lbl { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 5px; }
+  .qa-input { width: 100%; font-size: 13px; padding: 8px 10px; border: 0.5px solid var(--border2); border-radius: var(--radius-md); background: var(--bg2); color: var(--text); font-family: inherit; outline: none; }
+  .qa-input:focus { border-color: var(--info); }
+  .qa-textarea { min-height: 90px; resize: vertical; }
+  .qa-preview-frame { border: 0.5px solid var(--border); border-radius: var(--radius-md); overflow: hidden; height: 360px; }
+  .qa-preview-frame iframe { width: 100%; height: 100%; border: none; }
+  .qa-footer { display: flex; gap: 8px; padding: 16px 20px; border-top: 0.5px solid var(--border); flex-shrink: 0; }
+  .qa-send-btn { flex: 1; padding: 10px; border-radius: var(--radius-md); background: var(--success); color: #fff; border: none; font-size: 13px; font-weight: 500; cursor: pointer; transition: opacity .15s; }
+  .qa-send-btn:hover { opacity: .85; }
+  .qa-send-btn:disabled { opacity: .4; cursor: not-allowed; }
+  .qa-cancel-btn { padding: 10px 18px; border-radius: var(--radius-md); border: 0.5px solid var(--border2); background: none; color: var(--text2); font-size: 13px; cursor: pointer; }
+
+  /* ── Onboarding wizard overlay ── */
+  .wizard-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.35); z-index: 50; display: none; align-items: flex-start; justify-content: flex-end; }
+  .wizard-overlay.visible { display: flex; }
+  .wizard-panel { width: 480px; height: 100vh; background: var(--bg); border-left: 0.5px solid var(--border); overflow-y: auto; padding: 28px 28px 40px; display: flex; flex-direction: column; }
+  .wizard-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+  .wizard-title { font-size: 17px; font-weight: 500; }
+  .wizard-close { font-size: 20px; cursor: pointer; color: var(--text3); padding: 4px; }
+  .wizard-close:hover { color: var(--text); }
+  .wizard-steps { display: flex; gap: 0; margin-bottom: 28px; }
+  .wizard-step { flex: 1; height: 3px; background: var(--border); border-radius: 2px; margin-right: 4px; transition: background .2s; }
+  .wizard-step.done { background: var(--info); }
+  .wizard-step.active { background: var(--info); opacity: .45; }
+  .wizard-body { flex: 1; }
+
+  /* Strategy Console */
+  #view-strategy.active { display: flex !important; }
+  .strat-chip { font-size: 12px; padding: 7px 13px; border-radius: 20px; border: 0.5px solid var(--border2); background: var(--bg2); color: var(--text2); cursor: pointer; transition: all .12s; white-space: nowrap; }
+  .strat-chip:hover { border-color: var(--info); color: var(--info); }
+  .strat-msg { max-width: 680px; }
+  .strat-msg.user { align-self: flex-end; background: var(--info); color: #fff; padding: 10px 14px; border-radius: 12px 12px 3px 12px; font-size: 13px; max-width: 70%; }
+  .strat-msg.ai { background: var(--bg); border: 0.5px solid var(--border); padding: 12px 14px; border-radius: 3px 12px 12px 12px; font-size: 13px; line-height: 1.6; color: var(--text); }
+  .strat-meta { font-size: 11px; color: var(--text3); margin-top: 4px; }
+  .strat-typing { display: flex; gap: 4px; align-items: center; padding: 12px 14px; background: var(--bg); border: 0.5px solid var(--border); border-radius: 3px 12px 12px 12px; width: fit-content; }
+  .strat-typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--text3); animation: strat-bounce 1.2s ease-in-out infinite; }
+  .strat-typing span:nth-child(2) { animation-delay: .2s; }
+  .strat-typing span:nth-child(3) { animation-delay: .4s; }
+  @keyframes strat-bounce { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-5px); } }
+
+  /* Wizard course recommendation */
+  .course-rec-card { background: linear-gradient(135deg, rgba(55,138,221,0.08), rgba(55,138,221,0.03)); border: 1px solid rgba(55,138,221,0.25); border-radius: var(--radius-lg); padding: 14px 16px; margin-bottom: 14px; }
+  .course-rec-label { font-size: 10px; font-weight: 600; color: var(--info); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 6px; }
+  .course-rec-name { font-size: 15px; font-weight: 500; margin-bottom: 4px; }
+  .course-rec-reason { font-size: 12px; color: var(--text2); line-height: 1.5; }
+  .course-why-toggle { font-size: 11px; color: var(--info); cursor: pointer; margin-top: 6px; display: inline-block; }
+  .course-milestone-preview { margin-top: 10px; display: flex; flex-direction: column; gap: 4px; }
+  .course-milestone-item { font-size: 12px; color: var(--text2); display: flex; gap: 6px; }
+  .course-milestone-num { color: var(--text3); flex-shrink: 0; min-width: 16px; }
+  .wz-lbl { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 6px; margin-top: 16px; }
+  .wz-lbl:first-child { margin-top: 0; }
+  .wz-input { width: 100%; font-size: 13px; padding: 8px 10px; border: 0.5px solid var(--border2); border-radius: var(--radius-md); background: var(--bg2); color: var(--text); outline: none; font-family: inherit; margin-bottom: 4px; }
+  .wz-input:focus { border-color: var(--info); }
+  .wz-select { width: 100%; font-size: 13px; padding: 8px 10px; border: 0.5px solid var(--border2); border-radius: var(--radius-md); background: var(--bg2); color: var(--text); outline: none; font-family: inherit; cursor: pointer; }
+  .wz-select:focus { border-color: var(--info); }
+  .wz-hint { font-size: 11px; color: var(--text3); margin-top: 2px; margin-bottom: 4px; }
+  .wizard-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 28px; padding-top: 18px; border-top: 0.5px solid var(--border); }
+  .wz-back-btn { font-size: 13px; padding: 8px 16px; border-radius: var(--radius-md); border: 0.5px solid var(--border2); background: none; color: var(--text2); cursor: pointer; }
+  .wz-next-btn { font-size: 13px; padding: 8px 20px; border-radius: var(--radius-md); border: none; background: var(--info); color: #fff; font-weight: 500; cursor: pointer; transition: opacity .15s; }
+  .wz-next-btn:hover { opacity: .85; }
+  .wz-next-btn:disabled { opacity: .4; cursor: not-allowed; }
+  .wz-step-lbl { font-size: 12px; color: var(--text3); }
+  .wz-success { text-align: center; padding: 40px 20px; }
+  .wz-success-icon { font-size: 48px; margin-bottom: 16px; }
+  .wz-success-title { font-size: 18px; font-weight: 500; margin-bottom: 8px; }
+  .wz-success-sub { font-size: 13px; color: var(--text2); line-height: 1.6; }
+
+  /* ── Client Modal ── */
+  .modal-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.5);
+    z-index: 500;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none;
+    transition: opacity .2s;
+  }
+  .modal-backdrop.open {
+    opacity: 1; pointer-events: all;
+  }
+  .client-modal {
+    background: var(--bg);
+    border: 0.5px solid var(--border2);
+    border-radius: var(--radius-lg);
+    width: calc(100% - 48px);
+    max-width: 680px;
+    max-height: 88vh;
+    overflow-y: auto;
+    position: relative;
+    transform: translateY(12px);
+    transition: transform .2s;
+  }
+  .modal-backdrop.open .client-modal {
+    transform: translateY(0);
+  }
+  .modal-close {
+    position: absolute; top: 16px; right: 18px;
+    font-size: 20px; color: var(--text3);
+    background: none; border: none; cursor: pointer;
+    line-height: 1; transition: color .12s;
+  }
+  .modal-close:hover { color: var(--text); }
+  .modal-header {
+    padding: 24px 24px 0;
+    display: flex; align-items: flex-start;
+    gap: 14px; margin-bottom: 20px;
+  }
+  .modal-av {
+    width: 44px; height: 44px; border-radius: 50%;
+    color: #fff; display: flex; align-items: center;
+    justify-content: center; font-size: 14px; font-weight: 700;
+    flex-shrink: 0;
+  }
+  .modal-client-name { font-size: 18px; font-weight: 600; }
+  .modal-client-id { font-size: 12px; color: var(--text3); margin-top: 2px; }
+  .modal-tabs {
+    display: flex; gap: 0;
+    border-bottom: 0.5px solid var(--border);
+    padding: 0 24px; margin-bottom: 0;
+  }
+  .modal-tab {
+    font-size: 13px; padding: 10px 14px;
+    color: var(--text2); cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -0.5px; transition: color .12s;
+    user-select: none; white-space: nowrap;
+  }
+  .modal-tab:hover { color: var(--text); }
+  .modal-tab.active {
+    color: var(--info);
+    border-bottom-color: var(--info);
+    font-weight: 500;
+  }
+  .modal-body { padding: 20px 24px 24px; }
+  .modal-tab-panel { display: none; }
+  .modal-tab-panel.active { display: block; }
+
+  /* Modal form elements */
+  .mform-group { margin-bottom: 16px; }
+  .mform-label {
+    display: block; font-size: 12px; font-weight: 500;
+    color: var(--text2); margin-bottom: 6px;
+  }
+  .mform-input {
+    width: 100%; font-size: 13px; padding: 9px 12px;
+    background: var(--bg2); border: 0.5px solid var(--border2);
+    border-radius: var(--radius-md); color: var(--text);
+    outline: none; font-family: inherit;
+  }
+  .mform-input:focus { border-color: var(--info); }
+  .mform-textarea {
+    width: 100%; font-size: 13px; padding: 9px 12px;
+    background: var(--bg2); border: 0.5px solid var(--border2);
+    border-radius: var(--radius-md); color: var(--text);
+    outline: none; font-family: inherit; resize: vertical;
+    min-height: 80px; line-height: 1.5;
+  }
+  .mform-textarea:focus { border-color: var(--info); }
+  .mform-row {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  }
+  .mbtn {
+    font-size: 13px; padding: 8px 18px;
+    border-radius: var(--radius-md); border: none;
+    cursor: pointer; font-weight: 500;
+    transition: opacity .15s;
+  }
+  .mbtn:hover { opacity: .85; }
+  .mbtn-primary { background: var(--info); color: #fff; }
+  .mbtn-success { background: var(--success); color: #fff; }
+  .mbtn-danger { background: none; border: 0.5px solid var(--danger) !important; color: var(--danger); }
+  .mbtn-muted { background: var(--bg2); color: var(--text2); border: 0.5px solid var(--border2) !important; }
+  .modal-actions {
+    display: flex; gap: 8px; justify-content: flex-end;
+    margin-top: 20px; padding-top: 16px;
+    border-top: 0.5px solid var(--border);
+  }
+
+  /* Milestone progress in modal */
+  .milestone-list { display: flex; flex-direction: column; gap: 8px; }
+  .milestone-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 12px; border-radius: var(--radius-md);
+    background: var(--bg2); border: 0.5px solid var(--border);
+  }
+  .milestone-item.active {
+    border-color: rgba(55,138,221,.4);
+    background: rgba(55,138,221,.05);
+  }
+  .milestone-item.complete {
+    border-color: rgba(29,158,117,.3);
+    background: rgba(29,158,117,.04);
+  }
+  .milestone-dot {
+    width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+  }
+  .milestone-dot.active { background: var(--info); }
+  .milestone-dot.complete { background: var(--success); }
+  .milestone-dot.pending { background: var(--border2); }
+  .milestone-text { flex: 1; font-size: 13px; }
+  .milestone-status-lbl {
+    font-size: 10px; font-weight: 600; padding: 2px 7px;
+    border-radius: 10px;
+  }
+  .ms-active { background: rgba(55,138,221,.12); color: var(--info); }
+  .ms-complete { background: rgba(29,158,117,.12); color: var(--success); }
+  .ms-pending { background: var(--bg3); color: var(--text3); }
+
+  /* Keyword tags */
+  .keyword-list {
+    display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px;
+  }
+  .keyword-tag {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; padding: 4px 10px;
+    background: var(--bg2); border: 0.5px solid var(--border2);
+    border-radius: 20px; color: var(--text2);
+  }
+  .keyword-tag button {
+    background: none; border: none; cursor: pointer;
+    color: var(--text3); font-size: 14px; line-height: 1;
+    padding: 0; transition: color .1s;
+  }
+  .keyword-tag button:hover { color: var(--danger); }
+  .keyword-add-row {
+    display: flex; gap: 8px;
+  }
+  .keyword-add-row input {
+    flex: 1; font-size: 13px; padding: 7px 10px;
+    background: var(--bg2); border: 0.5px solid var(--border2);
+    border-radius: var(--radius-md); color: var(--text);
+    outline: none; font-family: inherit;
+  }
+  .keyword-add-row input:focus { border-color: var(--info); }
+
+  /* Connection status in modal */
+  .conn-status-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 9px 0; border-bottom: 0.5px solid var(--border);
+    font-size: 13px;
+  }
+  .conn-status-row:last-child { border-bottom: none; }
+  .conn-dot {
+    width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+    display: inline-block; margin-right: 7px;
+  }
+  .conn-dot.connected { background: var(--success); }
+  .conn-dot.disconnected { background: var(--text3); }
+
+  /* Onboarding form view */
+  .onboard-card {
+    background: var(--bg); border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg); padding: 28px;
+    max-width: 600px;
+  }
+  .onboard-section-title {
+    font-size: 11px; font-weight: 600; color: var(--text3);
+    text-transform: uppercase; letter-spacing: .07em;
+    margin: 24px 0 14px; padding-top: 20px;
+    border-top: 0.5px solid var(--border);
+  }
+  .onboard-section-title:first-of-type {
+    margin-top: 0; padding-top: 0; border-top: none;
+  }
+</style>
+</head>
+<body>
+
+<!-- Mobile top bar -->
+<div class="mobile-topbar" id="mobile-topbar">
+  <button class="hamburger" aria-label="Open menu">
+    <span></span><span></span><span></span>
+  </button>
+  <span style="font-size:13px;font-weight:600;letter-spacing:.08em;">CMNDR Hub</span>
+  <div style="width:34px;"></div>
+</div>
+<div class="mobile-drawer-backdrop" id="mobile-drawer-backdrop"></div>
+
+<!-- ── Sidebar ── -->
+<div class="sidebar">
+  <div class="wordmark">CMNDR <span>Hub</span></div>
+
+  <div class="user-block">
+    <div class="user-row">
+      <div class="user-av" id="user-av">—</div>
+      <div>
+        <div class="user-name" id="user-name">Loading…</div>
+        <div class="role-pill" id="role-pill">—</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-item active" id="nav-hub" onclick="showView('hub')">
+      <svg class="nav-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M2 6.5L8 2l6 4.5V14a1 1 0 01-1 1H3a1 1 0 01-1-1V6.5z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+        <rect x="5.5" y="9" width="5" height="6" rx=".5" stroke="currentColor" stroke-width="1.3"/>
+      </svg>
+      Hub
+    </div>
+    <div class="nav-item" id="nav-clients"
+      onclick="showView('view-clients');loadClients()">
+      <svg class="nav-icon" width="15" height="15" viewBox="0 0 15 15"
+        fill="none">
+        <circle cx="7.5" cy="5" r="2.5" stroke="currentColor"
+          stroke-width="1.2"/>
+        <path d="M2 13c0-3 2.5-5 5.5-5s5.5 2 5.5 5"
+          stroke="currentColor" stroke-width="1.2"
+          stroke-linecap="round"/>
+      </svg>
+      Clients
+    </div>
+    <div class="nav-item" id="nav-workbench" onclick="goToWorkbench()">
+      <svg class="nav-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.3"/>
+        <rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.3"/>
+        <rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.3"/>
+        <rect x="9" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.3"/>
+      </svg>
+      Workbench
+    </div>
+    <div class="nav-item" id="nav-pipeline" onclick="showView('pipeline')">
+      <svg class="nav-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <circle cx="3" cy="4" r="1.5" stroke="currentColor" stroke-width="1.3"/>
+        <circle cx="3" cy="8" r="1.5" stroke="currentColor" stroke-width="1.3"/>
+        <circle cx="3" cy="12" r="1.5" stroke="currentColor" stroke-width="1.3"/>
+        <line x1="5" y1="4" x2="14" y2="4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+        <line x1="5" y1="8" x2="11" y2="8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+        <line x1="5" y1="12" x2="13" y2="12" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+      </svg>
+      Pipeline
+    </div>
+    <div class="nav-item" id="nav-strategy" onclick="showView('strategy')">
+      <svg class="nav-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M2 12V5a1 1 0 011-1h10a1 1 0 011 1v7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+        <path d="M5 8h6M5 11h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+        <circle cx="13" cy="13" r="1.5" fill="currentColor"/>
+      </svg>
+      Strategy
+    </div>
+  </div>
+
+  <div class="nav-divider"></div>
+
+  <div class="nav-item signout" onclick="signOut()">
+    <svg class="nav-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h3M10 11l3-3-3-3M13 8H6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    Sign out
+  </div>
+</div>
+
+<!-- ── Main ── -->
+<div class="main">
+
+  <!-- VIEW: Hub -->
+  <div class="view active" id="view-hub">
+    <div class="greeting" id="greeting">Good morning</div>
+    <div class="greeting-sub" id="greeting-sub">Loading…</div>
+
+    <!-- Notifications -->
+    <div class="section-title">Important Notifications</div>
+    <div class="notif-list" id="hub-notif-list">
+      <div style="font-size:13px;color:var(--text3);padding:10px 0;">Loading notifications…</div>
+    </div>
+
+    <!-- Two-col grid -->
+    <div class="hub-grid">
+
+      <!-- Client Portfolio -->
+      <div>
+        <div class="hub-section-head">
+          <div class="section-title" style="margin-bottom:0">Client Portfolio</div>
+          <button class="new-client-btn" onclick="openWizard()">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            Add client
+          </button>
+        </div>
+        <div class="portfolio-grid" id="portfolio-grid">
+          <div class="portfolio-card" style="align-items:center;justify-content:center;min-height:140px;">
+            <div class="skel" style="width:60%;height:13px;"></div>
+            <div class="skel" style="width:40%;height:10px;margin-top:6px;"></div>
+          </div>
+          <div class="portfolio-card" style="align-items:center;justify-content:center;min-height:140px;">
+            <div class="skel" style="width:60%;height:13px;"></div>
+            <div class="skel" style="width:40%;height:10px;margin-top:6px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Resources -->
+      <div>
+        <div class="section-title">Resources</div>
+        <div class="resources-card">
+          <a class="resource-item" href="#">
+            <span class="resource-label">Resona SOP — Client Onboarding</span>
+            <span class="cat-pill cat-sop">SOP</span>
+            <svg class="resource-arrow" width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7h8M8 4l3 3-3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+          <a class="resource-item" href="#">
+            <span class="resource-label">Course Playbook — Operational Excellence</span>
+            <span class="cat-pill cat-playbook">Playbook</span>
+            <svg class="resource-arrow" width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7h8M8 4l3 3-3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+          <a class="resource-item" href="#">
+            <span class="resource-label">Course Playbook — Lead Generation</span>
+            <span class="cat-pill cat-playbook">Playbook</span>
+            <svg class="resource-arrow" width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7h8M8 4l3 3-3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+          <a class="resource-item" href="#">
+            <span class="resource-label">CMNDR Training Guide</span>
+            <span class="cat-pill cat-training">Training</span>
+            <svg class="resource-arrow" width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7h8M8 4l3 3-3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+          <a class="resource-item" href="#">
+            <span class="resource-label">Make Scenario Library</span>
+            <span class="cat-pill cat-automation">Automation</span>
+            <svg class="resource-arrow" width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7h8M8 4l3 3-3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+          <a class="resource-item" href="#">
+            <span class="resource-label">Supabase Schema Reference</span>
+            <span class="cat-pill cat-technical">Technical</span>
+            <svg class="resource-arrow" width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7h8M8 4l3 3-3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+        </div>
+      </div>
+
+    </div><!-- /hub-grid -->
+  </div><!-- /view-hub -->
+
+
+  <!-- VIEW: Strategy Console -->
+  <div class="view" id="view-strategy" style="flex-direction:column;height:100vh;padding:0;">
+    <div style="padding:24px 28px 16px;border-bottom:0.5px solid var(--border);flex-shrink:0;">
+      <div style="font-size:18px;font-weight:500;margin-bottom:2px;">AI Strategy Console</div>
+      <div style="font-size:13px;color:var(--text2);">Ask about portfolio trends, client performance, and strategic priorities.</div>
+    </div>
+    <div id="strategy-thread" style="flex:1;overflow-y:auto;padding:24px 28px;display:flex;flex-direction:column;gap:16px;">
+      <!-- Chips shown initially -->
+      <div id="strategy-chips" style="display:flex;flex-wrap:wrap;gap:8px;padding:8px 0;">
+        <button class="strat-chip" onclick="strategyAsk(this.textContent)">Which client needs the most attention right now?</button>
+        <button class="strat-chip" onclick="strategyAsk(this.textContent)">What are the top automation failures this week?</button>
+        <button class="strat-chip" onclick="strategyAsk(this.textContent)">Which client has the lowest health score and why?</button>
+        <button class="strat-chip" onclick="strategyAsk(this.textContent)">What actions were approved but have no automation yet?</button>
+        <button class="strat-chip" onclick="strategyAsk(this.textContent)">Which client is closest to completing their course?</button>
+        <button class="strat-chip" onclick="strategyAsk(this.textContent)">Summarize the overall portfolio performance.</button>
+      </div>
+    </div>
+    <div style="padding:16px 28px;border-top:0.5px solid var(--border);flex-shrink:0;display:flex;gap:10px;">
+      <input id="strategy-input" class="wz-input" placeholder="Ask about your portfolio…" style="flex:1;margin-bottom:0;"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();strategySubmit();}">
+      <button class="wz-next-btn" onclick="strategySubmit()" id="strategy-btn" style="white-space:nowrap;">Ask</button>
+    </div>
+  </div>
+
+  <!-- VIEW: Pipeline -->
+  <div class="view" id="view-pipeline">
+    <div class="greeting" style="font-size:18px;font-weight:500;margin-bottom:2px;">Make Pipeline</div>
+    <div class="greeting-sub" id="pipeline-sub" style="margin-bottom:20px;">Loading scenario health…</div>
+
+    <div class="pipeline-summary" id="pipeline-summary">
+      <div class="pip-stat"><div class="pip-stat-lbl">Total scenarios</div><div class="pip-stat-val">—</div></div>
+      <div class="pip-stat"><div class="pip-stat-lbl">Active</div><div class="pip-stat-val">—</div></div>
+      <div class="pip-stat"><div class="pip-stat-lbl">Errored</div><div class="pip-stat-val" style="color:var(--danger)">—</div></div>
+      <div class="pip-stat"><div class="pip-stat-lbl">Total runs</div><div class="pip-stat-val">—</div></div>
+    </div>
+
+    <div id="pipeline-body"><div class="pip-empty">Loading pipeline data…</div></div>
+  </div><!-- /view-pipeline -->
+
+  <!-- Clients view -->
+  <div class="view" id="view-clients">
+    <div style="display:flex;justify-content:space-between;
+      align-items:center;margin-bottom:24px;">
+      <div>
+        <div class="greeting" style="font-size:20px;">Clients</div>
+        <div style="font-size:13px;color:var(--text2);margin-top:2px;">
+          Manage your client roster
+        </div>
+      </div>
+      <button class="mbtn mbtn-primary" onclick="showView('view-onboard')">
+        + New Client
+      </button>
+    </div>
+
+    <div style="background:var(--bg);border:0.5px solid var(--border);
+      border-radius:var(--radius-lg);overflow:hidden;">
+      <div style="display:grid;grid-template-columns:2fr 1.5fr 1.5fr 1fr 1fr 80px;
+        padding:9px 16px;border-bottom:0.5px solid var(--border);
+        background:var(--bg2);">
+        <span style="font-size:10px;font-weight:600;color:var(--text3);
+          text-transform:uppercase;letter-spacing:.06em;">Client</span>
+        <span style="font-size:10px;font-weight:600;color:var(--text3);
+          text-transform:uppercase;letter-spacing:.06em;">Goal</span>
+        <span style="font-size:10px;font-weight:600;color:var(--text3);
+          text-transform:uppercase;letter-spacing:.06em;">Milestone</span>
+        <span style="font-size:10px;font-weight:600;color:var(--text3);
+          text-transform:uppercase;letter-spacing:.06em;">Health</span>
+        <span style="font-size:10px;font-weight:600;color:var(--text3);
+          text-transform:uppercase;letter-spacing:.06em;">Connections</span>
+        <span></span>
+      </div>
+      <div id="clients-list-body">
+        <div style="padding:32px;text-align:center;color:var(--text3);
+          font-size:13px;">Loading clients...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Onboard view -->
+  <div class="view" id="view-onboard">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;">
+      <button onclick="showView('view-clients')"
+        style="background:none;border:none;cursor:pointer;
+        color:var(--text3);font-size:13px;display:flex;
+        align-items:center;gap:4px;">
+        ← Back
+      </button>
+      <div class="greeting" style="font-size:20px;">New Client</div>
+    </div>
+
+    <div class="onboard-card">
+      <div class="onboard-section-title">Account</div>
+      <div class="mform-row">
+        <div class="mform-group">
+          <label class="mform-label">First Name *</label>
+          <input class="mform-input" id="ob-first" type="text"
+            placeholder="Jane"/>
+        </div>
+        <div class="mform-group">
+          <label class="mform-label">Last Name *</label>
+          <input class="mform-input" id="ob-last" type="text"
+            placeholder="Smith"/>
+        </div>
+      </div>
+      <div class="mform-group">
+        <label class="mform-label">Email *</label>
+        <input class="mform-input" id="ob-email" type="email"
+          placeholder="jane@business.com"/>
+      </div>
+      <div class="mform-row">
+        <div class="mform-group">
+          <label class="mform-label">Password *</label>
+          <input class="mform-input" id="ob-password" type="password"
+            placeholder="Min 8 characters"/>
+        </div>
+        <div class="mform-group">
+          <label class="mform-label">Client ID *</label>
+          <input class="mform-input" id="ob-client-id" type="text"
+            placeholder="e.g. acme-plumbing"/>
+        </div>
+      </div>
+
+      <div class="onboard-section-title">Business</div>
+      <div class="mform-group">
+        <label class="mform-label">Business Goal *</label>
+        <textarea class="mform-textarea" id="ob-goal"
+          placeholder="What is this client's primary business goal?"></textarea>
+      </div>
+      <div class="mform-row">
+        <div class="mform-group">
+          <label class="mform-label">Industry</label>
+          <select class="mform-input" id="ob-industry">
+            <option value="">Select...</option>
+            <option>Service Business</option>
+            <option>Retail</option>
+            <option>Restaurant</option>
+            <option>Healthcare</option>
+            <option>Professional Services</option>
+            <option>Trades &amp; Contractors</option>
+            <option>E-commerce</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div class="mform-group">
+          <label class="mform-label">Location</label>
+          <input class="mform-input" id="ob-location" type="text"
+            placeholder="City, State"/>
+        </div>
+      </div>
+
+      <div class="onboard-section-title">Strategy</div>
+      <div class="mform-group">
+        <label class="mform-label">Strategy Template</label>
+        <select class="mform-select" id="ob-strategy-template"
+          onchange="applyStrategyTemplate(this.value)">
+          <option value="">— Choose a template or fill manually —</option>
+          <option value="lead_conversion">Lead Conversion Engine</option>
+          <option value="recurring_revenue">Recurring Revenue Builder</option>
+          <option value="brand_authority">Brand Authority &amp; SEO</option>
+          <option value="operational_scale">Operational Scale-Up</option>
+          <option value="digital_presence">Digital Presence Launch</option>
+          <option value="customer_retention">Customer Retention &amp; LTV</option>
+        </select>
+      </div>
+      <div class="mform-group" id="ob-milestone-container"
+        style="display:flex;flex-direction:column;gap:12px;">
+        <div style="border:1px solid var(--border);border-radius:var(--radius-md);padding:14px;">
+          <div style="font-size:11px;font-weight:600;color:var(--text3);
+            text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">
+            Phase 1
+          </div>
+          <input class="mform-input" id="ob-m1-title" type="text"
+            placeholder="e.g. Build the Foundation" style="margin-bottom:6px;"/>
+          <textarea class="mform-textarea" id="ob-m1-desc"
+            placeholder="Describe what this phase involves..."></textarea>
+        </div>
+        <div style="border:1px solid var(--border);border-radius:var(--radius-md);padding:14px;">
+          <div style="font-size:11px;font-weight:600;color:var(--text3);
+            text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">
+            Phase 2
+          </div>
+          <input class="mform-input" id="ob-m2-title" type="text"
+            placeholder="e.g. Scale Demand" style="margin-bottom:6px;"/>
+          <textarea class="mform-textarea" id="ob-m2-desc"
+            placeholder="Describe what this phase involves..."></textarea>
+        </div>
+        <div style="border:1px solid var(--border);border-radius:var(--radius-md);padding:14px;">
+          <div style="font-size:11px;font-weight:600;color:var(--text3);
+            text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">
+            Phase 3
+          </div>
+          <input class="mform-input" id="ob-m3-title" type="text"
+            placeholder="e.g. Optimize Operations" style="margin-bottom:6px;"/>
+          <textarea class="mform-textarea" id="ob-m3-desc"
+            placeholder="Describe what this phase involves..."></textarea>
+        </div>
+      </div>
+
+      <div class="onboard-section-title">Forecast Keywords</div>
+      <div class="mform-group">
+        <label class="mform-label">
+          Keywords (comma separated)
+        </label>
+        <textarea class="mform-textarea" id="ob-keywords"
+          placeholder="plumbing, HVAC, pipe repair, emergency plumber...">
+        </textarea>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px;">
+          These drive the Forecast page market analysis
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:24px;">
+        <button class="mbtn mbtn-primary" onclick="submitOnboard()"
+          id="ob-submit-btn" style="flex:1;padding:11px;">
+          Create Client
+        </button>
+        <button class="mbtn mbtn-muted" onclick="showView('view-clients')">
+          Cancel
+        </button>
+      </div>
+      <div id="ob-error" style="margin-top:10px;font-size:12px;
+        color:var(--danger);display:none;"></div>
+      <div id="ob-success" style="margin-top:10px;font-size:12px;
+        color:var(--success);display:none;"></div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+<div class="toast" id="toast"></div>
+
+<!-- ── QA Report Panel ── -->
+<div class="qa-overlay" id="qa-overlay" onclick="if(event.target===this)closeQAPanel()">
+  <div class="qa-panel">
+    <div class="qa-head">
+      <div class="qa-title">Prepare report</div>
+      <div class="qa-close" onclick="closeQAPanel()">×</div>
+    </div>
+    <div class="qa-body">
+      <div>
+        <div class="qa-lbl">Recipient email</div>
+        <input class="qa-input" id="qa-email" type="email" placeholder="client@example.com">
+      </div>
+      <div>
+        <div class="qa-lbl">Subject</div>
+        <input class="qa-input" id="qa-subject" placeholder="Weekly operations report">
+      </div>
+      <div>
+        <div class="qa-lbl">Personal note (optional)</div>
+        <textarea class="qa-input qa-textarea" id="qa-note" placeholder="Add a personal message to accompany this report…"></textarea>
+      </div>
+      <div>
+        <div class="qa-lbl">Email preview</div>
+        <div class="qa-preview-frame">
+          <iframe id="qa-preview-iframe" title="Email preview"></iframe>
+        </div>
+      </div>
+    </div>
+    <div class="qa-footer">
+      <button class="qa-cancel-btn" onclick="closeQAPanel()">Cancel</button>
+      <button class="qa-send-btn" id="qa-send-btn" onclick="wbSendFromQA()">Send now</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Onboarding Wizard ── -->
+<div class="wizard-overlay" id="wizard-overlay" onclick="if(event.target===this)closeWizard()">
+  <div class="wizard-panel">
+    <div class="wizard-head">
+      <div class="wizard-title">New client setup</div>
+      <div class="wizard-close" onclick="closeWizard()">×</div>
+    </div>
+    <div class="wizard-steps">
+      <div class="wizard-step active" id="wz-s1"></div>
+      <div class="wizard-step" id="wz-s2"></div>
+      <div class="wizard-step" id="wz-s3"></div>
+      <div class="wizard-step" id="wz-s4"></div>
+    </div>
+    <div class="wizard-body" id="wizard-body"><!-- rendered by JS --></div>
+    <div class="wizard-footer" id="wizard-footer">
+      <span class="wz-step-lbl" id="wz-step-lbl">Step 1 of 4</span>
+      <div style="display:flex;gap:8px">
+        <button class="wz-back-btn" id="wz-back" onclick="wizardBack()" style="display:none">Back</button>
+        <button class="wz-next-btn" id="wz-next" onclick="wizardNext()">Continue</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="client-modal-backdrop"
+  onclick="closeClientModal(event)">
+  <div class="client-modal" id="client-modal">
+    <button class="modal-close" onclick="closeClientModal()">×</button>
+
+    <div class="modal-header">
+      <div class="modal-av" id="modal-av"
+        style="background:var(--info);">??</div>
+      <div>
+        <div class="modal-client-name" id="modal-client-name">
+          Loading...
+        </div>
+        <div class="modal-client-id" id="modal-client-id"></div>
+      </div>
+    </div>
+
+    <div class="modal-tabs">
+      <div class="modal-tab active" data-tab="overview"
+        onclick="switchModalTab('overview')">Overview</div>
+      <div class="modal-tab" data-tab="roadmap"
+        onclick="switchModalTab('roadmap')">Roadmap</div>
+      <div class="modal-tab" data-tab="keywords"
+        onclick="switchModalTab('keywords')">Keywords</div>
+      <div class="modal-tab" data-tab="connections"
+        onclick="switchModalTab('connections')">Connections</div>
+    </div>
+
+    <div class="modal-body">
+
+      <!-- Overview tab -->
+      <div class="modal-tab-panel active" id="modal-tab-overview">
+        <div class="mform-group">
+          <label class="mform-label">Current Goal</label>
+          <textarea class="mform-textarea" id="modal-goal"
+            rows="3"></textarea>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;
+          gap:10px;margin-bottom:16px;">
+          <div style="background:var(--bg2);border-radius:var(--radius-md);
+            padding:12px;">
+            <div style="font-size:10px;color:var(--text3);margin-bottom:4px;">
+              Health Score
+            </div>
+            <div style="font-size:20px;font-weight:600;"
+              id="modal-health-score">—</div>
+          </div>
+          <div style="background:var(--bg2);border-radius:var(--radius-md);
+            padding:12px;">
+            <div style="font-size:10px;color:var(--text3);margin-bottom:4px;">
+              Current Phase
+            </div>
+            <div style="font-size:20px;font-weight:600;"
+              id="modal-phase">—</div>
+          </div>
+          <div style="background:var(--bg2);border-radius:var(--radius-md);
+            padding:12px;">
+            <div style="font-size:10px;color:var(--text3);margin-bottom:4px;">
+              Program
+            </div>
+            <div style="font-size:13px;font-weight:500;line-height:1.3;"
+              id="modal-program">—</div>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="mbtn mbtn-muted" onclick="closeClientModal()">
+            Close
+          </button>
+          <button class="mbtn mbtn-primary"
+            onclick="saveClientGoal()">
+            Save Goal
+          </button>
+          <button class="mbtn mbtn-success"
+            onclick="openInWorkbench()">
+            Open in Workbench
+          </button>
+        </div>
+      </div>
+
+      <!-- Roadmap tab -->
+      <div class="modal-tab-panel" id="modal-tab-roadmap">
+        <div id="modal-roadmap-body">
+          <div style="color:var(--text3);font-size:13px;">
+            Loading roadmap...
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="mbtn mbtn-muted" onclick="closeClientModal()">
+            Close
+          </button>
+          <button class="mbtn mbtn-success"
+            onclick="advanceClientMilestone()"
+            id="modal-advance-btn">
+            Advance to Next Milestone
+          </button>
+        </div>
+      </div>
+
+      <!-- Keywords tab -->
+      <div class="modal-tab-panel" id="modal-tab-keywords">
+        <div style="font-size:13px;color:var(--text2);margin-bottom:14px;">
+          These keywords drive the Forecast page market analysis.
+        </div>
+        <div class="keyword-list" id="modal-keyword-list"></div>
+        <div class="keyword-add-row">
+          <input type="text" id="modal-keyword-input"
+            placeholder="Add keyword..."
+            onkeydown="if(event.key==='Enter') addModalKeyword()"/>
+          <button class="mbtn mbtn-primary" onclick="addModalKeyword()">
+            Add
+          </button>
+        </div>
+        <div class="modal-actions">
+          <button class="mbtn mbtn-muted" onclick="closeClientModal()">
+            Close
+          </button>
+          <button class="mbtn mbtn-primary"
+            onclick="saveClientKeywords()">
+            Save Keywords
+          </button>
+        </div>
+      </div>
+
+      <!-- Connections tab -->
+      <div class="modal-tab-panel" id="modal-tab-connections">
+        <div id="modal-connections-body">
+          <div style="color:var(--text3);font-size:13px;">
+            Loading connections...
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="mbtn mbtn-muted" onclick="closeClientModal()">
+            Close
+          </button>
+          <a href="/connections" target="_blank"
+            style="text-decoration:none;">
+            <button class="mbtn mbtn-primary">
+              Manage Connections →
+            </button>
+          </a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const WB_API = '/api/pipeline?action=report';
+const WB_WEBHOOK = 'https://hook.us2.make.com/fsilm67y7ny25rfo7ulhhdket8snpmcd';
+let wbClient = 'peak-flow';
+let wbClientName = 'Peak Flow Plumbing & HVAC';
+let wbRange = '7d';
+let wbLastData = null;
+
+// ── Auth ─────────────────────────────────────────────────────
+let SESSION_TOKEN = null;
+
+(async () => {
+  const token = localStorage.getItem('cmndr_session');
+  if (!token) { window.location.href = '/login'; return; }
+  try {
+    const r = await fetch('/api/auth?action=me', { headers: { Authorization: `Bearer ${token}` } });
+    if (!r.ok) throw new Error('invalid');
+    const { user, profile } = await r.json();
+    if (!["admin","client","demo","resona_admin","resona_advisor","client_user","display"].includes(profile.role)) { window.location.href = '/app'; return; }
+    SESSION_TOKEN = token;
+    wbUserRole = profile.role;
+    const name = profile.full_name || user.email || '?';
+    const av = name.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase();
+    document.getElementById('user-av').textContent = av;
+    document.getElementById('user-name').textContent = name;
+    document.getElementById('role-pill').textContent = profile.role.replace(/_/g, ' ');
+    setGreeting(name);
+    loadPortfolioCards();
+    loadHubNotifications();
+  } catch (e) {
+    localStorage.removeItem('cmndr_session');
+    localStorage.removeItem('cmndr_profile');
+    window.location.href = '/login';
+  }
+})();
+
+function setGreeting(fullName) {
+  const h = new Date().getHours();
+  const period = h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening';
+  const first = fullName.split(' ')[0];
+  document.getElementById('greeting').textContent = `Good ${period}, ${first}`;
+  document.getElementById('greeting-sub').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+function signOut() {
+  fetch('/api/auth?action=logout', { method: 'POST', headers: { Authorization: `Bearer ${SESSION_TOKEN}` } });
+  localStorage.removeItem('cmndr_session');
+  localStorage.removeItem('cmndr_profile');
+  window.location.href = '/login';
+}
+
+// ── View switching ────────────────────────────────────────────
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + name));
+  document.querySelectorAll('.nav-item[id^="nav-"]').forEach(n => n.classList.toggle('active', n.id === 'nav-' + name));
+  if (name === 'pipeline') loadPipeline();
+  if (name === 'strategy') {
+    const input = document.getElementById('strategy-input');
+    if (input) input.focus();
+  }
+  if (name === 'workbench') {
+    // Open Client section by default
+    const clientSec = document.getElementById('wbs-client');
+    if (clientSec && !clientSec.classList.contains('open')) clientSec.classList.add('open');
+  }
+}
+
+function openWorkbench(clientId) {
+  const url = '/workbench.html?client=' + encodeURIComponent(clientId);
+  window.open(url, '_blank');
+}
+
+function goToWorkbench() {
+  window.open('/workbench.html', '_blank');
+}
+
+// ── Toast ─────────────────────────────────────────────────────
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ── Workbench logic ───────────────────────────────────────────
+function wbAddLog(msg, type) {
+  const log = document.getElementById('wb-log-list');
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  const time = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  entry.innerHTML = `<span class="log-dot log-${type}"></span><span>${time} — ${msg}</span>`;
+  log.insertBefore(entry, log.firstChild);
+  if (log.children.length > 8) log.removeChild(log.lastChild);
+}
+
+let wbUserRole = null;
+
+function selectClient(id, name, initials, type, color) {
+  wbClient = id;
+  wbClientName = name;
+  document.querySelectorAll('#wb-client-list .client-pill').forEach(p => p.classList.toggle('active', p.dataset.client === id));
+  document.getElementById('wb-title').textContent = name;
+  document.getElementById('wb-meta').textContent = 'Client selected — click Preview report to load';
+  wbAddLog('Client selected: ' + name, 'i');
+  // Load archive for this client
+  loadWbArchive(id);
+  // Open Actions section so archive is visible
+  const actionsSection = document.getElementById('wbs-actions');
+  if (actionsSection && !actionsSection.classList.contains('open')) {
+    actionsSection.classList.add('open');
+  }
+  // Show branding panel for resona_admin
+  const brandSection = document.getElementById('wb-branding-section');
+  if (brandSection && wbUserRole === 'resona_admin') {
+    brandSection.style.display = 'flex';
+    loadClientBranding(id);
+  }
+}
+
+function toggleWbSection(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.toggle('open');
+}
+
+async function loadWbArchive(clientId) {
+  const el = document.getElementById('wb-archive-list');
+  if (!el) return;
+  el.innerHTML = '<div style="font-size:12px;color:var(--text3);">Loading...</div>';
+  try {
+    const r = await fetch(
+      `/api/pipeline?action=hub-archive&client_id=${clientId}`,
+      { headers: { Authorization: `Bearer ${SESSION_TOKEN}` } }
+    );
+    const data = await r.json();
+    if (data.error) throw new Error(data.error);
+    const snaps = data.snapshots || [];
+
+    if (!snaps.length) {
+      el.innerHTML = '<div style="font-size:12px;color:var(--text3);' +
+        'padding:6px 0;">No archived reports yet</div>';
+      return;
+    }
+
+    el.innerHTML = snaps.map(s => {
+      const page = s.page ||
+        s.period_label?.split('·')[0]?.trim() || 'report';
+      const date = s.created_at
+        ? new Date(s.created_at).toLocaleDateString('en-US',
+            {month:'short',day:'numeric',year:'numeric'})
+        : '—';
+      return `<div style="padding:7px 0;border-bottom:0.5px solid
+        var(--border);cursor:pointer;"
+        onclick="loadArchivedReport('${clientId}','${s.id}',
+          '${s.period_from || ''}','${s.period_to || ''}','${page}')">
+        <div style="font-size:12px;font-weight:500;color:var(--text);">
+          ${page.charAt(0).toUpperCase() + page.slice(1)}
+        </div>
+        <div style="font-size:11px;color:var(--text3);">${date}</div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--danger);">Failed to load</div>';
+  }
+}
+
+function loadArchivedReport(clientId, snapId, from, to, page) {
+  const frame = document.querySelector('#wb-right iframe');
+  if (frame) {
+    frame.src = `/index.html?client=${clientId}&from=${from}&to=${to}`;
+  }
+  showToast(`Loaded ${page} report from ${from}`);
+}
+
+async function loadClientBranding(clientId) {
+  try {
+    const r = await fetch(`/api/auth?action=branding&client=${clientId}`);
+    const { branding } = await r.json();
+    if (branding) {
+      const colorEl = document.getElementById('wb-brand-color');
+      const nameEl = document.getElementById('wb-brand-name');
+      const logoEl = document.getElementById('wb-brand-logo');
+      if (colorEl && branding.accent_color) colorEl.value = branding.accent_color;
+      if (nameEl && branding.company_name) nameEl.value = branding.company_name;
+      if (logoEl && branding.logo_url) logoEl.value = branding.logo_url;
+    }
+  } catch {}
+}
+
+async function saveBranding() {
+  const accent_color = document.getElementById('wb-brand-color')?.value;
+  const company_name = document.getElementById('wb-brand-name')?.value?.trim();
+  const logo_url = document.getElementById('wb-brand-logo')?.value?.trim();
+  try {
+    const r = await fetch(`/api/auth?action=branding&client=${wbClient}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SESSION_TOKEN}` },
+      body: JSON.stringify({ accent_color, company_name, logo_url })
+    });
+    if (r.ok) toast('Branding saved');
+    else toast('Save failed');
+  } catch(e) { toast('Error: ' + e.message); }
+}
+
+function setRange(r) {
+  wbRange = r;
+  document.querySelectorAll('.range-btn[data-range]').forEach(b => b.classList.toggle('active', b.dataset.range === r));
+  const custom = document.getElementById('wb-custom-dates');
+  if (r === 'custom') {
+    custom.classList.add('visible');
+    const today = new Date().toISOString().split('T')[0];
+    const week = new Date(); week.setDate(week.getDate() - 7);
+    document.getElementById('wb-from').value = week.toISOString().split('T')[0];
+    document.getElementById('wb-to').value = today;
+  } else {
+    custom.classList.remove('visible');
+  }
+}
+
+function wbBuildURL() {
+  if (wbRange === 'custom') {
+    const from = document.getElementById('wb-from').value;
+    const to = document.getElementById('wb-to').value;
+    if (from && to) return `/?client=${wbClient}&from=${from}&to=${to}`;
+  }
+  return `/?client=${wbClient}&range=${wbRange}`;
+}
+
+async function wbLoadPreview() {
+  const url = wbBuildURL();
+  document.getElementById('wb-preview-url').textContent = 'cmndr-reports.vercel.app' + url;
+  document.getElementById('wb-preview-badge').style.display = 'inline-block';
+  wbAddLog('Loading preview for ' + wbClientName, 'i');
+  document.getElementById('wb-iframe-wrap').innerHTML = `<iframe src="${url}" title="Report preview"></iframe>`;
+  try {
+    let apiUrl = `${WB_API}?client=${wbClient}&range=${wbRange}`;
+    if (wbRange === 'custom') {
+      const from = document.getElementById('wb-from').value;
+      const to = document.getElementById('wb-to').value;
+      if (from && to) apiUrl = `${WB_API}?client=${wbClient}&from=${from}&to=${to}`;
+    }
+    const res = await fetch(apiUrl);
+    wbLastData = await res.json();
+    const total = wbLastData.jobs?.length || 0;
+    const completed = wbLastData.jobs?.filter(j => j.status === 'completed').length || 0;
+    const rev = wbLastData.jobs?.filter(j => j.revenue).reduce((a, j) => a + j.revenue, 0) || 0;
+    const alerts = wbLastData.alerts?.filter(a => !a.resolved).length || 0;
+    document.getElementById('ws-total').textContent = total;
+    document.getElementById('ws-completed').textContent = completed;
+    document.getElementById('ws-revenue').textContent = '$' + Math.round(rev).toLocaleString();
+    document.getElementById('ws-alerts').textContent = alerts;
+    document.getElementById('wb-stats-row').style.display = 'grid';
+    const fl = new Date(wbLastData.from).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const tl = new Date(wbLastData.to).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    document.getElementById('wb-meta').textContent = `Previewing — ${fl} to ${tl}`;
+    wbAddLog(`Report loaded: ${total} jobs, $${Math.round(rev).toLocaleString()} revenue`, 's');
+  } catch (e) {
+    wbAddLog('Preview error: ' + e.message, 'e');
+  }
+}
+
+async function wbSendReport() {
+  const btn = document.getElementById('wb-send-btn');
+  btn.textContent = 'Sending…'; btn.disabled = true;
+  wbAddLog('Sending report to client…', 'i');
+  try {
+    const from = wbRange === 'custom' ? document.getElementById('wb-from').value : null;
+    const to   = wbRange === 'custom' ? document.getElementById('wb-to').value   : null;
+    await fetch(WB_WEBHOOK, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ client: wbClient, range: wbRange, from, to })
+    });
+    wbAddLog('Report sent to ' + wbClientName, 's');
+    toast('Report sent successfully');
+  } catch (e) {
+    wbAddLog('Send failed: ' + e.message, 'e');
+    toast('Send failed — check log');
+  }
+  btn.textContent = 'Send to client'; btn.disabled = false;
+}
+
+function wbPrintReport() {
+  const frame = document.querySelector('#wb-iframe-wrap iframe');
+  if (!frame) { toast('Load a preview first'); return; }
+  frame.contentWindow.print();
+  wbAddLog('PDF download triggered', 'i');
+}
+
+// ── Health scores ─────────────────────────────────────────────
+async function loadHealthScores() {
+  const clients = ['peak-flow', 'demo'];
+  await Promise.all(clients.map(async c => {
+    try {
+      const r = await fetch(`/api/health?client=${c}`);
+      const { health } = await r.json();
+      if (!health) return;
+      const el = document.getElementById(`health-${c}`);
+      if (!el) return;
+      const cls = 'hp-' + (health.score_label || 'stable').replace(/\s+/g, '_');
+      const label = health.score_label ? health.score_label.replace(/_/g, ' ') : '—';
+      el.innerHTML = `<div class="health-pill ${cls}" title="${health.score_reasoning || ''}">${health.score || '—'} <span style="font-weight:400;opacity:.8">${label}</span></div>`;
+    } catch {}
+  }));
+}
+
+// ── Wizard ────────────────────────────────────────────────────
+let wzStep = 1;
+const wzData = {};
+
+const wzSteps = [
+  {
+    title: 'Client basics',
+    render: () => `
+      <div class="wz-lbl">Client ID (slug)</div>
+      <input class="wz-input" id="wz-client-id" placeholder="e.g. acme-plumbing" value="${wzData.client_id || ''}">
+      <div class="wz-hint">Lowercase, hyphens only. Used as unique identifier.</div>
+      <div class="wz-lbl">Business name</div>
+      <input class="wz-input" id="wz-client-name" placeholder="e.g. Acme Plumbing LLC" value="${wzData.client_name || ''}">
+      <div class="wz-lbl">Industry / type</div>
+      <select class="wz-select" id="wz-client-type">
+        <option value="service"${wzData.client_type === 'service' ? ' selected' : ''}>Home services</option>
+        <option value="saas"${wzData.client_type === 'saas' ? ' selected' : ''}>SaaS / software</option>
+        <option value="retail"${wzData.client_type === 'retail' ? ' selected' : ''}>Retail / e-commerce</option>
+        <option value="professional"${wzData.client_type === 'professional' ? ' selected' : ''}>Professional services</option>
+        <option value="other"${wzData.client_type === 'other' ? ' selected' : ''}>Other</option>
+      </select>`,
+    collect: () => {
+      wzData.client_id = document.getElementById('wz-client-id')?.value?.trim().toLowerCase().replace(/\s+/g, '-');
+      wzData.client_name = document.getElementById('wz-client-name')?.value?.trim();
+      wzData.client_type = document.getElementById('wz-client-type')?.value;
+      if (!wzData.client_id || !wzData.client_name) { toast('Client ID and name are required'); return false; }
+      return true;
+    }
+  },
+  {
+    title: 'Primary user',
+    render: () => `
+      <div class="wz-lbl">Full name</div>
+      <input class="wz-input" id="wz-full-name" placeholder="e.g. Jane Smith" value="${wzData.full_name || ''}">
+      <div class="wz-lbl">Email address</div>
+      <input class="wz-input" type="email" id="wz-email" placeholder="jane@acmeplumbing.com" value="${wzData.email || ''}">
+      <div class="wz-lbl">Temporary password</div>
+      <input class="wz-input" type="password" id="wz-password" placeholder="Min. 8 characters" value="${wzData.password || ''}">
+      <div class="wz-hint">Client will be prompted to change this on first login.</div>
+      <div class="wz-lbl">Access role</div>
+      <select class="wz-select" id="wz-role">
+        <option value="client_user"${wzData.role === 'client_user' ? ' selected' : ''}>Client user (full access)</option>
+        <option value="client_viewer"${wzData.role === 'client_viewer' ? ' selected' : ''}>Client viewer (read only)</option>
+      </select>`,
+    collect: () => {
+      wzData.full_name = document.getElementById('wz-full-name')?.value?.trim();
+      wzData.email = document.getElementById('wz-email')?.value?.trim();
+      wzData.password = document.getElementById('wz-password')?.value;
+      wzData.role = document.getElementById('wz-role')?.value;
+      if (!wzData.email || !wzData.password || wzData.password.length < 8) { toast('Email and password (8+ chars) required'); return false; }
+      return true;
+    }
+  },
+  {
+    title: 'Goal & program',
+    render: () => `
+      <div class="wz-lbl">Primary business goal</div>
+      <input class="wz-input" id="wz-goal" placeholder="e.g. Increase monthly revenue by 30% within 6 months" value="${wzData.stated_goal || ''}">
+      <div class="wz-hint">This is injected into all AI analysis for this client.</div>
+      <div class="wz-lbl" style="margin-top:16px;">AI Course Recommendation</div>
+      <div id="wz-course-rec" style="font-size:12px;color:var(--text3);padding:8px 0;">Loading recommendation…</div>
+      <div class="wz-lbl">Starting program</div>
+      <select class="wz-select" id="wz-course" onchange="wzUpdateMilestones()">
+        <option value="">Loading courses…</option>
+      </select>
+      <div id="wz-milestone-preview" class="course-milestone-preview" style="margin-top:8px;"></div>`,
+    collect: () => {
+      wzData.stated_goal = document.getElementById('wz-goal')?.value?.trim();
+      const sel = document.getElementById('wz-course');
+      wzData.course_name = sel?.options[sel?.selectedIndex]?.text || sel?.value;
+      wzData.course_id = sel?.value;
+      return true;
+    }
+  },
+  {
+    title: 'Review & create',
+    render: () => `
+      <div style="font-size:13px;color:var(--text2);margin-bottom:16px;">Please review the details before creating the client account.</div>
+      <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:16px;display:flex;flex-direction:column;gap:10px;">
+        <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--text3)">Client ID</span><strong>${wzData.client_id || '—'}</strong></div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--text3)">Business</span><strong>${wzData.client_name || '—'}</strong></div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--text3)">Industry</span><strong>${wzData.client_type || '—'}</strong></div>
+        <div style="height:0.5px;background:var(--border)"></div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--text3)">User</span><strong>${wzData.full_name || '—'} (${wzData.email || '—'})</strong></div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--text3)">Role</span><strong>${(wzData.role || '').replace(/_/g, ' ')}</strong></div>
+        <div style="height:0.5px;background:var(--border)"></div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--text3)">Goal</span><span style="text-align:right;max-width:60%;color:var(--text)">${wzData.stated_goal || '(none)'}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--text3)">Program</span><strong>${wzData.course_name || '—'}</strong></div>
+      </div>`,
+    collect: () => true
+  }
+];
+
+let wzCourses = [];
+
+function wzUpdateMilestones() {
+  const sel = document.getElementById('wz-course');
+  const preview = document.getElementById('wz-milestone-preview');
+  if (!sel || !preview) return;
+  const course = wzCourses.find(c => String(c.id) === sel.value);
+  if (!course?.milestones?.length) { preview.innerHTML = ''; return; }
+  preview.innerHTML = course.milestones.slice(0, 5).map((m, i) =>
+    `<div class="course-milestone-item"><span class="course-milestone-num">${i + 1}.</span><span>${m.display || m.internal || m}</span></div>`
+  ).join('');
+}
+
+async function wzLoadCourses() {
+  const goal = document.getElementById('wz-goal')?.value?.trim() || wzData.stated_goal || '';
+  const industry = wzData.client_type || '';
+  try {
+    const r = await fetch(`/api/onboard?action=courses&stated_goal=${encodeURIComponent(goal)}&industry=${encodeURIComponent(industry)}`);
+    const { courses, recommendation } = await r.json();
+    wzCourses = courses || [];
+
+    // Populate dropdown
+    const sel = document.getElementById('wz-course');
+    if (sel) {
+      sel.innerHTML = wzCourses.map(c =>
+        `<option value="${c.id}"${c.course_name === recommendation?.course_name ? ' selected' : ''}>${c.course_name}</option>`
+      ).join('');
+      if (!wzCourses.length) sel.innerHTML = '<option value="">No courses found</option>';
+    }
+
+    // Show recommendation
+    const recEl = document.getElementById('wz-course-rec');
+    if (recEl) {
+      if (recommendation) {
+        recEl.innerHTML = `
+          <div class="course-rec-card">
+            <div class="course-rec-label">Claude recommends</div>
+            <div class="course-rec-name">${recommendation.course_name}</div>
+            <div class="course-rec-reason" id="wz-rec-reason" style="display:none;">${recommendation.reason}</div>
+            <div class="course-why-toggle" onclick="const r=document.getElementById('wz-rec-reason');r.style.display=r.style.display==='none'?'block':'none';this.textContent=r.style.display==='none'?'Why this program?':'Hide reason';">Why this program?</div>
+          </div>`;
+      } else {
+        recEl.innerHTML = '<div style="font-size:12px;color:var(--text3);">No recommendation available — please select a course below.</div>';
+      }
+    }
+
+    wzUpdateMilestones();
+  } catch(e) {
+    const recEl = document.getElementById('wz-course-rec');
+    if (recEl) recEl.innerHTML = '<div style="font-size:12px;color:var(--text3);">Could not load courses.</div>';
+  }
+}
+
+function renderWizardStep() {
+  const step = wzSteps[wzStep - 1];
+  document.getElementById('wizard-body').innerHTML = step.render();
+  document.getElementById('wz-step-lbl').textContent = `Step ${wzStep} of ${wzSteps.length}`;
+  document.getElementById('wz-back').style.display = wzStep > 1 ? 'block' : 'none';
+  document.getElementById('wz-next').textContent = wzStep === wzSteps.length ? 'Create client' : 'Continue';
+  wzSteps.forEach((_, i) => {
+    const el = document.getElementById(`wz-s${i + 1}`);
+    if (!el) return;
+    el.className = 'wizard-step' + (i + 1 < wzStep ? ' done' : i + 1 === wzStep ? ' active' : '');
+  });
+  // Step 3: load course library
+  if (wzStep === 3) wzLoadCourses();
+}
+
+function openWizard() {
+  wzStep = 1;
+  Object.keys(wzData).forEach(k => delete wzData[k]);
+  document.getElementById('wizard-overlay').classList.add('visible');
+  renderWizardStep();
+}
+
+function closeWizard() {
+  document.getElementById('wizard-overlay').classList.remove('visible');
+}
+
+function wizardBack() {
+  if (wzStep > 1) { wzStep--; renderWizardStep(); }
+}
+
+async function wizardNext() {
+  const step = wzSteps[wzStep - 1];
+  if (!step.collect()) return;
+
+  if (wzStep < wzSteps.length) {
+    wzStep++;
+    renderWizardStep();
+    return;
+  }
+
+  // Final step — create client
+  const btn = document.getElementById('wz-next');
+  btn.textContent = 'Creating…'; btn.disabled = true;
+
+  try {
+    const r = await fetch('/api/onboard', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: wzData.email,
+        password: wzData.password,
+        full_name: wzData.full_name,
+        client_id: wzData.client_id,
+        role: wzData.role,
+        stated_goal: wzData.stated_goal,
+        course_id: wzData.course_id,
+        course_name: wzData.course_name
+      })
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Creation failed');
+
+    // Show success
+    document.getElementById('wizard-body').innerHTML = `
+      <div class="wz-success">
+        <div class="wz-success-icon">✅</div>
+        <div class="wz-success-title">Client created!</div>
+        <div class="wz-success-sub">
+          <strong>${wzData.client_name}</strong> is set up and ready.<br><br>
+          User <strong>${wzData.email}</strong> can now sign in at <strong>/login</strong> with the temporary password you set.
+          <br><br>The client's first milestone has been set: <em>Assessment & goal alignment</em>.
+        </div>
+      </div>`;
+    document.getElementById('wizard-footer').innerHTML = `<div></div><button class="wz-next-btn" onclick="closeWizard();toast('${wzData.client_name} is live!')">Done</button>`;
+    wzSteps.forEach((_, i) => {
+      const el = document.getElementById(`wz-s${i + 1}`);
+      if (el) el.className = 'wizard-step done';
+    });
+  } catch(e) {
+    toast('Error: ' + e.message);
+    btn.textContent = 'Create client'; btn.disabled = false;
+  }
+}
+
+// ── Portfolio Cards ───────────────────────────────────────────
+const CLIENTS = [
+  { id: 'peak-flow', name: 'Peak Flow Plumbing & HVAC', initials: 'PF', industry: 'Plumbing & HVAC', color: '#378ADD' },
+  { id: 'demo', name: 'Launchpad Apps', initials: 'LA', industry: 'SaaS Platform', color: '#6366f1' },
+];
+
+async function loadPortfolioCards() {
+  const grid = document.getElementById('portfolio-grid');
+  if (!grid) return;
+
+  const cards = await Promise.all(CLIENTS.map(async c => {
+    let health = null;
+    try {
+      const r = await fetch(`/api/health?client=${c.id}`);
+      const d = await r.json();
+      health = d.health || null;
+    } catch(e) {}
+
+    const score = health?.score ?? '—';
+    const label = health?.score_label ? health.score_label.replace(/_/g, ' ') : 'unknown';
+    const color = health?.color || 'var(--text2)';
+    const dims = health?.dimensions || {};
+    const dimKeys = ['operations', 'marketing', 'finance', 'optimization'];
+    const dimColors = { operations: '#378ADD', marketing: '#7F77DD', finance: '#1D9E75', optimization: '#EF9F27' };
+
+    const dimBars = dimKeys.map(k => {
+      const val = dims[k] ?? 12;
+      const pct = Math.round(val / 25 * 100);
+      return `<div class="pc-dim">
+        <span class="pc-dim-label">${k.charAt(0).toUpperCase() + k.slice(1)}</span>
+        <div class="pc-dim-track"><div class="pc-dim-fill" style="width:${pct}%;background:${dimColors[k]};"></div></div>
+        <span class="pc-dim-val">${val}/25</span>
+      </div>`;
+    }).join('');
+
+    const alertBadge = health?.alert_count > 0 ? `<span class="pc-alerts">${health.alert_count} alert${health.alert_count > 1 ? 's' : ''}</span>` : '';
+    const lastReport = health?.calculated_at
+      ? new Date(health.calculated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      : '—';
+
+    return `<div class="portfolio-card">
+      <div class="pc-top">
+        <div>
+          <div class="pc-name">${c.name}</div>
+          <span class="pc-industry">${c.industry}</span>
+        </div>
+        <div class="pc-health" style="color:${color}">${score}<span style="font-size:10px;opacity:.7;font-weight:400;margin-left:3px;">${label}</span></div>
+      </div>
+      <div class="pc-dims">${dimBars}</div>
+      <div class="pc-footer">
+        <span class="pc-last">Updated ${lastReport}</span>
+        ${alertBadge}
+        <div class="pc-btns">
+          <button class="pc-btn" onclick="recalculateHealth('${c.id}', this)" title="Recalculate health score">↻</button>
+          <button class="pc-btn" onclick="openWorkbench('${c.id}')">Workbench</button>
+        </div>
+      </div>
+    </div>`;
+  }));
+
+  // Add card
+  const addCard = `<div class="portfolio-card add-card" onclick="openWizard()">
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    <div style="font-size:13px;color:var(--text3);margin-top:8px;">Add client</div>
+  </div>`;
+
+  grid.innerHTML = cards.join('') + addCard;
+}
+
+// ── Pipeline ──────────────────────────────────────────────────
+async function loadPipeline() {
+  const body = document.getElementById('pipeline-body');
+  const summary = document.getElementById('pipeline-summary');
+  const sub = document.getElementById('pipeline-sub');
+  if (!body) return;
+
+  try {
+    const r = await fetch('/api/pipeline', { headers: { Authorization: `Bearer ${SESSION_TOKEN}` } });
+    if (r.status === 403) { body.innerHTML = '<div class="pip-empty">Access restricted.</div>'; return; }
+    const { scenarios, grouped, summary: s } = await r.json();
+
+    const lastSync = s.lastSync ? new Date(s.lastSync).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Never';
+    if (sub) sub.textContent = `${s.totalScenarios} scenarios across ${Object.keys(grouped).length} clients · Last synced: ${lastSync}`;
+
+    if (summary) {
+      summary.innerHTML = `
+        <div class="pip-stat"><div class="pip-stat-lbl">Total scenarios</div><div class="pip-stat-val">${s.totalScenarios}</div></div>
+        <div class="pip-stat"><div class="pip-stat-lbl">Active</div><div class="pip-stat-val" style="color:var(--success)">${s.activeScenarios}</div></div>
+        <div class="pip-stat"><div class="pip-stat-lbl">Errored</div><div class="pip-stat-val" style="color:${s.erroredScenarios > 0 ? 'var(--danger)' : 'var(--text)'}">${s.erroredScenarios}</div></div>
+        <div class="pip-stat"><div class="pip-stat-lbl">Total runs</div><div class="pip-stat-val">${(s.totalRuns || 0).toLocaleString()}</div></div>`;
+    }
+
+    if (!scenarios.length) { body.innerHTML = '<div class="pip-empty">No Make scenario data yet. Data will appear once scenarios are tracked.</div>'; return; }
+
+    const clientSections = Object.entries(grouped).map(([clientId, rows]) => {
+      // Sort: errored first
+      rows.sort((a, b) => (b.status === 'error') - (a.status === 'error'));
+      const rowsHtml = rows.map(row => {
+        const total = row.total_runs || 0;
+        const success = total - (row.error_count || 0);
+        const rate = total ? Math.round(success / total * 100) : 0;
+        const lastRun = row.last_run_at ? new Date(row.last_run_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+        return `<div class="pip-row${row.status === 'error' ? ' errored' : ''}">
+          <div class="pip-name">${row.scenario_name || '—'}</div>
+          <div><span class="pip-status-dot ${row.status || 'inactive'}"></span></div>
+          <div style="font-size:11px;color:var(--text3)">${lastRun}</div>
+          <div class="pip-bar-wrap">
+            <div class="pip-bar-track"><div class="pip-bar-fill" style="width:${rate}%;background:${rate >= 80 ? 'var(--success)' : rate >= 50 ? 'var(--warning)' : 'var(--danger)'};"></div></div>
+            <span style="font-size:11px;color:var(--text2)">${rate}%</span>
+          </div>
+          <div style="font-size:11px;color:var(--text2)">${total.toLocaleString()}</div>
+          <div style="font-size:11px;color:var(--text2)">${(row.operations_count || 0).toLocaleString()}</div>
+          <div><span class="pip-pill ${row.status || 'inactive'}">${row.status || 'inactive'}</span></div>
+        </div>`;
+      }).join('');
+
+      const clientName = CLIENTS.find(c => c.id === clientId)?.name || clientId;
+      return `<div class="pip-client-section">
+        <div class="pip-client-head">${clientName}</div>
+        <div class="pip-card">
+          <div class="pip-head-row">
+            <div class="pip-th">Scenario</div>
+            <div class="pip-th">Status</div>
+            <div class="pip-th">Last run</div>
+            <div class="pip-th">Success rate</div>
+            <div class="pip-th">Runs</div>
+            <div class="pip-th">Ops</div>
+            <div class="pip-th"></div>
+          </div>
+          ${rowsHtml}
+        </div>
+      </div>`;
+    }).join('');
+
+    body.innerHTML = clientSections;
+  } catch(e) {
+    body.innerHTML = `<div class="pip-empty">Error loading pipeline: ${e.message}</div>`;
+  }
+}
+
+// ── Report QA Panel ───────────────────────────────────────────
+let qaEmailHtml = '';
+
+async function wbPrepareReport() {
+  const overlay = document.getElementById('qa-overlay');
+  if (!overlay) return;
+
+  // Pre-fill fields
+  const emailEl = document.getElementById('qa-email');
+  const subjectEl = document.getElementById('qa-subject');
+  const iframe = document.getElementById('qa-preview-iframe');
+
+  if (emailEl && !emailEl.value) emailEl.value = '';
+  if (subjectEl) subjectEl.value = `${wbClientName} — Operational Report`;
+
+  overlay.classList.add('visible');
+  wbAddLog('Loading email preview…', 'i');
+
+  // Load email preview
+  try {
+    let apiUrl = `/api/pipeline?action=email&client=${wbClient}&range=${wbRange}`;
+    if (wbRange === 'custom') {
+      const from = document.getElementById('wb-from')?.value;
+      const to = document.getElementById('wb-to')?.value;
+      if (from && to) apiUrl = `/api/pipeline?action=email&client=${wbClient}&from=${from}&to=${to}`;
+    }
+    const r = await fetch(apiUrl);
+    const { html, subject } = await r.json();
+    qaEmailHtml = html || '';
+    if (subjectEl && subject) subjectEl.value = subject;
+    if (iframe && html) {
+      const blob = new Blob([html], { type: 'text/html' });
+      iframe.src = URL.createObjectURL(blob);
+    }
+  } catch(e) {
+    wbAddLog('Preview error: ' + e.message, 'e');
+  }
+}
+
+function closeQAPanel() {
+  document.getElementById('qa-overlay')?.classList.remove('visible');
+}
+
+async function wbSendFromQA() {
+  const btn = document.getElementById('qa-send-btn');
+  const note = document.getElementById('qa-note')?.value?.trim() || '';
+  btn.textContent = 'Sending…'; btn.disabled = true;
+  wbAddLog('Sending report to client…', 'i');
+  try {
+    const from = wbRange === 'custom' ? document.getElementById('wb-from')?.value : null;
+    const to   = wbRange === 'custom' ? document.getElementById('wb-to')?.value   : null;
+    await fetch(WB_WEBHOOK, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ client: wbClient, range: wbRange, from, to, note })
+    });
+    closeQAPanel();
+    wbAddLog('Report sent to ' + wbClientName, 's');
+    toast('Report sent successfully');
+  } catch(e) {
+    wbAddLog('Send failed: ' + e.message, 'e');
+    toast('Send failed — check log');
+  }
+  btn.textContent = 'Send now'; btn.disabled = false;
+}
+
+// ── Recalculate health ────────────────────────────────────────
+async function recalculateHealth(clientId, btn) {
+  if (btn) { btn.textContent = '…'; btn.disabled = true; }
+  try {
+    const r = await fetch(`/api/health?client=${clientId}&action=recalculate`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${SESSION_TOKEN}`, 'Content-Type': 'application/json' }
+    });
+    if (r.ok) {
+      toast('Health score updated');
+      loadPortfolioCards();
+    } else {
+      toast('Recalculate failed');
+    }
+  } catch(e) {
+    toast('Error: ' + e.message);
+  }
+  if (btn) { btn.textContent = '↻'; btn.disabled = false; }
+}
+
+// ── Hub Notifications ─────────────────────────────────────────
+async function loadHubNotifications() {
+  const el = document.getElementById('hub-notif-list');
+  if (!el) return;
+  try {
+    const r = await fetch('/api/pipeline?action=hub_notifications', { headers: { Authorization: `Bearer ${SESSION_TOKEN}` } });
+    if (!r.ok) { el.innerHTML = '<div style="font-size:13px;color:var(--text3);padding:10px 0;">Unable to load notifications.</div>'; return; }
+    const { notifications } = await r.json();
+    if (!notifications?.length) {
+      el.innerHTML = '<div style="font-size:13px;color:var(--text3);padding:10px 0;">No recent activity.</div>';
+      return;
+    }
+    el.innerHTML = notifications.slice(0, 8).map(n => `
+      <div class="notif-card ${n.color || 'blue'}">
+        <div class="notif-dot"></div>
+        <div class="notif-body">
+          <div class="notif-msg">${n.message}</div>
+          <div class="notif-time">${n.time_ago || ''}</div>
+        </div>
+        <button class="notif-dismiss" onclick="this.closest('.notif-card').style.display='none'">Dismiss</button>
+      </div>`).join('');
+  } catch(e) {
+    el.innerHTML = '<div style="font-size:13px;color:var(--text3);padding:10px 0;">Unable to load notifications.</div>';
+  }
+}
+
+// ── Strategy Console ──────────────────────────────────────────
+let strategyHistory = [];
+
+function strategyAsk(question) {
+  document.getElementById('strategy-input').value = question;
+  strategySubmit();
+}
+
+async function strategySubmit() {
+  const input = document.getElementById('strategy-input');
+  const btn = document.getElementById('strategy-btn');
+  const thread = document.getElementById('strategy-thread');
+  const question = input.value.trim();
+  if (!question || btn.disabled) return;
+
+  // Hide chips after first message
+  const chips = document.getElementById('strategy-chips');
+  if (chips) chips.style.display = 'none';
+
+  // Add user message
+  const userEl = document.createElement('div');
+  userEl.className = 'strat-msg user';
+  userEl.textContent = question;
+  thread.appendChild(userEl);
+
+  // Add typing indicator
+  const typingEl = document.createElement('div');
+  typingEl.className = 'strat-typing';
+  typingEl.innerHTML = '<span></span><span></span><span></span>';
+  thread.appendChild(typingEl);
+  thread.scrollTop = thread.scrollHeight;
+
+  input.value = '';
+  btn.disabled = true;
+  btn.textContent = '…';
+
+  try {
+    const r = await fetch('/api/ask?type=strategy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SESSION_TOKEN}` },
+      body: JSON.stringify({ question, asked_by: document.getElementById('user-name')?.textContent })
+    });
+    const data = await r.json();
+    typingEl.remove();
+
+    const aiEl = document.createElement('div');
+    aiEl.className = 'strat-msg ai';
+    aiEl.innerHTML = (data.answer || 'No answer available.').replace(/\n/g, '<br>');
+    if (data.clients_referenced?.length) {
+      const meta = document.createElement('div');
+      meta.className = 'strat-meta';
+      meta.textContent = 'Referenced: ' + data.clients_referenced.join(', ');
+      aiEl.appendChild(meta);
+    }
+    thread.appendChild(aiEl);
+  } catch(e) {
+    typingEl.remove();
+    const errEl = document.createElement('div');
+    errEl.className = 'strat-msg ai';
+    errEl.style.color = 'var(--danger)';
+    errEl.textContent = 'Error: ' + e.message;
+    thread.appendChild(errEl);
+  }
+
+  thread.scrollTop = thread.scrollHeight;
+  btn.disabled = false;
+  btn.textContent = 'Ask';
+  input.focus();
+}
+
+// ── Mobile init ───────────────────────────────────────────────
+function initMobile() {
+  const hamburger = document.querySelector('.hamburger');
+  const sidebar = document.querySelector('.sidebar');
+  const backdrop = document.getElementById('mobile-drawer-backdrop');
+
+  if (hamburger) {
+    hamburger.addEventListener('click', () => {
+      sidebar.classList.toggle('open');
+      backdrop.classList.toggle('open');
+    });
+  }
+  if (backdrop) {
+    backdrop.addEventListener('click', () => {
+      sidebar.classList.remove('open');
+      backdrop.classList.remove('open');
+    });
+  }
+}
+
+initMobile();
+// Load portfolio + health scores after auth (loadPortfolioCards also fetches health)
+
+// ── Modal state ───────────────────────────────────────────────
+let _modalClientId = null;
+let _modalKeywords = [];
+let _modalRoadmap = null;
+let _modalCourse = null;
+
+// ── showView helper (overrides existing — supports full view IDs) ─
+function showView(id) {
+  // Support both 'hub' shorthand and 'view-hub' full IDs
+  const fullId = id.startsWith('view-') ? id : 'view-' + id;
+  document.querySelectorAll('.view').forEach(v =>
+    v.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n =>
+    n.classList.remove('active'));
+  const view = document.getElementById(fullId);
+  if (view) view.classList.add('active');
+  const navMap = {
+    'view-hub': 'nav-hub',
+    'view-clients': 'nav-clients',
+    'view-strategy': 'nav-strategy',
+    'view-pipeline': 'nav-pipeline',
+  };
+  const navId = navMap[fullId];
+  if (navId) document.getElementById(navId)?.classList.add('active');
+  if (fullId === 'view-pipeline') loadPipeline();
+  if (fullId === 'view-strategy') {
+    const input = document.getElementById('strategy-input');
+    if (input) input.focus();
+  }
+}
+
+// ── showToast alias ───────────────────────────────────────────
+function showToast(msg) { toast(msg); }
+
+// ── Load clients roster ───────────────────────────────────────
+async function loadClients() {
+  const body = document.getElementById('clients-list-body');
+  if (!body) return;
+  body.innerHTML = '<div style="padding:24px;text-align:center;' +
+    'color:var(--text3);font-size:13px;">Loading...</div>';
+  try {
+    const r = await fetch('/api/pipeline?action=hub-clients', {
+      headers: { Authorization: `Bearer ${SESSION_TOKEN}` }
+    });
+    const data = await r.json();
+    if (data.error) throw new Error(data.error);
+    const clients = data.clients || [];
+
+    if (!clients.length) {
+      body.innerHTML = '<div style="padding:32px;text-align:center;' +
+        'color:var(--text3);font-size:13px;">No clients yet. ' +
+        '<span style="color:var(--info);cursor:pointer;" ' +
+        'onclick="showView(\'view-onboard\')">Add your first client →' +
+        '</span></div>';
+      return;
+    }
+
+    body.innerHTML = clients.map(c => {
+      const scoreColor = !c.health_score ? 'var(--text3)' :
+        c.health_score >= 70 ? 'var(--success)' :
+        c.health_score >= 55 ? 'var(--warning)' : 'var(--danger)';
+      return `<div style="display:grid;
+        grid-template-columns:2fr 1.5fr 1.5fr 1fr 1fr 80px;
+        padding:12px 16px;border-bottom:0.5px solid var(--border);
+        align-items:center;">
+        <div>
+          <div style="font-size:13px;font-weight:500;">${c.full_name || c.client_id}</div>
+          <div style="font-size:11px;color:var(--text3);">${c.client_id}</div>
+        </div>
+        <div style="font-size:12px;color:var(--text2);overflow:hidden;
+          text-overflow:ellipsis;white-space:nowrap;padding-right:12px;">
+          ${c.stated_goal ? c.stated_goal.slice(0,50) +
+            (c.stated_goal.length > 50 ? '…' : '') : '—'}
+        </div>
+        <div style="font-size:12px;color:var(--text2);overflow:hidden;
+          text-overflow:ellipsis;white-space:nowrap;padding-right:12px;">
+          ${c.current_milestone || '—'}
+        </div>
+        <div style="font-size:14px;font-weight:600;color:${scoreColor};">
+          ${c.health_score ?? '—'}
+        </div>
+        <div style="font-size:12px;color:var(--text2);">
+          ${c.connected_count} active
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <button class="mbtn mbtn-muted"
+            style="font-size:11px;padding:4px 8px;width:100%;"
+            onclick="openClientModal('${c.client_id}')">
+            Manage
+          </button>
+          <button class="mbtn mbtn-primary"
+            style="font-size:11px;padding:4px 8px;width:100%;"
+            onclick="openWorkbench('${c.client_id}')">
+            Workbench
+          </button>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    body.innerHTML = '<div style="padding:24px;color:var(--danger);' +
+      'font-size:13px;">Error: ' + e.message + '</div>';
+  }
+}
+
+async function fetchSB(sbUrl, sbAnon, token, table, params) {
+  try {
+    const r = await fetch(`${sbUrl}/rest/v1/${table}?${params}`,
+      { headers: { apikey: sbAnon, Authorization: `Bearer ${token}` }});
+    const j = await r.json();
+    return Array.isArray(j) ? j : [];
+  } catch { return []; }
+}
+
+// ── Client Modal ──────────────────────────────────────────────
+async function openClientModal(clientId) {
+  _modalClientId = clientId;
+  _modalKeywords = [];
+
+  const backdrop = document.getElementById('client-modal-backdrop');
+  backdrop.classList.add('open');
+  document.getElementById('modal-client-id').textContent = clientId;
+  document.getElementById('modal-av').textContent =
+    clientId.slice(0,2).toUpperCase();
+  document.getElementById('modal-client-name').textContent = clientId;
+  switchModalTab('overview');
+
+  try {
+    const r = await fetch(
+      `/api/pipeline?action=hub-client-detail&client_id=${clientId}`,
+      { headers: { Authorization: `Bearer ${SESSION_TOKEN}` } }
+    );
+    const data = await r.json();
+    if (data.error) throw new Error(data.error);
+
+    const prof = data.profile;
+    const h = data.health;
+    const g = data.goal;
+    const c = data.course;
+    const rm = data.roadmap;
+    const kw = data.keywords;
+    const connSources = data.sources || [];
+
+    _modalCourse = c;
+    _modalRoadmap = rm;
+    _modalKeywords = kw?.keywords || [];
+
+    const name = prof?.full_name || clientId;
+    document.getElementById('modal-client-name').textContent = name;
+    document.getElementById('modal-av').textContent =
+      name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+
+    document.getElementById('modal-goal').value = g?.stated_goal || '';
+
+    const scoreEl = document.getElementById('modal-health-score');
+    scoreEl.textContent = h?.score ?? '—';
+    scoreEl.style.color = !h ? 'var(--text3)' :
+      h.score >= 70 ? 'var(--success)' :
+      h.score >= 55 ? 'var(--warning)' : 'var(--danger)';
+
+    const milestones = c?.milestones || [];
+    const idx = c?.current_milestone_index || 0;
+    document.getElementById('modal-phase').textContent =
+      `${idx + 1} / ${milestones.length || 3}`;
+    document.getElementById('modal-program').textContent =
+      c?.course_display || '—';
+
+    renderModalRoadmap(rm, c);
+    renderModalKeywords();
+    renderModalConnections(connSources);
+
+  } catch(e) {
+    console.error('[modal]', e.message);
+    document.getElementById('modal-client-name').textContent =
+      'Error loading client';
+  }
+}
+
+function closeClientModal(e) {
+  if (e && e.target !== document.getElementById('client-modal-backdrop'))
+    return;
+  document.getElementById('client-modal-backdrop')
+    .classList.remove('open');
+  _modalClientId = null;
+}
+
+function switchModalTab(tab) {
+  document.querySelectorAll('.modal-tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.tab === tab));
+  document.querySelectorAll('.modal-tab-panel').forEach(p =>
+    p.classList.toggle('active',
+      p.id === 'modal-tab-' + tab));
+}
+
+function renderModalRoadmap(rm, course) {
+  const el = document.getElementById('modal-roadmap-body');
+  if (!rm) {
+    el.innerHTML = '<div style="color:var(--text3);font-size:13px;">' +
+      'No roadmap configured. Create one during client onboarding.</div>';
+    document.getElementById('modal-advance-btn').style.display = 'none';
+    return;
+  }
+
+  const current = rm.current_node || 1;
+  const nodes = [rm.milestone_1, rm.milestone_2, rm.milestone_3]
+    .filter(Boolean);
+
+  el.innerHTML = '<div class="milestone-list">' +
+    nodes.map((m, i) => {
+      const num = i + 1;
+      const status = num < current ? 'complete' :
+        num === current ? 'active' : 'pending';
+      return `<div class="milestone-item ${status}">
+        <div class="milestone-dot ${status}"></div>
+        <div class="milestone-text">
+          <div style="font-size:13px;font-weight:500;">
+            ${m.title || 'Milestone ' + num}
+          </div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px;">
+            ${m.description || ''}
+          </div>
+        </div>
+        <span class="milestone-status-lbl ms-${status}">
+          ${status === 'complete' ? 'Complete' :
+            status === 'active' ? 'Active' : 'Pending'}
+        </span>
+      </div>`;
+    }).join('') + '</div>';
+
+  const advBtn = document.getElementById('modal-advance-btn');
+  advBtn.style.display = current >= nodes.length ? 'none' : '';
+}
+
+function renderModalKeywords() {
+  const el = document.getElementById('modal-keyword-list');
+  el.innerHTML = _modalKeywords.map((kw, i) =>
+    `<span class="keyword-tag">
+      ${kw}
+      <button onclick="removeModalKeyword(${i})">×</button>
+    </span>`
+  ).join('') || '<span style="font-size:12px;color:var(--text3);">' +
+    'No keywords yet</span>';
+}
+
+function renderModalConnections(sources) {
+  const el = document.getElementById('modal-connections-body');
+  const ALL = [
+    { key: 'google_search_console', name: 'Google Search Console' },
+    { key: 'google_analytics', name: 'Google Analytics 4' },
+    { key: 'stripe', name: 'Stripe' },
+    { key: 'mailchimp', name: 'Mailchimp' },
+    { key: 'quickbooks', name: 'QuickBooks Online' },
+    { key: 'square', name: 'Square' },
+    { key: 'google_ads', name: 'Google Ads' },
+  ];
+  el.innerHTML = ALL.map(c => {
+    const src = sources.find(s => s.connector_key === c.key);
+    const connected = !!src;
+    const lastSync = src?.last_sync_at
+      ? new Date(src.last_sync_at).toLocaleDateString('en-US',
+          {month:'short',day:'numeric'})
+      : null;
+    return `<div class="conn-status-row">
+      <div>
+        <span class="conn-dot ${connected ? 'connected' : 'disconnected'}">
+        </span>
+        ${c.name}
+      </div>
+      <div style="font-size:11px;color:var(--text3);">
+        ${connected ? (lastSync ? 'Last sync: ' + lastSync : 'Connected') : 'Not connected'}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function addModalKeyword() {
+  const input = document.getElementById('modal-keyword-input');
+  const val = input?.value?.trim();
+  if (!val) return;
+  if (!_modalKeywords.includes(val)) {
+    _modalKeywords.push(val);
+    renderModalKeywords();
+  }
+  if (input) input.value = '';
+}
+
+function removeModalKeyword(i) {
+  _modalKeywords.splice(i, 1);
+  renderModalKeywords();
+}
+
+async function saveClientGoal() {
+  const goal = document.getElementById('modal-goal')?.value?.trim();
+  if (!goal || !_modalClientId) return;
+  try {
+    await fetch(`/api/onboard?action=goal&client=${_modalClientId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stated_goal: goal, set_by: 'resona_advisor' })
+    });
+    showToast('Goal updated');
+  } catch(e) { showToast('Failed to save goal'); }
+}
+
+async function saveClientKeywords() {
+  if (!_modalClientId) return;
+  try {
+    const r = await fetch('/api/pipeline?action=hub-save-keywords', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${SESSION_TOKEN}`
+      },
+      body: JSON.stringify({
+        client_id: _modalClientId,
+        keywords: _modalKeywords
+      })
+    });
+    const data = await r.json();
+    if (!data.success) throw new Error(data.error || 'Save failed');
+    showToast('Keywords saved');
+  } catch(e) { showToast('Failed to save keywords: ' + e.message); }
+}
+
+async function advanceClientMilestone() {
+  if (!_modalClientId || !_modalRoadmap) return;
+  const current = _modalRoadmap.current_node || 1;
+  const nodes = [
+    _modalRoadmap.milestone_1,
+    _modalRoadmap.milestone_2,
+    _modalRoadmap.milestone_3
+  ].filter(Boolean);
+
+  if (current >= nodes.length) {
+    showToast('Client is already on the final milestone');
+    return;
+  }
+  if (!confirm(`Advance ${_modalClientId} to Milestone ${current + 1}?`))
+    return;
+
+  try {
+    const r = await fetch('/api/pipeline?action=hub-advance-milestone', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${SESSION_TOKEN}`
+      },
+      body: JSON.stringify({
+        client_id: _modalClientId,
+        current_node: current
+      })
+    });
+    const data = await r.json();
+    if (!data.success) throw new Error(data.error || 'Failed');
+    _modalRoadmap = { ..._modalRoadmap, current_node: current + 1 };
+    renderModalRoadmap(_modalRoadmap, _modalCourse);
+    showToast(`Advanced to Milestone ${current + 1}`);
+  } catch(e) { showToast('Failed: ' + e.message); }
+}
+
+function openInWorkbench() {
+  if (!_modalClientId) return;
+  closeClientModal();
+  window.open('/workbench.html?client=' + encodeURIComponent(_modalClientId), '_blank');
+}
+
+// ── Onboarding ────────────────────────────────────────────────
+const STRATEGY_TEMPLATES = {
+  lead_conversion: {
+    m1: { title: 'Build the Foundation', desc: 'Set up CRM, lead capture forms, and tracking. Establish baseline conversion metrics and map the full lead journey from awareness to close.' },
+    m2: { title: 'Activate Lead Channels', desc: 'Launch paid ads, SEO content, and referral programs. A/B test landing pages and optimize top-of-funnel cost per lead.' },
+    m3: { title: 'Optimize & Scale', desc: 'Automate follow-up sequences, score leads by intent, and double down on the highest-ROI channels. Build a repeatable pipeline.' }
+  },
+  recurring_revenue: {
+    m1: { title: 'Package & Price', desc: 'Define service tiers, create subscription agreements, and set up recurring billing infrastructure. Audit current client contracts for upgrade opportunities.' },
+    m2: { title: 'Convert & Retain', desc: 'Migrate one-time clients to retainer agreements. Implement a client health score and proactive check-in cadence to reduce churn.' },
+    m3: { title: 'Expand Revenue Per Client', desc: 'Launch upsell and cross-sell campaigns. Introduce add-on services, annual plan discounts, and a referral incentive program.' }
+  },
+  brand_authority: {
+    m1: { title: 'Establish Brand Identity', desc: 'Audit and refresh brand assets, messaging, and positioning. Define the ideal customer profile and core differentiators.' },
+    m2: { title: 'Build Content Engine', desc: 'Launch blog, video, or podcast cadence. Optimize site for target keywords and earn backlinks through PR and partnerships.' },
+    m3: { title: 'Amplify & Own the Niche', desc: 'Pursue speaking, awards, and media placements. Build an email list and community to create a direct-owned audience.' }
+  },
+  operational_scale: {
+    m1: { title: 'Audit & Standardize', desc: 'Document all core processes and identify bottlenecks. Standardize SOPs and onboard team into a shared project management system.' },
+    m2: { title: 'Automate & Delegate', desc: 'Automate repetitive tasks with software tools. Hire or outsource roles that are bottlenecking growth. Implement reporting dashboards.' },
+    m3: { title: 'Scale Output', desc: 'Double capacity without doubling headcount. Launch new service lines or geographies using systemized delivery playbooks.' }
+  },
+  digital_presence: {
+    m1: { title: 'Launch Digital Foundation', desc: 'Build or redesign website with clear CTAs, SEO structure, and mobile optimization. Set up Google Business Profile and core social accounts.' },
+    m2: { title: 'Drive Traffic & Engagement', desc: 'Run local SEO, Google Ads, and social content campaigns. Set up retargeting pixels and email capture flows.' },
+    m3: { title: 'Convert & Measure', desc: 'Optimize conversion paths, run A/B tests on key pages, and build a monthly reporting rhythm tied to business goals.' }
+  },
+  customer_retention: {
+    m1: { title: 'Map the Customer Journey', desc: 'Identify drop-off points post-sale. Survey recent churned customers and define the ideal 90-day onboarding experience.' },
+    m2: { title: 'Implement Retention Systems', desc: 'Launch automated onboarding sequences, milestone check-ins, and a loyalty or rewards program to increase stickiness.' },
+    m3: { title: 'Maximize LTV', desc: 'Segment customers by value tier. Run win-back campaigns for lapsed clients and upsell programs for high-LTV segments.' }
+  }
+};
+
+function applyStrategyTemplate(key) {
+  if (!key || !STRATEGY_TEMPLATES[key]) return;
+  const t = STRATEGY_TEMPLATES[key];
+  document.getElementById('ob-m1-title').value = t.m1.title;
+  document.getElementById('ob-m1-desc').value  = t.m1.desc;
+  document.getElementById('ob-m2-title').value = t.m2.title;
+  document.getElementById('ob-m2-desc').value  = t.m2.desc;
+  document.getElementById('ob-m3-title').value = t.m3.title;
+  document.getElementById('ob-m3-desc').value  = t.m3.desc;
+}
+
+async function submitOnboard() {
+  const btn = document.getElementById('ob-submit-btn');
+  const errEl = document.getElementById('ob-error');
+  const successEl = document.getElementById('ob-success');
+
+  errEl.style.display = 'none';
+  successEl.style.display = 'none';
+
+  const first = document.getElementById('ob-first')?.value?.trim();
+  const last = document.getElementById('ob-last')?.value?.trim();
+  const email = document.getElementById('ob-email')?.value?.trim();
+  const password = document.getElementById('ob-password')?.value;
+  const clientId = document.getElementById('ob-client-id')?.value?.trim()
+    .toLowerCase().replace(/\s+/g, '-');
+  const goal = document.getElementById('ob-goal')?.value?.trim();
+  const industry = document.getElementById('ob-industry')?.value;
+  const location = document.getElementById('ob-location')?.value?.trim();
+  const m1Title = document.getElementById('ob-m1-title')?.value?.trim();
+  const m1Desc = document.getElementById('ob-m1-desc')?.value?.trim();
+  const m2Title = document.getElementById('ob-m2-title')?.value?.trim();
+  const m2Desc = document.getElementById('ob-m2-desc')?.value?.trim();
+  const m3Title = document.getElementById('ob-m3-title')?.value?.trim();
+  const m3Desc = document.getElementById('ob-m3-desc')?.value?.trim();
+  const kwRaw = document.getElementById('ob-keywords')?.value?.trim();
+
+  if (!first || !last || !email || !password || !clientId || !goal) {
+    errEl.textContent = 'Please fill in all required fields.';
+    errEl.style.display = '';
+    return;
+  }
+  if (password.length < 8) {
+    errEl.textContent = 'Password must be at least 8 characters.';
+    errEl.style.display = '';
+    return;
+  }
+
+  btn.textContent = 'Creating...';
+  btn.disabled = true;
+
+  try {
+    const keywords = kwRaw
+      ? kwRaw.split(',').map(k => k.trim()).filter(Boolean)
+      : [];
+
+    const r = await fetch('/api/pipeline?action=hub-create-client', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${SESSION_TOKEN}`
+      },
+      body: JSON.stringify({
+        email,
+        password,
+        full_name: first + ' ' + last,
+        client_id: clientId,
+        stated_goal: goal,
+        industry: industry || null,
+        location: location || null,
+        milestone_1: m1Title ? {
+          title: m1Title,
+          description: m1Desc || '',
+          status: 'in_progress'
+        } : null,
+        milestone_2: m2Title ? {
+          title: m2Title,
+          description: m2Desc || '',
+          status: 'pending'
+        } : null,
+        milestone_3: m3Title ? {
+          title: m3Title,
+          description: m3Desc || '',
+          status: 'pending'
+        } : null,
+        keywords
+      })
+    });
+    const data = await r.json();
+    if (!data.success) throw new Error(data.error || 'Creation failed');
+
+    successEl.textContent = `✓ Client "${clientId}" created successfully!`;
+    successEl.style.display = '';
+    btn.textContent = 'Create Client';
+    btn.disabled = false;
+
+    ['ob-first','ob-last','ob-email','ob-password','ob-client-id',
+     'ob-goal','ob-keywords','ob-m1-title','ob-m1-desc',
+     'ob-m2-title','ob-m2-desc','ob-m3-title','ob-m3-desc']
+      .forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+      });
+
+    setTimeout(() => showView('view-clients'), 1500);
+
+  } catch(e) {
+    errEl.textContent = e.message;
+    errEl.style.display = '';
+    btn.textContent = 'Create Client';
+    btn.disabled = false;
+  }
+}
+</script>
+</body>
+</html>
