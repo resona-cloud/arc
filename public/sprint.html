@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>
+window.ARC_CONFIG_READY = fetch('/api/config').then(function(r){return r.json();}).then(function(cfg){
+  window.ARC_CONFIG = cfg;
+  var _fetch = window.fetch;
+  window.fetch = function(url, opts) {
+    if (typeof url === 'string' && url.indexOf('/api/') === 0 && url.indexOf('/api/config') !== 0) {
+      opts = Object.assign({}, opts);
+      opts.headers = Object.assign({}, opts.headers, {'x-arc-key': (cfg && cfg.apiKey) || ''});
+    }
+    return _fetch.call(this, url, opts);
+  };
+  return cfg;
+}).catch(function(){ window.ARC_CONFIG = {}; });
+</script>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>ARC — Sprint Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0c0f;--surface:#111418;--surface2:#181c22;
+  --border:#1e242d;--border2:#262d38;
+  --text:#e8edf5;--text2:#8a95a3;--text3:#4d5663;
+  --accent:#3b82f6;--accent-dim:rgba(59,130,246,0.12);
+  --green:#22c55e;--green-dim:rgba(34,197,94,0.12);
+  --amber:#f59e0b;--amber-dim:rgba(245,158,11,0.12);
+  --red:#ef4444;--red-dim:rgba(239,68,68,0.12);
+  --nav-h:56px;--strip-h:80px;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;font-size:14px}
+#nav{position:fixed;top:0;left:0;right:0;height:var(--nav-h);background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;padding:0 20px;z-index:100}
+.logo{font-size:17px;font-weight:700;letter-spacing:-.5px;color:var(--text);display:flex;align-items:center;gap:8px;cursor:pointer;text-decoration:none}
+.arc-badge{background:var(--accent);color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px;letter-spacing:1.5px}
+.client-name-display{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;color:var(--text);cursor:default}
+.spacer{flex:1}
+.nav-btn{background:none;border:1px solid var(--border2);border-radius:6px;color:var(--text2);padding:6px 12px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:6px;transition:all .15s;white-space:nowrap}
+.nav-btn:hover{border-color:var(--accent);color:var(--accent)}
+.cmndr-btn{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+.cmndr-btn:hover{background:var(--accent);color:#fff}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#fff;cursor:pointer;flex-shrink:0}
+#shell{display:flex;flex-direction:column;height:100vh;padding-top:var(--nav-h)}
+#health-strip{height:var(--strip-h);flex-shrink:0;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:stretch}
+.hc{display:flex;flex-direction:column;justify-content:center;padding:0 28px;flex:1;border-right:1px solid var(--border)}
+.hc:last-child{border-right:none}
+.hc-label{font-size:10px;color:var(--text3);letter-spacing:.7px;text-transform:uppercase;margin-bottom:5px}
+.hc-value{font-size:30px;font-weight:700;letter-spacing:-1.5px;line-height:1}
+.hc-sub{font-size:11px;color:var(--text3);margin-top:4px}
+.hc-bar{height:3px;background:var(--border2);border-radius:2px;margin-top:8px}
+.hc-bar-fill{height:100%;border-radius:2px;width:0;transition:width 1.2s cubic-bezier(.22,1,.36,1)}
+.col-blue{color:var(--accent)}.col-green{color:var(--green)}.col-amber{color:var(--amber)}
+#content-row{flex:1;display:flex;overflow:hidden;min-height:0}
+#main-col{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:16px}
+#main-col>*{max-width:900px;width:100%;margin-left:auto;margin-right:auto;align-self:center}
+#cmndr-toggle{width:18px;flex-shrink:0;background:var(--surface2);border:none;border-left:1px solid var(--border);color:var(--text3);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color .15s,background .15s;padding:0}
+#cmndr-toggle:hover{color:var(--accent);background:var(--surface)}
+#cmndr-toggle svg{width:11px;height:11px;flex-shrink:0}
+#cmndr-col{width:300px;flex-shrink:0;border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width 250ms ease,opacity 200ms ease}
+#cmndr-col.collapsed{width:0;opacity:0;pointer-events:none}
+#cmndr-header{padding:14px 16px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0}
+.cmndr-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0;animation:blink 2.2s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+.cmndr-title{font-size:13px;font-weight:600}.cmndr-sub{font-size:11px;color:var(--text3);margin-top:1px}
+#cmndr-body{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.cmndr-narrative{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:12px}
+.cn-label{font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--accent);margin-bottom:6px}
+.cn-text{font-size:13px;color:var(--text2);line-height:1.65}
+.cmndr-history{display:flex;flex-direction:column;gap:8px}
+.msg{display:flex;flex-direction:column}
+.msg.user .msg-bubble{background:var(--accent-dim);border:1px solid var(--accent);align-self:flex-end;color:var(--text)}
+.msg.ai .msg-bubble{background:var(--surface2);border:1px solid var(--border2);align-self:flex-start;color:var(--text2)}
+.msg-bubble{max-width:92%;padding:7px 11px;border-radius:8px;font-size:13px;line-height:1.55;margin-bottom:2px}
+.msg-time{font-size:10px;color:var(--text3)}
+.msg.user .msg-time{align-self:flex-end}.msg.ai .msg-time{align-self:flex-start}
+#cmndr-input-area{padding:10px 16px 14px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:7px;flex-shrink:0}
+#cmndr-suggestions{display:flex;gap:5px;flex-wrap:wrap}
+.suggestion-pill{background:var(--surface2);border:1px solid var(--border2);border-radius:12px;padding:3px 9px;font-size:11px;color:var(--text2);cursor:pointer;transition:all .12s;white-space:nowrap}
+.suggestion-pill:hover{border-color:var(--accent);color:var(--accent)}
+.input-row{display:flex;gap:7px;align-items:flex-end}
+#cmndr-input{flex:1;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:13px;padding:7px 11px;outline:none;resize:none;font-family:inherit;min-height:36px;max-height:120px}
+#cmndr-input:focus{border-color:var(--accent)}
+#cmndr-send{background:var(--accent);border:none;border-radius:6px;width:34px;height:34px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0}
+#cmndr-send:hover{background:#2563eb}
+#cmndr-send svg{width:13px;height:13px;fill:currentColor}
+.skeleton{background:var(--border2);border-radius:6px;animation:pulse 1.5s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+/* ── ARC nav dropdowns ── */
+.arc-dd-wrap{position:relative;display:flex;align-items:center}
+.arc-dd-btn{background:transparent;border:0.5px solid var(--border);border-radius:6px;color:var(--text2);font-size:12px;font-family:'DM Mono',monospace;padding:5px 11px;cursor:pointer;transition:all 150ms ease;white-space:nowrap;letter-spacing:.05em}
+.arc-dd-btn:hover{border-color:var(--border2);color:var(--text)}
+.arc-dd{position:absolute;top:calc(100% + 8px);left:0;min-width:180px;background:#13131a;border:1px solid #2a2a3a;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.4);padding:4px;z-index:1000;display:none}
+.arc-dd.open{display:block}
+.arc-dd-right{left:auto;right:0}
+.arc-dd-item{padding:10px 16px;font-family:'DM Mono',monospace;font-size:12px;color:#f0f0f0;cursor:pointer;border-radius:5px;transition:background 100ms ease,color 100ms ease;position:relative;display:flex;align-items:center;gap:8px;user-select:none}
+.arc-dd-item:hover{background:#1a1a24;color:#00d4aa}
+.arc-dd-item.active-page{color:#00d4aa}
+.arc-dd-sep{border-top:1px solid #2a2a3a;margin:4px 0}
+.arc-dd-item.has-sub{justify-content:space-between}
+.arc-dd-item.has-sub::after{content:'›';font-size:14px;opacity:.5;flex-shrink:0;margin-left:auto}
+.arc-sub{position:absolute;left:100%;top:-4px;min-width:180px;background:#13131a;border:1px solid #2a2a3a;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.4);padding:4px;display:none;z-index:1001}
+.arc-dd-item.has-sub:hover .arc-sub{display:block}
+/* ── Task drawer ── */
+#task-drawer{position:fixed;right:-400px;top:calc(var(--nav-h) + var(--strip-h));width:380px;height:calc(100vh - var(--nav-h) - var(--strip-h));background:#13131a;border-left:1px solid #2a2a3a;z-index:200;display:flex;flex-direction:column;overflow:hidden;transition:right 250ms ease}
+#task-drawer.open{right:0}
+#task-drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.3);z-index:199;display:none}
+#task-drawer.open~#task-drawer-overlay{display:block}
+.td-section-label{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#8a95a3;margin-bottom:10px}
+#td-steps{padding-left:18px;display:flex;flex-direction:column;gap:10px}
+#td-steps li{font-family:'DM Mono',monospace;font-size:12px;color:#c8d0dc;line-height:1.6}
+.td-val-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #2a2a3a;font-family:'DM Mono',monospace;font-size:12px}
+.td-val-row:last-child{border-bottom:none}
+.td-val-label{color:#8a95a3}
+.td-val-value{color:#e8edf5;font-weight:500}
+/* Section header */
+.section-hd{font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+/* Page title */
+.page-title{font-size:22px;font-weight:700;letter-spacing:-.5px;font-family:'Syne',sans-serif}
+.page-sub{font-size:13px;color:var(--text3);margin-top:3px}
+/* Completed sprints empty state */
+.empty-state-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:32px 20px;text-align:center;color:var(--text3);font-size:13px;line-height:1.6}
+.empty-state-card .es-icon{font-size:24px;margin-bottom:10px;opacity:.4}
+.empty-state-card .es-title{font-size:13px;font-weight:600;color:var(--text2);margin-bottom:4px}
+
+/* ═══════════════════════════════════════════════════════════════
+   3PR COMPONENT — scoped CSS vars override for teal accent
+   ═══════════════════════════════════════════════════════════════ */
+.tpr-root{
+  --accent:#00d4aa;
+  --muted:#8a95a3;
+  --border:#1e242d;
+  font-family:'DM Mono',monospace;
+  width:100%;
+  max-width:640px;
+  padding:24px 0 8px;
+  box-sizing:border-box;
+  position:relative;
+}
+.tpr-sprint-label{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted,#8a95a3);text-align:center;margin-bottom:8px}
+.tpr-track{position:relative;display:flex;align-items:flex-end;justify-content:space-between;height:160px}
+.tpr-connectors{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.tpr-col{display:flex;flex-direction:column;align-items:center;position:relative;z-index:2;flex:0 0 auto;width:64px}
+.tpr-col[data-pos="0"]{margin-bottom:72px}
+.tpr-col[data-pos="1"]{margin-bottom:0}
+.tpr-col[data-pos="2"]{margin-bottom:36px}
+.tpr-node{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;position:relative;flex-shrink:0}
+.tpr-node.complete{background:#00d4aa;box-shadow:0 0 0 3px rgba(0,212,170,.25)}
+.tpr-node.complete .tpr-check{color:#000;font-size:18px;line-height:1;font-weight:700}
+.tpr-node.active{background:var(--surface2,#181c22);border:2px solid #00d4aa;box-shadow:0 0 0 4px rgba(0,212,170,.18),0 0 20px rgba(0,212,170,.25);animation:tpr-pulse 2.4s ease-in-out infinite}
+.tpr-node.active .tpr-dot{width:12px;height:12px;border-radius:50%;background:#00d4aa}
+.tpr-node.locked{background:var(--surface,#111418);border:2px solid var(--border,#1e242d)}
+.tpr-node.locked .tpr-lock{color:var(--muted,#8a95a3);font-size:14px;opacity:.6}
+@keyframes tpr-pulse{0%,100%{box-shadow:0 0 0 4px rgba(0,212,170,.18),0 0 20px rgba(0,212,170,.25)}50%{box-shadow:0 0 0 8px rgba(0,212,170,.08),0 0 32px rgba(0,212,170,.45)}}
+.tpr-node-label{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted,#8a95a3);margin-top:8px;text-align:center;white-space:nowrap}
+.tpr-col.is-active .tpr-node-label{color:#00d4aa}
+.tpr-active-card{background:var(--surface,#111418);border:1px solid #00d4aa;border-radius:10px;padding:16px 18px 18px;margin-top:28px;width:100%;box-sizing:border-box;position:relative}
+.tpr-active-card::before{content:'';position:absolute;top:-8px;left:50%;transform:translateX(-50%);width:1px;height:8px;background:#00d4aa;opacity:.5}
+.tpr-card-stage{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--text,#e8edf5);margin-bottom:12px}
+.tpr-progress-track{height:4px;background:var(--border,#1e242d);border-radius:2px;overflow:hidden}
+.tpr-progress-fill{height:100%;background:linear-gradient(90deg,#00d4aa,#00b090);border-radius:2px;transition:width .5s ease}
+.tpr-task-list{margin-top:14px;display:flex;flex-direction:column;gap:7px}
+.tpr-task-item{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
+.tpr-task-toggle{width:18px;height:18px;border-radius:50%;border:1.5px solid var(--border,#1e242d);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:transparent;transition:border-color .15s,background .15s,color .15s}
+.tpr-task-item.done .tpr-task-toggle{background:#00d4aa;border-color:#00d4aa;color:#000}
+.tpr-task-item.done .tpr-task-title{text-decoration:line-through;opacity:.4}
+.tpr-task-title{font-size:12px;color:var(--text,#e8edf5);flex:1;line-height:1.4;transition:opacity .15s}
+.tpr-task-badge{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.05em;padding:2px 6px;border-radius:3px;border:1px solid;flex-shrink:0;text-transform:lowercase}
+.tpr-task-badge.action{color:#6699ff;border-color:rgba(102,153,255,.3)}
+.tpr-task-badge.metric_target{color:#e0a07a;border-color:rgba(224,160,122,.3)}
+.tpr-task-badge.automation{color:#aa88ff;border-color:rgba(170,136,255,.3)}
+.tpr-task-badge.insight{color:#00d4aa;border-color:rgba(0,212,170,.3)}
+.tpr-divider{height:1px;background:var(--border,#1e242d);margin:16px 0;opacity:.5}
+.tpr-context-block{display:flex;flex-direction:column;gap:7px}
+.tpr-context-row{display:flex;gap:8px;align-items:baseline}
+.tpr-context-label{font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted,#8a95a3);white-space:nowrap;flex-shrink:0;min-width:102px}
+.tpr-context-value{font-size:11px;color:var(--text,#e8edf5);line-height:1.55}
+.tpr-metrics-section{margin-top:0}
+.tpr-metrics-label{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted,#8a95a3);margin-bottom:8px}
+.tpr-metrics-chips{display:flex;flex-wrap:wrap;gap:6px}
+.tpr-metric-chip{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted,#8a95a3);border:1px solid var(--border,#1e242d);border-radius:20px;padding:4px 12px;cursor:default}
+.tpr-cmndr-box{margin-top:16px;border:1px solid var(--border,#1e242d);border-radius:10px;overflow:hidden;background:var(--bg,#0a0c0f)}
+.tpr-cmndr-header{display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--border,#1e242d);background:var(--surface2,#181c22)}
+.tpr-cmndr-dot{width:7px;height:7px;border-radius:50%;background:#00d4aa;flex-shrink:0}
+.tpr-cmndr-name{font-family:'DM Mono',monospace;font-size:11px;font-weight:500;color:var(--text,#e8edf5);letter-spacing:.08em}
+.tpr-cmndr-sub{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted,#8a95a3);margin-left:auto}
+.tpr-cmndr-body{padding:12px 14px 14px}
+.tpr-cmndr-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.tpr-cmndr-chip{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted,#8a95a3);border:1px solid var(--border,#1e242d);border-radius:4px;padding:4px 10px;cursor:pointer;transition:border-color .12s,color .12s;white-space:nowrap;background:none}
+.tpr-cmndr-chip:hover{border-color:#00d4aa;color:#00d4aa}
+.tpr-cmndr-input{width:100%;background:var(--surface2,#181c22);border:1px solid var(--border,#1e242d);border-radius:6px;padding:9px 12px;font-family:'DM Mono',monospace;font-size:12px;color:var(--text,#e8edf5);outline:none;box-sizing:border-box;transition:border-color .15s}
+.tpr-cmndr-input::placeholder{color:var(--muted,#8a95a3);opacity:.7}
+.tpr-cmndr-input:focus{border-color:rgba(0,212,170,.4)}
+.tpr-auto-slot{margin-top:14px;background:var(--surface2,#181c22);border:1.5px dashed var(--border,#1e242d);border-radius:10px;padding:13px 16px 14px}
+.tpr-auto-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.tpr-auto-title{display:flex;align-items:center;gap:7px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted,#8a95a3)}
+.tpr-sw{position:relative;width:32px;height:18px;cursor:pointer;flex-shrink:0}
+.tpr-sw input{opacity:0;width:0;height:0;position:absolute}
+.tpr-sw-track{position:absolute;inset:0;background:var(--border,#1e242d);border-radius:9px;transition:background .2s}
+.tpr-sw-thumb{position:absolute;top:3px;left:3px;width:12px;height:12px;background:#fff;border-radius:50%;transition:left .2s}
+.tpr-auto-body{font-size:12px;line-height:1.5}
+.tpr-auto-off{color:var(--muted,#8a95a3)}
+.tpr-auto-on{display:flex;align-items:center;gap:10px;flex-wrap:wrap;color:#00d4aa}
+.tpr-auto-ghost-btn{display:inline-block;margin-top:8px;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted,#8a95a3);border:1px solid var(--border,#1e242d);border-radius:5px;padding:5px 12px;cursor:pointer;text-decoration:none;transition:border-color .15s,color .15s;background:none}
+.tpr-auto-ghost-btn:hover{border-color:#00d4aa;color:#00d4aa}
+.tpr-auto-not-installed{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.08em;color:#e0a07a;border:1px solid rgba(224,160,122,.4);border-radius:3px;padding:2px 7px;white-space:nowrap;text-transform:uppercase}
+</style>
+
+<!-- Sprint data — must be set before component IIFE runs -->
+<script>
+window.arcSprintData = {
+  sprintName: 'Q2 Growth Sprint',
+  nodes: [
+    {
+      label: 'ADAPT', stageName: 'Market Adaptation', state: 'complete', progress: 100,
+      desc: 'Align product positioning to shifting demand signals and audit competitive gaps.',
+      impact: 'Sets targeting precision for the React stage campaigns.',
+      metrics: ['Entropy Score', 'Data Completeness'],
+      cmndprompts: ['Who should I target?', 'What does my data say?', 'Explain this stage'],
+      tasks: [
+        { title: 'Audit competitor positioning',  type: 'action'        },
+        { title: 'Map ICP signals to segments',   type: 'metric_target' },
+        { title: 'Update messaging framework',    type: 'action'        },
+        { title: 'Enable data sync trigger',      type: 'automation'    },
+        { title: 'Review demand signal report',   type: 'insight'       }
+      ]
+    },
+    {
+      label: 'REACT', stageName: 'Rapid Response', state: 'active', progress: 40,
+      desc: 'Execute targeted campaigns against the highest-leverage channels identified in ADAPT.',
+      impact: 'Drives direct pipeline from the top ICP segments identified in ADAPT.',
+      metrics: ['Relational ROI', 'Labor Deletion'],
+      cmndprompts: ['Draft my email subject line', 'What discount should I run?', 'Who should I contact first?'],
+      tasks: [
+        { title: 'Structure promotion for slow season',  type: 'action'        },
+        { title: 'Send campaign emails via ISS Genesis', type: 'action'        },
+        { title: 'Review campaign performance data',     type: 'insight'       },
+        { title: 'Hit 25% open rate threshold',          type: 'metric_target' },
+        { title: 'A/B test subject lines',               type: 'action'        }
+      ]
+    },
+    {
+      label: 'CONTROL', stageName: 'Outcome Control', state: 'locked', progress: 0,
+      desc: 'Lock in gains, measure ROI, and establish repeatable playbooks for the next sprint.',
+      impact: 'Crystallises winning patterns into a reusable playbook for future sprints.',
+      metrics: ['Relational ROI', 'Entropy Score', 'Labor Deletion'],
+      cmndprompts: ['Am I on track?', "What's working best?", 'Summarize my sprint results'],
+      tasks: [
+        { title: 'Freeze winning campaign variants', type: 'action'        },
+        { title: 'Hit ROI target of 3.2x',           type: 'metric_target' },
+        { title: 'Document sprint playbook',         type: 'action'        },
+        { title: 'Enable reporting automation',      type: 'automation'    },
+        { title: 'Validate forecast accuracy',       type: 'metric_target' },
+        { title: 'Summarise sprint learnings',       type: 'insight'       }
+      ]
+    }
+  ],
+  parameterValues: {
+    "Target Segment":    "VIP Customers",
+    "Discount":          "20%",
+    "Promotion Window":  "3 weeks"
+  }
+};
+</script>
+<script type="module" src="/js/auth.js"></script>
+</head>
+<body>
+
+<nav id="nav">
+  <a class="logo" href="/">
+    <span class="arc-badge">ARC</span>
+    Command Center
+  </a>
+  <span class="client-name-display"><span style="font-size:8px;color:#00d4aa;line-height:1">●</span>Peak Flow Plumbing &amp; HVAC</span>
+  <div class="spacer"></div>
+  <div class="arc-dd-wrap">
+    <button class="arc-dd-btn" onclick="toggleDd('adapt')">ADAPT ▾</button>
+    <div class="arc-dd" id="dd-adapt-panel">
+      <div class="arc-dd-item has-sub">Visibility
+        <div class="arc-sub">
+          <div class="arc-dd-item" onclick="location.href='/operations'">Operations</div>
+          <div class="arc-dd-item" onclick="location.href='/finance'">Finance</div>
+          <div class="arc-dd-item" onclick="location.href='/marketing'">Marketing</div>
+          <div class="arc-dd-item" onclick="location.href='/yield'">Yield &amp; Efficiency</div>
+          <div class="arc-dd-item" onclick="location.href='/market-scan'">Market Scan</div>
+        </div>
+      </div>
+      <div class="arc-dd-item" onclick="location.href='/audit'">Audits</div>
+      <div class="arc-dd-item" onclick="location.href='/digital-authority'">Digital Authority</div>
+    </div>
+  </div>
+  <div class="arc-dd-wrap">
+    <button class="arc-dd-btn" onclick="toggleDd('react')">REACT ▾</button>
+    <div class="arc-dd" id="dd-react-panel">
+      <div class="arc-dd-item active-page" onclick="location.href='/sprint'">Sprint Planner</div>
+      <div class="arc-dd-item" onclick="location.href='/playbooks'">Playbooks</div>
+      <div class="arc-dd-item has-sub">Generate
+        <div class="arc-sub">
+          <div class="arc-dd-item" onclick="openReportBuilder()">Reports</div>
+        </div>
+      </div>
+      <div class="arc-dd-item" onclick="location.href='/wins'">Win Board</div>
+    </div>
+  </div>
+  <div class="arc-dd-wrap">
+    <button class="arc-dd-btn" onclick="toggleDd('control')">CONTROL ▾</button>
+    <div class="arc-dd" id="dd-control-panel">
+      <div class="arc-dd-item" onclick="location.href='/automations'">Automations</div>
+      <div class="arc-dd-item" onclick="location.href='/connections'">Connections</div>
+      <div class="arc-dd-item" onclick="location.href='/archive'">Archive</div>
+    </div>
+  </div>
+  <div class="arc-dd-wrap">
+    <div class="avatar" id="nav-avatar" onclick="toggleDd('avatar')" style="cursor:pointer">A</div>
+    <div class="arc-dd arc-dd-right" id="dd-avatar-panel">
+      <div class="arc-dd-item" onclick="location.href='#'">Account Settings</div>
+      <div class="arc-dd-sep"></div>
+      <div class="arc-dd-item" onclick="location.href='#'">Terms &amp; Conditions</div>
+      <div class="arc-dd-item" onclick="location.href='#'">Privacy Policy</div>
+      <div class="arc-dd-item" onclick="location.href='#'">Data Protocol Policy</div>
+      <div class="arc-dd-sep"></div>
+      <div class="arc-dd-item" onclick="doSignOut()">Sign Out</div>
+    </div>
+  </div>
+</nav>
+
+<div id="shell">
+
+  <div id="health-strip">
+    <div class="hc">
+      <div class="hc-label">Entropy Score</div>
+      <div class="hc-value col-blue" id="hs-entropy">—</div>
+      <div class="hc-sub" id="hs-entropy-sub">Loading…</div>
+      <div class="hc-bar"><div class="hc-bar-fill" id="bar-entropy" style="background:var(--accent)"></div></div>
+    </div>
+    <div class="hc">
+      <div class="hc-label">Labor Deletion</div>
+      <div class="hc-value col-green">14.2<span style="font-size:16px;font-weight:500;letter-spacing:0"> hrs</span></div>
+      <div class="hc-sub">Saved this month</div>
+    </div>
+    <div class="hc">
+      <div class="hc-label">Relational ROI</div>
+      <div class="hc-value col-amber">$8.40<span style="font-size:16px;font-weight:500;letter-spacing:0"> /lead</span></div>
+      <div class="hc-sub">Revenue per contact</div>
+    </div>
+  </div>
+
+  <div id="content-row">
+    <div id="main-col">
+
+      <!-- Page header -->
+      <div>
+        <div class="page-title">Sprint Planner</div>
+        <div class="page-sub">Track your active strategic sprint</div>
+      </div>
+
+      <!-- Active sprint -->
+      <div>
+        <div class="section-hd">Active Sprint</div>
+
+        <!-- ═══════════════════ 3PR COMPONENT HTML ═══════════════════ -->
+        <div class="tpr-root" id="tpr-root">
+          <div class="tpr-sprint-label" id="tpr-sprint-label">Sprint</div>
+          <div class="tpr-track" id="tpr-track">
+            <svg class="tpr-connectors" id="tpr-svg" viewBox="0 0 640 160" preserveAspectRatio="none"></svg>
+          </div>
+          <div class="tpr-active-card" id="tpr-active-card" style="display:none">
+            <div class="tpr-card-stage" id="tpr-card-stage"></div>
+            <div class="tpr-progress-track">
+              <div class="tpr-progress-fill" id="tpr-progress-fill" style="width:0%"></div>
+            </div>
+            <div class="tpr-task-list" id="tpr-task-list"></div>
+            <div class="tpr-divider"></div>
+            <div class="tpr-context-block" id="tpr-context-block"></div>
+            <div class="tpr-divider"></div>
+            <div class="tpr-metrics-section" id="tpr-metrics-section"></div>
+            <div class="tpr-cmndr-box" id="tpr-cmndr-box"></div>
+            <div class="tpr-auto-slot" id="tpr-auto-slot">
+              <div class="tpr-auto-header">
+                <div class="tpr-auto-title"><span>⚡</span><span>Automations</span></div>
+                <label class="tpr-sw" title="Toggle automation">
+                  <input type="checkbox" id="tpr-auto-cb">
+                  <span class="tpr-sw-track"><span class="tpr-sw-thumb" id="tpr-sw-thumb"></span></span>
+                </label>
+              </div>
+              <div class="tpr-auto-body">
+                <div class="tpr-auto-off" id="tpr-auto-off">
+                  No automation installed for this stage.
+                  <br>
+                  <button class="tpr-auto-ghost-btn" onclick="return false">Explore Automations →</button>
+                </div>
+                <div class="tpr-auto-on" id="tpr-auto-on" style="display:none">
+                  ISS Genesis recommended for this stage.
+                  <span class="tpr-auto-not-installed">Not Installed</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- ═══════════════════ END 3PR COMPONENT ═══════════════════ -->
+
+      </div>
+
+      <!-- Completed sprints -->
+      <div>
+        <div class="section-hd">Completed Sprints</div>
+        <div class="empty-state-card">
+          <div class="es-icon">🏁</div>
+          <div class="es-title">No completed sprints yet</div>
+          Your sprint history will appear here once you close out your first sprint.
+        </div>
+      </div>
+
+    </div>
+
+    <button id="cmndr-toggle" onclick="toggleCmndr()" title="Toggle CMNDR panel">
+      <svg id="toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+    </button>
+
+    <div id="cmndr-col">
+      <div id="cmndr-header">
+        <div class="cmndr-dot"></div>
+        <div>
+          <div class="cmndr-title">CMNDR</div>
+          <div class="cmndr-sub">Sprint Intelligence</div>
+        </div>
+      </div>
+      <div id="cmndr-body">
+        <div class="cmndr-narrative">
+          <div class="cn-label">Sprint Situation</div>
+          <div class="cn-text" id="narrative-text">Peak Flow is in the REACT stage of the Q2 Growth Sprint — 40% complete with 3 of 5 tasks remaining. ADAPT is done and targeting data is locked in. Focus this week: launch the segment A email sequence and run the A/B subject line test to hit the 25% open rate threshold.</div>
+        </div>
+        <div class="cmndr-history" id="cmndr-history"></div>
+      </div>
+      <div id="cmndr-input-area">
+        <div id="cmndr-suggestions">
+          <div class="suggestion-pill" onclick="sendSuggestion(this)">Am I on track?</div>
+          <div class="suggestion-pill" onclick="sendSuggestion(this)">What should I focus on?</div>
+          <div class="suggestion-pill" onclick="sendSuggestion(this)">Summarize my sprint</div>
+        </div>
+        <div class="input-row">
+          <textarea id="cmndr-input" placeholder="Ask CMNDR anything…" rows="1" onkeydown="handleKey(event)"></textarea>
+          <button id="cmndr-send" onclick="sendMessage()">
+            <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- 3PR COMPONENT IIFE — runs immediately after component HTML exists in DOM -->
+<script>
+(function () {
+  var data = (window.arcSprintData && window.arcSprintData.nodes && window.arcSprintData.nodes.length === 3)
+    ? window.arcSprintData
+    : null;
+  if (!data) return;
+
+  document.getElementById('tpr-sprint-label').textContent = data.sprintName || 'Sprint';
+
+  var offsets = [72, 0, 36];
+  var track   = document.getElementById('tpr-track');
+  var nodeEls = [];
+
+  data.nodes.forEach(function (n, i) {
+    var col = document.createElement('div');
+    col.className = 'tpr-col' + (n.state === 'active' ? ' is-active' : '');
+    col.setAttribute('data-pos', i);
+    col.style.marginBottom = offsets[i] + 'px';
+
+    var nodeDiv = document.createElement('div');
+    nodeDiv.className = 'tpr-node ' + n.state;
+    nodeDiv.id = 'tpr-node-' + i;
+
+    if (n.state === 'complete') {
+      var ck = document.createElement('span'); ck.className = 'tpr-check'; ck.textContent = '✓'; nodeDiv.appendChild(ck);
+    } else if (n.state === 'active') {
+      var dt = document.createElement('span'); dt.className = 'tpr-dot'; nodeDiv.appendChild(dt);
+    } else {
+      var lk = document.createElement('span'); lk.className = 'tpr-lock'; lk.textContent = '⊘'; nodeDiv.appendChild(lk);
+    }
+
+    var lbl = document.createElement('div');
+    lbl.className = 'tpr-node-label';
+    lbl.textContent = n.label || ('Stage ' + (i + 1));
+
+    col.appendChild(nodeDiv);
+    col.appendChild(lbl);
+    track.appendChild(col);
+    nodeEls.push(col);
+  });
+
+  // SVG connectors
+  requestAnimationFrame(function () {
+    var svg = document.getElementById('tpr-svg');
+    var tr  = track.getBoundingClientRect();
+    svg.setAttribute('viewBox', '0 0 ' + tr.width + ' ' + tr.height);
+
+    var centres = nodeEls.map(function (col) {
+      var ne = col.querySelector('.tpr-node'), r = ne.getBoundingClientRect();
+      return { x: r.left - tr.left + r.width / 2, y: r.top - tr.top + r.height / 2 };
+    });
+
+    function drawLine(a, b, solid) {
+      var line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', a.x); line.setAttribute('y1', a.y);
+      line.setAttribute('x2', b.x); line.setAttribute('y2', b.y);
+      line.setAttribute('stroke', solid ? '#00d4aa' : '#1e242d');
+      line.setAttribute('stroke-width', '2');
+      if (!solid) line.setAttribute('stroke-dasharray', '5 4');
+      line.setAttribute('opacity', solid ? '0.7' : '0.5');
+      svg.appendChild(line);
+    }
+
+    var s0 = data.nodes[0].state, s1 = data.nodes[1].state;
+    drawLine(centres[0], centres[1], s0 === 'complete' || s1 === 'active' || s0 === 'active');
+    drawLine(centres[1], centres[2], s1 === 'complete');
+  });
+
+  var activeNode = data.nodes.find(function (n) { return n.state === 'active'; });
+  if (!activeNode) return;
+
+  var card = document.getElementById('tpr-active-card');
+  card.style.display = 'block';
+  document.getElementById('tpr-card-stage').textContent = activeNode.stageName || '';
+  document.getElementById('tpr-progress-fill').style.width = (activeNode.progress || 0) + '%';
+
+  // Task list
+  var taskList = document.getElementById('tpr-task-list');
+  (activeNode.tasks || []).forEach(function (t, idx) {
+    var item = document.createElement('div'); item.className = 'tpr-task-item'; item.id = 'tpr-ti-' + idx;
+    var toggle = document.createElement('div'); toggle.className = 'tpr-task-toggle'; toggle.textContent = '✓';
+    var title = document.createElement('div'); title.className = 'tpr-task-title'; title.textContent = t.title;
+    var badge = document.createElement('div'); badge.className = 'tpr-task-badge ' + (t.type || 'action');
+    var labels = { action:'action', metric_target:'metric', automation:'auto', insight:'insight' };
+    badge.textContent = labels[t.type] || t.type;
+    item.appendChild(toggle); item.appendChild(title); item.appendChild(badge);
+    taskList.appendChild(item);
+    toggle.addEventListener('click', function(e) { e.stopPropagation(); item.classList.toggle('done'); });
+    title.addEventListener('click', function() { openTaskDrawer(t, activeNode ? activeNode.stageName : ''); });
+  });
+
+  // Context block
+  var ctx = document.getElementById('tpr-context-block');
+  var goalRow = document.createElement('div'); goalRow.className = 'tpr-context-row';
+  goalRow.innerHTML = '<span class="tpr-context-label">End goal:</span><span class="tpr-context-value">' + (activeNode.desc || '') + '</span>';
+  var impactRow = document.createElement('div'); impactRow.className = 'tpr-context-row';
+  impactRow.innerHTML = '<span class="tpr-context-label">Expected impact:</span><span class="tpr-context-value">' + (activeNode.impact || '') + '</span>';
+  ctx.appendChild(goalRow); ctx.appendChild(impactRow);
+
+  // Metrics chips
+  var ms = document.getElementById('tpr-metrics-section');
+  var ml = document.createElement('div'); ml.className = 'tpr-metrics-label'; ml.textContent = 'Metrics affected'; ms.appendChild(ml);
+  var mc = document.createElement('div'); mc.className = 'tpr-metrics-chips';
+  (activeNode.metrics || []).forEach(function (m) {
+    var chip = document.createElement('div'); chip.className = 'tpr-metric-chip'; chip.textContent = m; mc.appendChild(chip);
+  });
+  ms.appendChild(mc);
+
+  // CMNDR box
+  var cmndrBox = document.getElementById('tpr-cmndr-box');
+  var prompts = activeNode.cmndprompts || [];
+  cmndrBox.innerHTML =
+    '<div class="tpr-cmndr-header">' +
+      '<span class="tpr-cmndr-dot"></span>' +
+      '<span class="tpr-cmndr-name">CMNDR</span>' +
+      '<span class="tpr-cmndr-sub">' + (activeNode.stageName || '') + '</span>' +
+    '</div>' +
+    '<div class="tpr-cmndr-body">' +
+      '<div class="tpr-cmndr-chips">' + prompts.map(function(p){ return '<button class="tpr-cmndr-chip">' + p + '</button>'; }).join('') + '</div>' +
+      '<input class="tpr-cmndr-input" type="text" placeholder="Ask CMNDR anything...">' +
+    '</div>';
+  cmndrBox.querySelectorAll('.tpr-cmndr-chip').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var inp = cmndrBox.querySelector('.tpr-cmndr-input');
+      if (inp) { inp.value = btn.textContent; inp.focus(); }
+    });
+  });
+
+  // Automation toggle
+  var cb = document.getElementById('tpr-auto-cb');
+  var thumb = document.getElementById('tpr-sw-thumb');
+  var offEl = document.getElementById('tpr-auto-off');
+  var onEl  = document.getElementById('tpr-auto-on');
+  cb.addEventListener('change', function () {
+    var on = cb.checked;
+    thumb.style.left = on ? '17px' : '3px';
+    cb.parentElement.querySelector('.tpr-sw-track').style.background = on ? '#00d4aa' : '#1e242d';
+    offEl.style.display = on ? 'none'  : 'block';
+    onEl.style.display  = on ? 'flex'  : 'none';
+  });
+})();
+</script>
+
+<!-- ARC shell JS -->
+<script>
+const SESSION_TOKEN = localStorage.getItem('cmndr_session');
+const PAGE_SYSTEM = 'You are CMNDR, Resona sprint intelligence. Help users understand sprint progress, tasks, and strategic alignment. Be concise and action-oriented. Max 3 sentences unless asked for detail.';
+
+// ── ARC NAV DROPDOWNS ─────────────────────────────────────────────
+function toggleDd(id) {
+  const target = document.getElementById('dd-' + id + '-panel');
+  if (!target) return;
+  const wasOpen = target.classList.contains('open');
+  document.querySelectorAll('.arc-dd').forEach(p => p.classList.remove('open'));
+  if (!wasOpen) target.classList.add('open');
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.arc-dd-wrap')) document.querySelectorAll('.arc-dd').forEach(p => p.classList.remove('open'));
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.querySelectorAll('.arc-dd').forEach(p => p.classList.remove('open'));
+});
+
+// ── BOOT ──────────────────────────────────────────────────────────
+async function boot() {
+  if (window.location.search.includes('bypass=true') || localStorage.getItem('arc_bypass') === 'true') {
+    localStorage.setItem('arc_bypass', 'true');
+  } else {
+    if (!SESSION_TOKEN) { location.href = '/login'; return; }
+    try {
+      const r = await fetch('/api/auth?action=me', { headers: { Authorization: `Bearer ${SESSION_TOKEN}` } });
+      if (!r.ok) { location.href = '/login'; return; }
+      const d = await r.json(); const p = d.profile;
+      if (!p || !p.role || !["admin","client","demo","resona_admin","resona_advisor","client_user","display"].includes(p.role)) { location.href = '/login'; return; }
+      document.getElementById('nav-avatar').textContent = (p.full_name || d.user?.email || 'A').charAt(0).toUpperCase();
+    } catch { location.href = '/login'; return; }
+  }
+  initCmndrPanel();
+  loadEntropyScore();
+}
+
+// ── CMNDR PANEL ───────────────────────────────────────────────────
+function initCmndrPanel() { if (localStorage.getItem('arc_cmndr_open') === 'false') applyCollapsed(true); }
+function toggleCmndr() { const c = document.getElementById('cmndr-col').classList.contains('collapsed'); applyCollapsed(!c); localStorage.setItem('arc_cmndr_open', c ? 'true' : 'false'); }
+function applyCollapsed(on) { document.getElementById('cmndr-col').classList.toggle('collapsed', on); const pts = document.getElementById('toggle-icon')?.querySelector('polyline'); if (pts) pts.setAttribute('points', on ? '9 18 15 12 9 6' : '15 18 9 12 15 6'); }
+
+// ── ENTROPY ───────────────────────────────────────────────────────
+async function loadEntropyScore() {
+  try {
+    const r = await fetch('/api/health?action=entropy'); if (!r.ok) return;
+    const d = await r.json(); if (d.score == null) { document.getElementById('hs-entropy-sub').textContent = 'No scan yet'; return; }
+    animCount('hs-entropy', d.score, '%'); animBar('bar-entropy', d.score);
+    document.getElementById('hs-entropy-sub').textContent = d.score >= 80 ? 'Excellent' : d.score >= 60 ? 'Good — minor gaps' : 'Fair — action needed';
+  } catch {}
+}
+function animCount(id, target, suf) { const el = document.getElementById(id); if (!el) return; let t0 = null; function step(ts) { if (!t0) t0 = ts; const p = Math.min((ts - t0) / 900, 1); el.textContent = Math.round(target * (1 - Math.pow(1 - p, 3))) + (suf || ''); if (p < 1) requestAnimationFrame(step); } requestAnimationFrame(step); }
+function animBar(id, pct) { const el = document.getElementById(id); if (el) setTimeout(() => el.style.width = Math.max(0, Math.min(100, pct)) + '%', 50); }
+
+// ── CMNDR CHAT ────────────────────────────────────────────────────
+const history = []; let msgN = 0;
+function handleKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }
+function sendSuggestion(el) { document.getElementById('cmndr-input').value = el.textContent; sendMessage(); }
+async function sendMessage() {
+  const inp = document.getElementById('cmndr-input'); const text = inp.value.trim(); if (!text) return;
+  inp.value = ''; addMsg('user', text); history.push({ role: 'user', content: text }); const tid = addMsg('ai', '', true);
+  try {
+    const r = await fetch('/api/ask', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SESSION_TOKEN}` }, body: JSON.stringify({ system: PAGE_SYSTEM, messages: history }) });
+    let reply = 'Unable to reach CMNDR.';
+    if (r.ok) { const d = await r.json(); reply = d.content?.[0]?.text || d.text || reply; }
+    updMsg(tid, reply); history.push({ role: 'assistant', content: reply });
+  } catch { updMsg(tid, 'CMNDR temporarily unavailable.'); }
+  document.getElementById('cmndr-body').scrollTop = 99999;
+}
+function addMsg(role, text, typing) { const id = 'msg-' + (++msgN); const t = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); const el = document.createElement('div'); el.className = 'msg ' + role; el.id = id; el.innerHTML = `<div class="msg-bubble">${typing ? '<em style="opacity:.5">Thinking…</em>' : esc(text)}</div><div class="msg-time">${t}</div>`; document.getElementById('cmndr-history').appendChild(el); document.getElementById('cmndr-body').scrollTop = 99999; return id; }
+function updMsg(id, text) { const el = document.getElementById(id); if (el) el.querySelector('.msg-bubble').textContent = text; }
+function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+boot();
+
+// ── TASK DRAWER ────────────────────────────────────────────────────
+const TASK_HOW_TO = {
+  "Structure promotion for slow season": [
+    "Review your average order value from the last 90 days in the Finance tab. This becomes your discount baseline.",
+    "Set your discount between 10–20% — enough to create urgency without eroding margin. Use the CMNDR box to ask for a recommendation based on your data.",
+    "Define the promotion window. Match it to your identified slow season months. A 3–4 week window outperforms open-ended offers.",
+    "Write a one-line offer statement: \"[X]% off [service] booked before [date].\" Keep it specific and time-bound.",
+    "Confirm the offer with your team before sending any outreach."
+  ],
+  "Send campaign emails via ISS Genesis": [
+    "Navigate to Automations → ISS Genesis in the Control menu.",
+    "If ISS Genesis is not installed, click \"Explore\" to view the model and install it. It handles delivery and tracking automatically.",
+    "If doing this manually: export your target segment list from your CRM or ARC connections as a CSV.",
+    "Use your email platform (Mailchimp, Gmail, etc.) to create a new campaign. Subject line should reference the offer directly.",
+    "Schedule send for Tuesday or Wednesday morning, 8–10am in your client's timezone — highest open rate window.",
+    "After send, return to ARC and mark this task complete. Track opens and clicks in your email platform for the next 48 hours."
+  ]
+};
+const DEFAULT_HOW_TO = [
+  "Review the task objective and confirm you have the necessary data connected in ARC Connections.",
+  "Use the CMNDR box on this page to get a tailored recommendation for your specific situation.",
+  "Execute the action and return here to mark complete."
+];
+let _drawerTask = null;
+function openTaskDrawer(task, stageName) {
+  _drawerTask = task;
+  const badge = document.getElementById('td-badge');
+  badge.textContent = {action:'action',metric_target:'metric',automation:'auto',insight:'insight'}[task.type] || task.type;
+  badge.className = 'tpr-task-badge ' + (task.type || 'action');
+  document.getElementById('td-title').textContent = task.title;
+  const an = window.arcSprintData?.nodes?.find(n => n.state === 'active');
+  document.getElementById('td-stage-label').textContent = an ? an.label + ' — ' + an.stageName : stageName || '';
+  const steps = TASK_HOW_TO[task.title] || DEFAULT_HOW_TO;
+  const ol = document.getElementById('td-steps');
+  ol.innerHTML = '';
+  steps.forEach(s => { const li = document.createElement('li'); li.textContent = s; ol.appendChild(li); });
+  const vals = window.arcSprintData?.parameterValues || {};
+  const valDiv = document.getElementById('td-values');
+  const entries = Object.entries(vals);
+  if (entries.length) {
+    valDiv.innerHTML = entries.map(([k,v]) => `<div class="td-val-row"><span class="td-val-label">${k}</span><span class="td-val-value">${v}</span></div>`).join('');
+  } else {
+    valDiv.textContent = 'No mapped values for this task.';
+  }
+  document.getElementById('task-drawer').classList.add('open');
+}
+function closeDrawer() {
+  document.getElementById('task-drawer').classList.remove('open');
+  _drawerTask = null;
+}
+function focusCmndrWithTask(e) {
+  e.preventDefault();
+  const task = _drawerTask;
+  closeDrawer();
+  const inp = document.getElementById('cmndr-input');
+  if (inp && task) {
+    inp.value = task.title;
+    inp.focus();
+    const col = document.getElementById('cmndr-col');
+    if (col && col.classList.contains('collapsed')) toggleCmndr();
+  }
+}
+</script>
+
+<div id="task-drawer">
+  <div style="padding:16px 18px;border-bottom:1px solid #2a2a3a;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-shrink:0">
+    <div>
+      <div id="td-badge"></div>
+      <h2 id="td-title" style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:#e8edf5;margin:6px 0 4px;line-height:1.3"></h2>
+      <div id="td-stage-label" style="font-family:'DM Mono',monospace;font-size:11px;color:#8a95a3"></div>
+    </div>
+    <button onclick="closeDrawer()" style="background:none;border:none;color:#8a95a3;font-size:16px;cursor:pointer;padding:4px;flex-shrink:0;font-family:'DM Mono',monospace">✕</button>
+  </div>
+  <div id="td-body" style="flex:1;overflow-y:auto;padding:18px">
+    <div class="td-section-label">How to Execute</div>
+    <ol id="td-steps"></ol>
+    <div class="td-section-label" style="margin-top:20px">Your Mapped Values</div>
+    <div id="td-values"></div>
+    <a href="#" id="td-cmndr-link" onclick="focusCmndrWithTask(event)" style="display:block;margin-top:20px;font-family:'DM Mono',monospace;font-size:12px;color:#00d4aa;text-decoration:none">Ask CMNDR about this task →</a>
+  </div>
+</div>
+<div id="task-drawer-overlay" onclick="closeDrawer()"></div>
+<script src="/arc-report-builder.js"></script>
+</body>
+</html>

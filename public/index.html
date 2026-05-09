@@ -1,6 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script>
+window.ARC_CONFIG_READY = fetch('/api/config').then(function(r){return r.json();}).then(function(cfg){
+  window.ARC_CONFIG = cfg;
+  var _fetch = window.fetch;
+  window.fetch = function(url, opts) {
+    if (typeof url === 'string' && url.indexOf('/api/') === 0 && url.indexOf('/api/config') !== 0) {
+      opts = Object.assign({}, opts);
+      opts.headers = Object.assign({}, opts.headers, {'x-arc-key': (cfg && cfg.apiKey) || ''});
+    }
+    return _fetch.call(this, url, opts);
+  };
+  return cfg;
+}).catch(function(){ window.ARC_CONFIG = {}; });
+</script>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>ARC — Command Center</title>
@@ -87,7 +101,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .section-hd{font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
 .section-hd a{font-size:11px;color:var(--accent);text-decoration:none;text-transform:none;letter-spacing:0;font-weight:400}
 /* EXCEPTION CARDS */
-.exc-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px;display:flex;align-items:flex-start;gap:12px;margin-bottom:8px;transition:border-color .15s;position:relative}
+.exc-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 52px 14px 16px;display:flex;align-items:flex-start;gap:12px;margin-bottom:8px;transition:border-color .15s;position:relative;overflow:visible !important}
 .exc-card:last-child{margin-bottom:0}
 .exc-card:hover{border-color:var(--border2)}
 .exc-icon{width:34px;height:34px;border-radius:7px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:15px}
@@ -95,9 +109,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .exc-body{flex:1;min-width:0}
 .exc-head{display:flex;align-items:center;gap:8px;margin-bottom:4px}
 .exc-title{font-size:13px;font-weight:600;color:var(--text);padding-right:44px}
-.exc-cmndr-btn{position:absolute;top:14px;right:16px;width:32px;height:32px;border-radius:50%;border:1.5px solid #00d4aa;background:transparent;color:#00d4aa;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;transition:all .15s;z-index:2}
+.exc-cmndr-btn{position:absolute;top:50%;transform:translateY(-50%);right:12px;width:32px;height:32px;border-radius:50%;border:1.5px solid #00d4aa;background:transparent;color:#00d4aa;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;transition:all .15s;z-index:2}
 .exc-cmndr-btn:hover{background:rgba(0,212,170,0.15)}
-.exc-cmndr-btn.dim{border-color:var(--border);color:var(--text3);position:relative}
+.exc-cmndr-btn.dim{border-color:var(--border);color:var(--text3)}
 .exc-cmndr-btn.dim .exc-cmndr-tip{display:none;position:absolute;right:36px;top:50%;transform:translateY(-50%);background:rgba(19,19,26,0.9);border:0.5px solid var(--border);border-radius:6px;padding:6px 10px;font-size:10px;color:var(--text2);white-space:nowrap;max-width:220px;white-space:normal;line-height:1.4;pointer-events:none;z-index:10}
 .exc-cmndr-btn.dim:hover .exc-cmndr-tip{display:block}
 .exc-cmndr-btn.dim:hover{border-color:var(--border2);color:var(--text2)}
@@ -185,11 +199,53 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .eci-row{display:flex;align-items:center;gap:5px;font-size:10px;font-family:monospace;color:var(--text3);}
 .eci-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
 /* Info icons */
-.info-icon{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;border:1px solid var(--hint);color:var(--hint);font-size:9px;font-style:italic;font-family:'DM Mono',monospace;font-weight:600;cursor:pointer;margin-left:6px;vertical-align:middle;flex-shrink:0;transition:background 150ms ease,color 150ms ease,border-color 150ms ease;position:relative;top:-1px}
+.info-icon{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;border:1px solid var(--hint);color:var(--hint);font-size:9px !important;font-style:italic !important;font-variant:normal !important;text-transform:lowercase !important;font-family:'DM Mono',monospace;font-weight:600;cursor:pointer;margin-left:6px;vertical-align:middle;flex-shrink:0;transition:background 150ms ease,color 150ms ease,border-color 150ms ease;position:relative;top:-1px}
 .info-icon:hover{background:rgba(0,102,255,0.1);color:#0066ff;border-color:#0066ff}
+/* ── ARC nav dropdowns ── */
+.arc-dd-wrap{position:relative;display:flex;align-items:center}
+.arc-dd-btn{background:transparent;border:0.5px solid var(--border);border-radius:6px;color:var(--text2);font-size:12px;font-family:'DM Mono',monospace;padding:5px 11px;cursor:pointer;transition:all 150ms ease;white-space:nowrap;letter-spacing:.05em}
+.arc-dd-btn:hover{border-color:var(--border2);color:var(--text)}
+.arc-dd{position:absolute;top:calc(100% + 8px);left:0;min-width:180px;background:#13131a;border:1px solid #2a2a3a;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.4);padding:4px;z-index:1000;display:none}
+.arc-dd.open{display:block}
+.arc-dd-right{left:auto;right:0}
+.arc-dd-item{padding:10px 16px;font-family:'DM Mono',monospace;font-size:12px;color:#f0f0f0;cursor:pointer;border-radius:5px;transition:background 100ms ease,color 100ms ease;position:relative;display:flex;align-items:center;gap:8px;user-select:none}
+.arc-dd-item:hover{background:#1a1a24;color:#00d4aa}
+.arc-dd-item.active-page{color:#00d4aa}
+.arc-dd-sep{border-top:1px solid #2a2a3a;margin:4px 0}
+.arc-dd-item.has-sub{justify-content:space-between}
+.arc-dd-item.has-sub::after{content:'›';font-size:14px;opacity:.5;flex-shrink:0;margin-left:auto}
+.arc-sub{position:absolute;left:100%;top:-4px;min-width:180px;background:#13131a;border:1px solid #2a2a3a;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.4);padding:4px;display:none;z-index:1001}
+.arc-dd-item.has-sub:hover .arc-sub{display:block}
 .info-tooltip{position:absolute;z-index:999;background:rgba(19,19,26,0.70);border:0.5px solid var(--border);border-radius:8px;padding:8px 12px;max-width:320px;min-width:200px;width:max-content;font-size:11px;font-family:'DM Mono',monospace;color:var(--text2);line-height:1.5;pointer-events:none;opacity:0;transition:opacity 150ms ease;box-shadow:0 8px 24px rgba(0,0,0,0.4);white-space:normal;backdrop-filter:blur(4px)}
 .info-tooltip.visible{opacity:1}
+/* ── Report Builder Panel ── */
+#rb-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:400;display:none;backdrop-filter:blur(3px)}
+#rb-panel{position:fixed;top:0;right:0;height:100vh;width:420px;background:var(--surface);border-left:1px solid var(--border);z-index:401;display:flex;flex-direction:column;transform:translateX(100%);transition:transform 280ms cubic-bezier(.22,1,.36,1)}
+#rb-panel.open{transform:none}
+#rb-header{padding:18px 20px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.rb-title{font-size:14px;font-weight:600;font-family:'DM Mono',monospace}
+.rb-close{background:none;border:none;color:var(--text3);font-size:20px;cursor:pointer;line-height:1;transition:color .12s}
+.rb-close:hover{color:var(--text)}
+#rb-body{flex:1;overflow-y:auto;padding:20px}
+.rb-field{margin-bottom:18px}
+.rb-label{font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);font-family:'DM Mono',monospace;margin-bottom:7px;display:block}
+.rb-input{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:13px;padding:8px 12px;outline:none;font-family:inherit}
+.rb-input:focus{border-color:var(--accent)}
+.rb-date-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.rb-checks{display:flex;flex-direction:column;gap:7px}
+.rb-check{display:flex;align-items:center;gap:9px;cursor:pointer;font-size:13px;color:var(--text2);user-select:none}
+.rb-check input{width:14px;height:14px;accent-color:var(--accent);cursor:pointer;flex-shrink:0}
+.rb-check:hover{color:var(--text)}
+.rb-pills{display:flex;gap:7px;flex-wrap:wrap}
+.rb-pill{padding:6px 14px;border-radius:20px;border:1px solid var(--border2);font-size:12px;font-family:'DM Mono',monospace;color:var(--text2);cursor:pointer;transition:all .12s;background:none}
+.rb-pill.selected{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+#rb-footer{padding:14px 20px 18px;border-top:1px solid var(--border);flex-shrink:0}
+.rb-generate-btn{width:100%;padding:11px;border-radius:7px;border:none;background:var(--accent);color:#fff;font-size:13px;font-family:'DM Mono',monospace;font-weight:500;cursor:pointer;transition:opacity .15s;letter-spacing:.04em}
+.rb-generate-btn:hover{opacity:.88}
+.rb-generate-btn:disabled{opacity:.5;cursor:default}
+.rb-status{font-size:12px;font-family:'DM Mono',monospace;color:var(--text3);margin-top:8px;text-align:center;min-height:18px}
 </style>
+<script type="module" src="/js/auth.js"></script>
 </head>
 <body>
 
@@ -200,14 +256,55 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
   </a>
   <span class="client-name-display"><span style="font-size:8px;color:#00d4aa;line-height:1">●</span>Peak Flow Plumbing &amp; HVAC</span>
   <div class="spacer"></div>
-  <button class="nav-btn" onclick="location.href='/automations'">⚡ Automations</button>
-  <button class="nav-btn" onclick="openReportBuilder()" style="font-family:'DM Mono',monospace;font-size:13px;color:var(--muted,var(--text2));background:transparent;border:0.5px solid var(--border);border-radius:6px;padding:6px 12px">↓ Report</button>
-  <button class="nav-btn cmndr-btn" onclick="toggleCmndr()">
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
-    CMNDR ✦
-  </button>
-  <button class="nav-btn" onclick="location.href='/connections'">Connections</button>
-  <div class="avatar" id="nav-avatar">A</div>
+  <div class="arc-dd-wrap">
+    <button class="arc-dd-btn" onclick="toggleDd('adapt')">ADAPT ▾</button>
+    <div class="arc-dd" id="dd-adapt-panel">
+      <div class="arc-dd-item has-sub">Visibility
+        <div class="arc-sub">
+          <div class="arc-dd-item" onclick="location.href='/operations'">Operations</div>
+          <div class="arc-dd-item" onclick="location.href='/finance'">Finance</div>
+          <div class="arc-dd-item" onclick="location.href='/marketing'">Marketing</div>
+          <div class="arc-dd-item" onclick="location.href='/yield'">Yield &amp; Efficiency</div>
+          <div class="arc-dd-item" onclick="location.href='/market-scan'">Market Scan</div>
+        </div>
+      </div>
+      <div class="arc-dd-item" onclick="location.href='/audit'">Audits</div>
+      <div class="arc-dd-item" onclick="location.href='/digital-authority'">Digital Authority</div>
+    </div>
+  </div>
+  <div class="arc-dd-wrap">
+    <button class="arc-dd-btn" onclick="toggleDd('react')">REACT ▾</button>
+    <div class="arc-dd" id="dd-react-panel">
+      <div class="arc-dd-item" onclick="location.href='/sprint'">Sprint Planner</div>
+      <div class="arc-dd-item" onclick="location.href='/playbooks'">Playbooks</div>
+      <div class="arc-dd-item has-sub">Generate
+        <div class="arc-sub">
+          <div class="arc-dd-item" onclick="openReportBuilder()">Reports</div>
+        </div>
+      </div>
+      <div class="arc-dd-item" onclick="location.href='/wins'">Win Board</div>
+    </div>
+  </div>
+  <div class="arc-dd-wrap">
+    <button class="arc-dd-btn" onclick="toggleDd('control')">CONTROL ▾</button>
+    <div class="arc-dd" id="dd-control-panel">
+      <div class="arc-dd-item" onclick="location.href='/automations'">Automations</div>
+      <div class="arc-dd-item" onclick="location.href='/connections'">Connections</div>
+      <div class="arc-dd-item" onclick="location.href='/archive'">Archive</div>
+    </div>
+  </div>
+  <div class="arc-dd-wrap">
+    <div class="avatar" id="nav-avatar" onclick="toggleDd('avatar')" style="cursor:pointer">A</div>
+    <div class="arc-dd arc-dd-right" id="dd-avatar-panel">
+      <div class="arc-dd-item" onclick="location.href='#'">Account Settings</div>
+      <div class="arc-dd-sep"></div>
+      <div class="arc-dd-item" onclick="location.href='#'">Terms &amp; Conditions</div>
+      <div class="arc-dd-item" onclick="location.href='#'">Privacy Policy</div>
+      <div class="arc-dd-item" onclick="location.href='#'">Data Protocol Policy</div>
+      <div class="arc-dd-sep"></div>
+      <div class="arc-dd-item" onclick="doSignOut()">Sign Out</div>
+    </div>
+  </div>
 </nav>
 
 <div id="shell">
@@ -249,15 +346,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 
   <div id="content-row">
     <div id="main-col">
-
-      <div id="module-nav">
-        <div class="module-chip active">All</div>
-        <div class="module-chip" onclick="location.href='/operations'">Operations</div>
-        <div class="module-chip" onclick="location.href='/marketing'">Marketing</div>
-        <div class="module-chip" onclick="location.href='/finance'">Finance</div>
-        <div class="module-chip" onclick="location.href='/yield'">Yield &amp; Efficiency</div>
-        <div class="module-chip" onclick="location.href='/audit'">Audit</div>
-      </div>
 
       <div>
         <div class="section-hd">
@@ -312,6 +400,51 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 
 </div>
 
+<!-- Report Builder Panel -->
+<div id="rb-overlay" onclick="closeReportBuilder()"></div>
+<div id="rb-panel">
+  <div id="rb-header">
+    <span class="rb-title">Generate Report</span>
+    <button class="rb-close" onclick="closeReportBuilder()">×</button>
+  </div>
+  <div id="rb-body">
+    <div class="rb-field">
+      <label class="rb-label" for="rb-name">Report Name</label>
+      <input class="rb-input" id="rb-name" type="text" placeholder="e.g. Q2 Performance Summary"/>
+    </div>
+    <div class="rb-field">
+      <label class="rb-label">Date Range</label>
+      <div class="rb-date-row">
+        <input class="rb-input" id="rb-from" type="date"/>
+        <input class="rb-input" id="rb-to" type="date"/>
+      </div>
+    </div>
+    <div class="rb-field">
+      <label class="rb-label">Sections</label>
+      <div class="rb-checks">
+        <label class="rb-check"><input type="checkbox" checked/> Executive Summary</label>
+        <label class="rb-check"><input type="checkbox" checked/> Revenue &amp; Finance</label>
+        <label class="rb-check"><input type="checkbox" checked/> Operations Overview</label>
+        <label class="rb-check"><input type="checkbox"/> Marketing Performance</label>
+        <label class="rb-check"><input type="checkbox"/> Yield &amp; Efficiency</label>
+        <label class="rb-check"><input type="checkbox"/> Exception Log</label>
+      </div>
+    </div>
+    <div class="rb-field">
+      <label class="rb-label">Export Format</label>
+      <div class="rb-pills">
+        <button class="rb-pill selected" onclick="selectPill(this)">PDF</button>
+        <button class="rb-pill" onclick="selectPill(this)">Google Doc</button>
+        <button class="rb-pill" onclick="selectPill(this)">Email</button>
+      </div>
+    </div>
+  </div>
+  <div id="rb-footer">
+    <button class="rb-generate-btn" id="rb-generate-btn" onclick="generateReport()">Generate Report →</button>
+    <div class="rb-status" id="rb-status"></div>
+  </div>
+</div>
+
 <!-- Walkthrough overlay — to reset: localStorage.removeItem('arc_walkthrough_seen') then refresh -->
 <div id="walkthrough-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:1000;align-items:center;justify-content:center;backdrop-filter:blur(4px);">
   <div style="width:100%;max-width:480px;background:var(--surface);border:.5px solid var(--border);border-radius:16px;padding:32px;box-shadow:0 24px 80px rgba(0,0,0,.5);margin:20px;">
@@ -333,6 +466,21 @@ const cmndrActionData = {};
 let entropyData = null;
 let toastTimer = null;
 let toastActionFn = null;
+
+// ── ARC NAV DROPDOWNS ─────────────────────────────────────────────
+function toggleDd(id) {
+  const target = document.getElementById('dd-' + id + '-panel');
+  if (!target) return;
+  const wasOpen = target.classList.contains('open');
+  document.querySelectorAll('.arc-dd').forEach(p => p.classList.remove('open'));
+  if (!wasOpen) target.classList.add('open');
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.arc-dd-wrap')) document.querySelectorAll('.arc-dd').forEach(p => p.classList.remove('open'));
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.querySelectorAll('.arc-dd').forEach(p => p.classList.remove('open'));
+});
 
 async function boot() {
   if (window.location.search.includes('bypass=true') || localStorage.getItem('arc_bypass') === 'true') {
@@ -533,6 +681,42 @@ function addMsg(role, text, typing) {
 function updMsg(id, text) { const el=document.getElementById(id); if(el) el.querySelector('.msg-bubble').textContent=text; }
 function extractJSON(text) { try{const m=text.match(/\{[\s\S]*\}/);return m?JSON.parse(m[0]):null;}catch{return null;} }
 function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ── REPORT BUILDER ───────────────────────────────────────────────
+function openReportBuilder() {
+  document.querySelectorAll('.arc-dd').forEach(p => p.classList.remove('open'));
+  document.getElementById('rb-overlay').style.display = 'block';
+  setTimeout(() => document.getElementById('rb-panel').classList.add('open'), 10);
+  // Default date range: last 30 days
+  const to = new Date(); const from = new Date(to); from.setDate(from.getDate() - 30);
+  document.getElementById('rb-from').value = from.toISOString().slice(0,10);
+  document.getElementById('rb-to').value = to.toISOString().slice(0,10);
+  resetGenerateBtn();
+}
+function closeReportBuilder() {
+  document.getElementById('rb-panel').classList.remove('open');
+  setTimeout(() => { document.getElementById('rb-overlay').style.display = 'none'; }, 280);
+}
+function selectPill(el) {
+  el.closest('.rb-pills').querySelectorAll('.rb-pill').forEach(p => p.classList.remove('selected'));
+  el.classList.add('selected');
+}
+function resetGenerateBtn() {
+  const btn = document.getElementById('rb-generate-btn');
+  btn.textContent = 'Generate Report →'; btn.disabled = false;
+  document.getElementById('rb-status').textContent = '';
+}
+async function generateReport() {
+  const btn = document.getElementById('rb-generate-btn');
+  const status = document.getElementById('rb-status');
+  btn.textContent = 'Generating…'; btn.disabled = true;
+  status.textContent = 'Compiling data and building report…';
+  await new Promise(r => setTimeout(r, 2000));
+  btn.textContent = '✓ Report Ready';
+  btn.style.background = 'var(--green)';
+  status.textContent = 'Your report has been generated and is ready to download.';
+  setTimeout(() => { btn.style.background = ''; resetGenerateBtn(); }, 3500);
+}
 
 // ── WALKTHROUGH ──────────────────────────────────────────────────
 // Reset: localStorage.removeItem('arc_walkthrough_seen') then refresh
@@ -1137,6 +1321,9 @@ function createInfoIcon(tooltipText) {
   const icon = document.createElement('span');
   icon.className = 'info-icon';
   icon.textContent = 'i';
+  icon.setAttribute('aria-label', 'info');
+  icon.style.textTransform = 'lowercase';
+  icon.style.fontVariant = 'normal';
   const tooltip = document.createElement('div');
   tooltip.className = 'info-tooltip';
   tooltip.textContent = tooltipText;
@@ -1166,7 +1353,10 @@ function initInfoIcons() {
     el.style.alignItems = 'center';
   });
 }
-document.addEventListener('DOMContentLoaded', initInfoIcons);
+document.addEventListener('DOMContentLoaded', () => {
+  initInfoIcons();
+  document.querySelectorAll('.info-icon').forEach(icon => { icon.textContent = 'i'; icon.style.textTransform = 'lowercase'; });
+});
 
 boot();
 </script>
@@ -1279,8 +1469,10 @@ const REPORT_SECTIONS = [
   { id:'ops',       emoji:'⚙', name:'Operations Overview',    desc:'Job pipeline, tech performance, team utilization', selected:true },
   { id:'marketing', emoji:'📈', name:'Marketing Intelligence', desc:'Lead pipeline, conversion rates, channel performance', selected:false },
   { id:'finance',   emoji:'💰', name:'Finance & Collections',  desc:'Revenue, AR aging, cash flow projection', selected:false },
-  { id:'yield',     emoji:'⚡', name:'Yield & Efficiency',     desc:'Automation ROI, labor savings, efficiency score', selected:false },
-  { id:'cmndr',     emoji:'✦', name:'CMNDR Executive Summary', desc:'AI-generated narrative and strategic recommendations', selected:false },
+  { id:'yield',            emoji:'⚡', name:'Yield & Efficiency',        desc:'Automation ROI, labor savings, efficiency score', selected:false },
+  { id:'market-scan',      emoji:'🔍', name:'Market Scan Summary',       desc:'Keyword insights, competition analysis, local demand', selected:false },
+  { id:'digital-authority',emoji:'📡', name:'Digital Authority Summary', desc:'Online presence score, search visibility, authority metrics', selected:false },
+  { id:'cmndr',            emoji:'✦', name:'CMNDR Executive Summary',   desc:'AI-generated narrative and strategic recommendations', selected:false },
 ];
 let _rptFmt = 'pdf';
 let _rptSections = {};
@@ -1423,5 +1615,6 @@ function closeReportPreview() {
 function downloadReport() { window.print(); }
 </script>
 
+<script src="/arc-report-builder.js"></script>
 </body>
 </html>

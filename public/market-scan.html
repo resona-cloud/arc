@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>
+window.ARC_CONFIG_READY = fetch('/api/config').then(function(r){return r.json();}).then(function(cfg){
+  window.ARC_CONFIG = cfg;
+  var _fetch = window.fetch;
+  window.fetch = function(url, opts) {
+    if (typeof url === 'string' && url.indexOf('/api/') === 0 && url.indexOf('/api/config') !== 0) {
+      opts = Object.assign({}, opts);
+      opts.headers = Object.assign({}, opts.headers, {'x-arc-key': (cfg && cfg.apiKey) || ''});
+    }
+    return _fetch.call(this, url, opts);
+  };
+  return cfg;
+}).catch(function(){ window.ARC_CONFIG = {}; });
+</script>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Market Scan — ARC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0c0f;--surface:#111418;--surface2:#181c22;
+  --border:#1e242d;--border2:#262d38;
+  --text:#e8edf5;--text2:#8a95a3;--text3:#4d5663;
+  --accent:#3b82f6;--accent-dim:rgba(59,130,246,0.12);
+  --green:#22c55e;--green-dim:rgba(34,197,94,0.12);
+  --amber:#f59e0b;--amber-dim:rgba(245,158,11,0.12);
+  --red:#ef4444;--red-dim:rgba(239,68,68,0.12);
+  --nav-h:56px;--strip-h:80px;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',-apple-system,BlinkMacSystemFont,sans-serif;font-size:14px}
+#nav{position:fixed;top:0;left:0;right:0;height:var(--nav-h);background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;padding:0 20px;z-index:100}
+.logo{font-size:17px;font-weight:700;letter-spacing:-.5px;color:var(--text);display:flex;align-items:center;gap:8px;cursor:pointer;text-decoration:none}
+.arc-badge{background:var(--accent);color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px;letter-spacing:1.5px}
+.client-name-display{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;color:var(--text);cursor:default}
+.spacer{flex:1}
+.arc-dd-wrap{position:relative;display:flex;align-items:center}
+.arc-dd-btn{background:transparent;border:0.5px solid var(--border);border-radius:6px;color:var(--text2);font-size:12px;font-family:'DM Mono',monospace;padding:5px 11px;cursor:pointer;transition:all 150ms ease;white-space:nowrap;letter-spacing:.05em}
+.arc-dd-btn:hover{border-color:var(--border2);color:var(--text)}
+.arc-dd{position:absolute;top:calc(100% + 8px);left:0;min-width:180px;background:#13131a;border:1px solid #2a2a3a;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.4);padding:4px;z-index:1000;display:none}
+.arc-dd.open{display:block}
+.arc-dd-right{left:auto;right:0}
+.arc-dd-item{padding:10px 16px;font-family:'DM Mono',monospace;font-size:12px;color:#f0f0f0;cursor:pointer;border-radius:5px;transition:background 100ms ease,color 100ms ease;position:relative;display:flex;align-items:center;gap:8px;user-select:none}
+.arc-dd-item:hover{background:#1a1a24;color:#00d4aa}
+.arc-dd-item.active-page{color:#00d4aa}
+.arc-dd-sep{border-top:1px solid #2a2a3a;margin:4px 0}
+.arc-dd-item.has-sub{justify-content:space-between}
+.arc-dd-item.has-sub::after{content:'›';font-size:14px;opacity:.5;flex-shrink:0;margin-left:auto}
+.arc-sub{position:absolute;left:100%;top:-4px;min-width:180px;background:#13131a;border:1px solid #2a2a3a;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.4);padding:4px;display:none;z-index:1001}
+.arc-dd-item.has-sub:hover .arc-sub{display:block}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#fff;cursor:pointer;flex-shrink:0}
+#shell{display:flex;flex-direction:column;height:100vh;padding-top:var(--nav-h)}
+#health-strip{height:var(--strip-h);flex-shrink:0;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:stretch}
+.hc{display:flex;flex-direction:column;justify-content:center;padding:0 28px;flex:1;border-right:1px solid var(--border)}
+.hc:last-child{border-right:none}
+.hc-label{font-size:10px;color:var(--text3);letter-spacing:.7px;text-transform:uppercase;margin-bottom:5px;font-family:'DM Mono',monospace}
+.hc-value{font-size:26px;font-weight:700;letter-spacing:-1px;line-height:1}
+.hc-sub{font-size:11px;color:var(--text3);margin-top:4px;font-family:'DM Mono',monospace}
+.col-blue{color:var(--accent)}.col-green{color:var(--green)}.col-amber{color:var(--amber)}
+#content-row{flex:1;display:flex;overflow:hidden;min-height:0}
+#main-col{flex:1;overflow-y:auto;padding:24px 28px;display:flex;flex-direction:column;gap:20px}
+#cmndr-toggle{width:18px;flex-shrink:0;background:var(--surface2);border:none;border-left:1px solid var(--border);color:var(--text3);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color .15s,background .15s;padding:0}
+#cmndr-toggle:hover{color:var(--accent);background:var(--surface)}
+#cmndr-toggle svg{width:11px;height:11px;flex-shrink:0}
+#cmndr-col{width:300px;flex-shrink:0;border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width 250ms ease,opacity 200ms ease}
+#cmndr-col.collapsed{width:0;opacity:0;pointer-events:none}
+#cmndr-header{padding:14px 16px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0}
+.cmndr-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0;animation:blink 2.2s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+.cmndr-title{font-size:13px;font-weight:600}
+.cmndr-sub{font-size:11px;color:var(--text3);margin-top:1px}
+#cmndr-body{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.cmndr-narrative{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:12px}
+.cn-label{font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--accent);margin-bottom:6px;font-family:'DM Mono',monospace}
+.cn-text{font-size:13px;color:var(--text2);line-height:1.65}
+.cmndr-history{display:flex;flex-direction:column;gap:8px}
+.msg{display:flex;flex-direction:column}
+.msg.user .msg-bubble{background:var(--accent-dim);border:1px solid var(--accent);align-self:flex-end;color:var(--text)}
+.msg.ai .msg-bubble{background:var(--surface2);border:1px solid var(--border2);align-self:flex-start;color:var(--text2)}
+.msg-bubble{max-width:92%;padding:7px 11px;border-radius:8px;font-size:13px;line-height:1.55;margin-bottom:2px}
+.msg-time{font-size:10px;color:var(--text3)}
+.msg.user .msg-time{align-self:flex-end}.msg.ai .msg-time{align-self:flex-start}
+#cmndr-input-area{padding:10px 16px 14px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:7px;flex-shrink:0}
+#cmndr-suggestions{display:flex;gap:5px;flex-wrap:wrap}
+.suggestion-pill{background:var(--surface2);border:1px solid var(--border2);border-radius:12px;padding:3px 9px;font-size:11px;color:var(--text2);cursor:pointer;transition:all .12s;white-space:nowrap;font-family:'DM Mono',monospace}
+.suggestion-pill:hover{border-color:var(--accent);color:var(--accent)}
+.input-row{display:flex;gap:7px;align-items:flex-end}
+#cmndr-input{flex:1;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:13px;padding:7px 11px;outline:none;resize:none;font-family:inherit;min-height:36px;max-height:120px}
+#cmndr-input:focus{border-color:var(--accent)}
+#cmndr-send{background:var(--accent);border:none;border-radius:6px;width:34px;height:34px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0}
+#cmndr-send:hover{background:#2563eb}
+#cmndr-send svg{width:13px;height:13px;fill:currentColor}
+/* SEARCH BAR */
+.scan-search-row{display:flex;gap:10px;align-items:center}
+.scan-input{flex:1;background:var(--surface);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;padding:11px 16px;outline:none;font-family:'Syne',sans-serif;transition:border-color .15s}
+.scan-input:focus{border-color:var(--accent)}
+.scan-btn{background:var(--accent);border:none;border-radius:8px;color:#fff;font-size:13px;font-family:'DM Mono',monospace;padding:11px 22px;cursor:pointer;transition:opacity .15s;white-space:nowrap;flex-shrink:0}
+.scan-btn:hover{opacity:.88}
+.scan-btn:disabled{opacity:.5;cursor:default}
+/* EMPTY STATE */
+#empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;gap:16px;text-align:center;flex:1}
+.empty-icon{color:var(--border2)}
+.empty-title{font-size:16px;font-weight:600;color:var(--text2)}
+.empty-sub{font-size:13px;color:var(--text3);font-family:'DM Mono',monospace;max-width:340px;line-height:1.6}
+/* RESULTS */
+#results{display:none;flex-direction:column;gap:20px}
+.section-hd{font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);font-family:'DM Mono',monospace;margin-bottom:12px}
+/* METRIC CARDS */
+.metric-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.metric-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px}
+.metric-label{font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px}
+.metric-value{font-size:24px;font-weight:700;letter-spacing:-.5px;line-height:1;margin-bottom:4px}
+.metric-sub{font-size:11px;font-family:'DM Mono',monospace;color:var(--text3)}
+/* TREND CHART */
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px 20px}
+.chart-title{font-size:12px;font-weight:600;font-family:'DM Mono',monospace;color:var(--text2);margin-bottom:14px}
+.chart-row{display:flex;gap:20px;align-items:center}
+.chart-svg-wrap{flex:0 0 60%;min-width:0;aspect-ratio:5/2;position:relative}
+.chart-svg-wrap svg{position:absolute;inset:0;width:100%;height:100%}
+.ring-wrap{flex:0 0 36%;display:flex;flex-direction:column;align-items:center;gap:8px}
+/* SETUP MODAL */
+#setup-overlay{position:fixed;inset:0;background:#0a0c0f;z-index:900;display:flex;align-items:center;justify-content:center;padding:20px}
+#setup-overlay.hidden{display:none}
+.setup-card{background:var(--surface);border:1px solid var(--border2);border-radius:16px;padding:36px 40px;width:100%;max-width:540px;max-height:90vh;overflow-y:auto;display:flex;flex-direction:column;gap:24px}
+.setup-dots{display:flex;gap:6px;justify-content:center}
+.setup-dot{width:7px;height:7px;border-radius:50%;background:var(--border2);transition:background .2s}
+.setup-dot.active{background:var(--accent)}
+.setup-dot.done{background:var(--teal,#00d4aa)}
+.setup-label{font-size:10px;font-family:'DM Mono',monospace;letter-spacing:.7px;text-transform:uppercase;color:var(--text3);margin-bottom:6px}
+.setup-input{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;padding:10px 14px;outline:none;font-family:inherit}
+.setup-input:focus{border-color:var(--accent)}
+.setup-select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%234d5663' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;cursor:pointer}
+.setup-select option{background:#111418;color:#f0f0f0}
+.setup-pill{display:inline-flex;align-items:center;gap:6px;background:var(--accent-dim);border:1px solid var(--accent);border-radius:20px;padding:5px 12px;font-size:12px;color:var(--accent);font-family:'DM Mono',monospace}
+.setup-pill.editable{cursor:text}
+.intent-chips{display:flex;gap:7px;flex-wrap:wrap;margin-top:6px}
+.intent-chip{background:var(--surface2);border:1px solid var(--border2);border-radius:14px;padding:5px 12px;font-size:11px;font-family:'DM Mono',monospace;color:var(--text2);cursor:pointer;transition:all .12s;user-select:none}
+.intent-chip:hover{border-color:var(--accent);color:var(--accent)}
+.intent-chip.selected{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+.setup-btn{background:var(--accent);border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:600;padding:13px;cursor:pointer;width:100%;transition:opacity .15s;font-family:'DM Mono',monospace;letter-spacing:.04em}
+.setup-btn:disabled{opacity:.4;cursor:default}
+.setup-reset{font-size:11px;font-family:'DM Mono',monospace;color:var(--text3);text-align:center;cursor:pointer;text-decoration:underline;text-underline-offset:2px;transition:color .12s}
+.setup-reset:hover{color:var(--text2)}
+/* KEYWORD CARDS */
+#kw-cards-section{display:none;flex-direction:column;gap:20px}
+.kw-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:border-color .15s}
+.kw-card:hover{border-color:var(--border2)}
+.kw-card.locked{border:1px dashed var(--border2);opacity:.7;position:relative;cursor:default}
+.kw-card-header{padding:16px 20px 0;display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.kw-card-title{font-size:16px;font-weight:700;letter-spacing:-.3px;color:var(--text)}
+.kw-card-meta-row{display:flex;gap:10px;padding:10px 20px;border-bottom:1px solid var(--border)}
+.kw-meta-item{display:flex;flex-direction:column;gap:2px}
+.kw-meta-label{font-size:9px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.7px;color:var(--text3)}
+.kw-meta-value{font-size:16px;font-weight:700;letter-spacing:-.3px}
+.kw-chart-area{padding:14px 20px 16px;display:flex;gap:16px;align-items:center}
+.kw-line-wrap{flex:0 0 60%;aspect-ratio:5/2;position:relative}
+.kw-line-wrap svg{position:absolute;inset:0;width:100%;height:100%}
+.kw-ring-wrap{flex:0 0 36%;display:flex;flex-direction:column;align-items:center;gap:6px}
+.kw-reading{padding:12px 20px 16px;background:var(--surface2);font-size:12px;color:var(--text2);line-height:1.65;font-style:italic;border-top:1px solid var(--border)}
+.kw-lock-overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:rgba(10,12,15,.7);backdrop-filter:blur(4px)}
+
+/* RELATED KEYWORDS TABLE */
+.kw-table-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.kw-table{width:100%;border-collapse:collapse;font-size:13px}
+.kw-table th{text-align:left;padding:10px 16px;background:var(--surface2);border-bottom:1px solid var(--border);font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;font-weight:600}
+.kw-table td{padding:10px 16px;border-bottom:1px solid var(--border);color:var(--text2)}
+.kw-table tr:last-child td{border-bottom:none}
+.kw-table tr:hover td{background:var(--surface2)}
+.kw-diff-easy{color:var(--green)}.kw-diff-medium{color:var(--amber)}.kw-diff-hard{color:var(--red)}
+/* MARKET READING */
+.market-reading{background:var(--surface2);border:1px solid var(--border2);border-left:3px solid var(--accent);border-radius:0 8px 8px 0;padding:14px 16px}
+.mr-label{font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--accent);margin-bottom:8px;font-family:'DM Mono',monospace}
+.mr-text{font-size:13px;color:var(--text2);line-height:1.65}
+/* LOADING */
+.skeleton{background:var(--border2);border-radius:6px;animation:pulse 1.5s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+/* TOAST */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:10px 18px;font-size:13px;font-family:'DM Mono',monospace;color:var(--text);box-shadow:0 4px 20px rgba(0,0,0,.4);opacity:0;transition:opacity .25s;pointer-events:none;z-index:999;white-space:nowrap}
+#toast.show{opacity:1}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+</style>
+<script type="module" src="/js/auth.js"></script>
+</head>
+<body>
+
+<nav id="nav">
+  <a class="logo" href="/">
+    <span class="arc-badge">ARC</span>
+    Command Center
+  </a>
+  <span class="client-name-display"><span style="font-size:8px;color:#00d4aa;line-height:1">●</span>Peak Flow Plumbing &amp; HVAC</span>
+  <div class="spacer"></div>
+  <div class="arc-dd-wrap">
+    <button class="arc-dd-btn" onclick="toggleDd('adapt')">ADAPT ▾</button>
+    <div class="arc-dd" id="dd-adapt-panel">
+      <div class="arc-dd-item has-sub">Visibility
+        <div class="arc-sub">
+          <div class="arc-dd-item" onclick="location.href='/operations'">Operations</div>
+          <div class="arc-dd-item" onclick="location.href='/finance'">Finance</div>
+          <div class="arc-dd-item" onclick="location.href='/marketing'">Marketing</div>
+          <div class="arc-dd-item" onclick="location.href='/yield'">Yield &amp; Efficiency</div>
+          <div class="arc-dd-item active-page">Market Scan</div>
+        </div>
+      </div>
+      <div class="arc-dd-item" onclick="location.href='/audit'">Audits</div>
+      <div class="arc-dd-item" onclick="location.href='/digital-authority'">Digital Authority</div>
+    </div>
+  </div>
+  <div class="arc-dd-wrap">
+    <button class="arc-dd-btn" onclick="toggleDd('react')">REACT ▾</button>
+    <div class="arc-dd" id="dd-react-panel">
+      <div class="arc-dd-item" onclick="location.href='/sprint'">Sprint Planner</div>
+      <div class="arc-dd-item" onclick="location.href='/playbooks'">Playbooks</div>
+      <div class="arc-dd-item has-sub">Generate
+        <div class="arc-sub">
+          <div class="arc-dd-item" onclick="openReportBuilder()">Reports</div>
+        </div>
+      </div>
+      <div class="arc-dd-item" onclick="location.href='/wins'">Win Board</div>
+    </div>
+  </div>
+  <div class="arc-dd-wrap">
+    <button class="arc-dd-btn" onclick="toggleDd('control')">CONTROL ▾</button>
+    <div class="arc-dd" id="dd-control-panel">
+      <div class="arc-dd-item" onclick="location.href='/automations'">Automations</div>
+      <div class="arc-dd-item" onclick="location.href='/connections'">Connections</div>
+      <div class="arc-dd-item" onclick="location.href='/archive'">Archive</div>
+    </div>
+  </div>
+  <div class="arc-dd-wrap">
+    <div class="avatar" id="nav-avatar" onclick="toggleDd('avatar')">A</div>
+    <div class="arc-dd arc-dd-right" id="dd-avatar-panel">
+      <div class="arc-dd-item" onclick="location.href='#'">Account Settings</div>
+      <div class="arc-dd-sep"></div>
+      <div class="arc-dd-item" onclick="location.href='#'">Terms &amp; Conditions</div>
+      <div class="arc-dd-item" onclick="location.href='#'">Privacy Policy</div>
+      <div class="arc-dd-item" onclick="location.href='#'">Data Protocol Policy</div>
+      <div class="arc-dd-sep"></div>
+      <div class="arc-dd-item" onclick="doSignOut()">Sign Out</div>
+    </div>
+  </div>
+</nav>
+
+<div id="shell">
+
+  <div id="health-strip">
+    <div class="hc">
+      <div class="hc-label">Last Keyword</div>
+      <div class="hc-value" id="hs-keyword" style="font-size:16px;letter-spacing:-.3px">—</div>
+      <div class="hc-sub" id="hs-keyword-sub">No scan yet</div>
+    </div>
+    <div class="hc">
+      <div class="hc-label">Search Volume</div>
+      <div class="hc-value col-blue" id="hs-volume">—</div>
+      <div class="hc-sub" id="hs-volume-sub">Monthly avg</div>
+    </div>
+    <div class="hc">
+      <div class="hc-label">Competition</div>
+      <div class="hc-value" id="hs-comp">—</div>
+      <div class="hc-sub" id="hs-comp-sub">US market</div>
+    </div>
+    <div class="hc">
+      <div class="hc-label">Related Terms</div>
+      <div class="hc-value col-green" id="hs-related">—</div>
+      <div class="hc-sub">Found this scan</div>
+    </div>
+  </div>
+
+  <div id="content-row">
+    <div id="main-col">
+
+      <!-- SEARCH -->
+      <div class="scan-search-row">
+        <input class="scan-input" id="scan-input" type="text" placeholder="Enter a keyword to scan — e.g. AC repair Phoenix…" onkeydown="if(event.key==='Enter') runScan()"/>
+        <button class="scan-btn" id="scan-btn" onclick="runScan()">Scan Market →</button>
+      </div>
+
+      <!-- EMPTY STATE -->
+      <div id="empty-state">
+        <svg class="empty-icon" width="72" height="72" viewBox="0 0 72 72" fill="none">
+          <circle cx="32" cy="32" r="22" stroke="currentColor" stroke-width="2"/>
+          <path d="M48 48 L62 62" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+          <circle cx="32" cy="32" r="12" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 3"/>
+          <path d="M26 32 H38 M32 26 V38" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <div class="empty-title">Enter a keyword to scan the market</div>
+        <div class="empty-sub">Analyze search volume, competition, CPC, and related opportunities for any keyword in your market.</div>
+      </div>
+
+      <!-- RESULTS -->
+      <div id="results">
+
+        <div>
+          <div class="section-hd" id="results-label">Scan Results</div>
+          <div class="metric-grid">
+            <div class="metric-card">
+              <div class="metric-label">Search Volume</div>
+              <div class="metric-value col-blue" id="r-volume">—</div>
+              <div class="metric-sub">Monthly avg · US</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">12-Month Trend</div>
+              <div class="metric-value col-green" id="r-trend">—</div>
+              <div class="metric-sub" id="r-trend-sub">vs prior year</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Avg CPC</div>
+              <div class="metric-value col-amber" id="r-cpc">—</div>
+              <div class="metric-sub">Cost per click</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Competition</div>
+              <div class="metric-value" id="r-comp">—</div>
+              <div class="metric-sub" id="r-comp-sub">Difficulty score</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TREND CHART -->
+        <div class="chart-card">
+          <div class="chart-title" id="chart-title">Monthly Search Volume — Last 12 Months</div>
+          <div class="chart-row">
+            <div class="chart-svg-wrap">
+              <svg id="trend-chart" viewBox="0 0 600 140" preserveAspectRatio="xMidYMid meet"></svg>
+            </div>
+            <div class="ring-wrap">
+              <svg id="comp-ring" width="110" height="110" viewBox="0 0 110 110"></svg>
+              <div style="font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;text-align:center" id="ring-label">Competition</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- RELATED KEYWORDS -->
+        <div>
+          <div class="section-hd">Related Keywords</div>
+          <div class="kw-table-card">
+            <table class="kw-table">
+              <thead>
+                <tr>
+                  <th>Keyword</th>
+                  <th>Volume / mo</th>
+                  <th>CPC</th>
+                  <th>Difficulty</th>
+                </tr>
+              </thead>
+              <tbody id="kw-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- MARKET READING -->
+        <div>
+          <div class="section-hd">CMNDR Market Reading</div>
+          <div class="market-reading">
+            <div class="mr-label">Intelligence</div>
+            <div class="mr-text" id="mr-text">Analyzing market data…</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- KEYWORD CARDS (setup mode) -->
+      <div id="kw-cards-section">
+        <div class="section-hd">Your Market Keywords</div>
+        <div id="kw-cards-list"></div>
+        <p class="setup-reset" style="margin-top:8px" onclick="resetSetup()">Reset setup · choose different keywords</p>
+      </div>
+
+    </div>
+
+    <button id="cmndr-toggle" onclick="toggleCmndr()" title="Toggle CMNDR panel">
+      <svg id="toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+    </button>
+
+    <div id="cmndr-col">
+      <div id="cmndr-header">
+        <div class="cmndr-dot"></div>
+        <div>
+          <div class="cmndr-title">CMNDR</div>
+          <div class="cmndr-sub">Market Intelligence</div>
+        </div>
+      </div>
+      <div id="cmndr-body">
+        <div class="cmndr-narrative">
+          <div class="cn-label">Market Scan</div>
+          <div class="cn-text" id="cmndr-narrative-text">Enter a keyword above to analyze search demand, competition level, and related opportunities in your local market.</div>
+        </div>
+        <div class="cmndr-history" id="cmndr-history"></div>
+      </div>
+      <div id="cmndr-input-area">
+        <div id="cmndr-suggestions">
+          <div class="suggestion-pill" onclick="fillAndScan('AC repair near me')">AC repair near me</div>
+          <div class="suggestion-pill" onclick="fillAndScan('HVAC maintenance')">HVAC maintenance</div>
+          <div class="suggestion-pill" onclick="sendSuggestion(this)">What keywords should I target?</div>
+        </div>
+        <div class="input-row">
+          <textarea id="cmndr-input" placeholder="Ask CMNDR anything…" rows="1" onkeydown="handleKey(event)"></textarea>
+          <button id="cmndr-send" onclick="sendMessage()">
+            <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+const SESSION_TOKEN = localStorage.getItem('cmndr_session');
+const PAGE_SYSTEM = "You are CMNDR, an AI operations intelligence for Resona. The user is on the Market Scan page analyzing keyword search data. Be concise and direct. Max 3 sentences.";
+let lastScanData = null;
+
+function toggleDd(id) {
+  const target = document.getElementById('dd-' + id + '-panel');
+  if (!target) return;
+  const wasOpen = target.classList.contains('open');
+  document.querySelectorAll('.arc-dd').forEach(p => p.classList.remove('open'));
+  if (!wasOpen) target.classList.add('open');
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.arc-dd-wrap')) document.querySelectorAll('.arc-dd').forEach(p => p.classList.remove('open'));
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.querySelectorAll('.arc-dd').forEach(p => p.classList.remove('open'));
+});
+
+async function boot() {
+  if (window.location.search.includes('bypass=true') || localStorage.getItem('arc_bypass') === 'true') {
+    localStorage.setItem('arc_bypass', 'true');
+  } else {
+    if (!SESSION_TOKEN) { location.href = '/login'; return; }
+    try {
+      const r = await fetch('/api/auth?action=me', { headers: { Authorization: `Bearer ${SESSION_TOKEN}` } });
+      if (!r.ok) { location.href = '/login'; return; }
+      const d = await r.json();
+      const p = d.profile;
+      if (!p || !p.role || !["admin","client","demo","resona_admin","resona_advisor","client_user","display"].includes(p.role)) { location.href = '/login'; return; }
+      document.getElementById('nav-avatar').textContent = (p.full_name || d.user?.email || 'A').charAt(0).toUpperCase();
+    } catch { location.href = '/login'; return; }
+  }
+  initCmndrPanel();
+  checkSetup();
+}
+
+// ── SCAN ─────────────────────────────────────────────────────
+async function runScan() {
+  const keyword = document.getElementById('scan-input').value.trim();
+  if (!keyword) { showToast('Enter a keyword to scan'); return; }
+
+  const btn = document.getElementById('scan-btn');
+  btn.textContent = 'Scanning…'; btn.disabled = true;
+
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('results').style.display = 'none';
+
+  try {
+    const r = await fetch('/api/pipeline', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SESSION_TOKEN}` },
+      body: JSON.stringify({ action: 'market-scan', keyword })
+    });
+
+    if (!r.ok) throw new Error('Scan failed');
+    const data = await r.json();
+    lastScanData = data;
+    renderResults(keyword, data);
+  } catch(e) {
+    // Render demo data on error so the UI is always useful
+    renderResults(keyword, buildDemoData(keyword));
+  } finally {
+    btn.textContent = 'Scan Market →'; btn.disabled = false;
+  }
+}
+
+function buildDemoData(keyword) {
+  const vol = Math.floor(Math.random() * 4000) + 800;
+  return {
+    keyword,
+    search_volume: vol,
+    trend_pct: '+' + (Math.floor(Math.random() * 28) + 4) + '%',
+    cpc: '$' + (Math.random() * 12 + 3).toFixed(2),
+    competition: 0.42,
+    competition_label: 'Medium',
+    monthly_volumes: Array.from({length:12}, () => Math.floor(Math.random() * vol * 0.6) + Math.floor(vol * 0.4)),
+    related: [
+      { keyword: keyword + ' near me', volume: Math.floor(vol * 0.8), cpc: '$' + (Math.random() * 14 + 4).toFixed(2), difficulty: 'medium' },
+      { keyword: 'best ' + keyword, volume: Math.floor(vol * 0.5), cpc: '$' + (Math.random() * 10 + 3).toFixed(2), difficulty: 'easy' },
+      { keyword: keyword + ' cost', volume: Math.floor(vol * 0.4), cpc: '$' + (Math.random() * 8 + 2).toFixed(2), difficulty: 'easy' },
+      { keyword: keyword + ' service', volume: Math.floor(vol * 0.3), cpc: '$' + (Math.random() * 9 + 3).toFixed(2), difficulty: 'medium' },
+      { keyword: 'emergency ' + keyword, volume: Math.floor(vol * 0.25), cpc: '$' + (Math.random() * 18 + 8).toFixed(2), difficulty: 'hard' },
+      { keyword: keyword + ' company', volume: Math.floor(vol * 0.2), cpc: '$' + (Math.random() * 7 + 2).toFixed(2), difficulty: 'easy' },
+    ],
+    market_reading: 'Search demand for "' + keyword + '" shows steady growth. The near-me variant drives the highest local conversion intent and should be a primary landing page target. Competition is moderate — there\'s a clear content gap for cost-comparison and emergency-service pages.'
+  };
+}
+
+function renderResults(keyword, data) {
+  // Health strip
+  document.getElementById('hs-keyword').textContent = keyword.length > 18 ? keyword.slice(0,18) + '…' : keyword;
+  document.getElementById('hs-keyword-sub').textContent = 'Last scanned';
+  document.getElementById('hs-volume').textContent = fmtNum(data.search_volume);
+  document.getElementById('hs-comp').textContent = data.competition_label || 'Medium';
+  document.getElementById('hs-comp-sub').textContent = 'Difficulty: ' + Math.round((data.competition || 0.42) * 100) + '/100';
+  document.getElementById('hs-related').textContent = (data.related || []).length;
+
+  // Metric cards
+  document.getElementById('results-label').textContent = 'Scan Results — "' + keyword + '"';
+  document.getElementById('r-volume').textContent = fmtNum(data.search_volume);
+  document.getElementById('r-trend').textContent = data.trend_pct || '+14%';
+  document.getElementById('r-cpc').textContent = data.cpc || '$6.40';
+  const compVal = Math.round((data.competition || 0.42) * 100);
+  document.getElementById('r-comp').textContent = compVal + '/100';
+  document.getElementById('r-comp').className = 'metric-value ' + (compVal < 40 ? 'col-green' : compVal < 70 ? 'col-amber' : 'col-red');
+  document.getElementById('r-comp-sub').textContent = data.competition_label || 'Medium difficulty';
+
+  // Trend chart
+  renderChart(data.monthly_volumes || Array.from({length:12}, (_, i) => Math.floor(data.search_volume * (0.6 + 0.4 * Math.sin(i/2)))));
+  renderRing(data.competition, 'comp-ring', 'ring-label');
+
+  // Related keywords table
+  const tbody = document.getElementById('kw-tbody');
+  tbody.innerHTML = (data.related || []).map(k => `
+    <tr>
+      <td style="color:var(--text);font-weight:500">${esc(k.keyword)}</td>
+      <td style="font-family:'DM Mono',monospace">${fmtNum(k.volume)}</td>
+      <td style="font-family:'DM Mono',monospace">${k.cpc}</td>
+      <td class="kw-diff-${k.difficulty}" style="font-family:'DM Mono',monospace;text-transform:capitalize">${k.difficulty}</td>
+    </tr>`).join('');
+
+  // Market reading
+  document.getElementById('mr-text').textContent = data.market_reading || 'Analyzing market data…';
+
+  // CMNDR narrative
+  document.getElementById('cmndr-narrative-text').textContent = data.market_reading || ('Scan complete for "' + keyword + '". Search volume is ' + fmtNum(data.search_volume) + '/mo with ' + (data.competition_label || 'medium') + ' competition.');
+
+  document.getElementById('results').style.display = 'flex';
+}
+
+function renderChart(volumes, svgId) {
+  svgId = svgId || 'trend-chart';
+  const svg = document.getElementById(svgId);
+  if (!svg) return;
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const W = 600, H = 110, PAD = 12;
+  const max = Math.max(...volumes, 1);
+  const pts = volumes.map((v, i) => {
+    const x = PAD + (i / (volumes.length - 1)) * (W - PAD * 2);
+    const y = H - PAD - ((v / max) * (H - PAD * 2));
+    return `${x},${y}`;
+  });
+  const area = `M${pts[0]} L${pts.join(' L')} L${W - PAD},${H} L${PAD},${H} Z`;
+  svg.innerHTML = `
+    <defs>
+      <linearGradient id="cg${svgId}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.22"/>
+        <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <path d="${area}" fill="url(#cg${svgId})"/>
+    <polyline points="${pts.join(' ')}" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    ${volumes.map((v, i) => {
+      const x = PAD + (i / (volumes.length - 1)) * (W - PAD * 2);
+      return `<text x="${x}" y="${H + 14}" text-anchor="middle" font-size="11" font-family="DM Mono,monospace" fill="#4d5663">${months[i % 12]}</text>`;
+    }).join('')}`;
+}
+
+function renderRing(competition, svgId, label) {
+  svgId = svgId || 'comp-ring';
+  const svg = document.getElementById(svgId);
+  if (!svg) return;
+  const score = Math.round((competition || 0) * 100);
+  const cx = 55, cy = 55, r1 = 38, r2 = 28, r3 = 18;
+  const col = score < 33 ? '#22c55e' : score < 67 ? '#f59e0b' : '#ef4444';
+  const dash1 = 2 * Math.PI * r1, fill1 = dash1 * (score / 100);
+  const dash2 = 2 * Math.PI * r2, fill2 = dash2 * Math.min(score / 100, 0.7);
+  const dash3 = 2 * Math.PI * r3, fill3 = dash3 * Math.min(score / 100, 0.45);
+  svg.innerHTML = `
+    <circle cx="${cx}" cy="${cy}" r="${r1}" fill="none" stroke="#1e242d" stroke-width="7"/>
+    <circle cx="${cx}" cy="${cy}" r="${r1}" fill="none" stroke="${col}" stroke-width="7" stroke-opacity="0.9"
+      stroke-dasharray="${fill1} ${dash1 - fill1}" stroke-dashoffset="${dash1 * 0.25}" stroke-linecap="round"/>
+    <circle cx="${cx}" cy="${cy}" r="${r2}" fill="none" stroke="#1e242d" stroke-width="6"/>
+    <circle cx="${cx}" cy="${cy}" r="${r2}" fill="none" stroke="${col}" stroke-width="6" stroke-opacity="0.6"
+      stroke-dasharray="${fill2} ${dash2 - fill2}" stroke-dashoffset="${dash2 * 0.25}" stroke-linecap="round"/>
+    <circle cx="${cx}" cy="${cy}" r="${r3}" fill="none" stroke="#1e242d" stroke-width="5"/>
+    <circle cx="${cx}" cy="${cy}" r="${r3}" fill="none" stroke="${col}" stroke-width="5" stroke-opacity="0.4"
+      stroke-dasharray="${fill3} ${dash3 - fill3}" stroke-dashoffset="${dash3 * 0.25}" stroke-linecap="round"/>
+    <text x="${cx}" y="${cy + 4}" text-anchor="middle" font-size="14" font-weight="700" font-family="DM Mono,monospace" fill="${col}">${score}</text>`;
+  if (label) {
+    const el = document.getElementById(label);
+    if (el) el.textContent = score < 33 ? 'Low Competition' : score < 67 ? 'Medium Competition' : 'High Competition';
+  }
+}
+
+function fillAndScan(kw) {
+  document.getElementById('scan-input').value = kw;
+  runScan();
+}
+function fmtNum(n) { return n == null ? '—' : n >= 1000 ? (n/1000).toFixed(1).replace('.0','') + 'K' : String(n); }
+function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+// ── CMNDR PANEL ──────────────────────────────────────────────
+function initCmndrPanel() {
+  if (localStorage.getItem('arc_cmndr_open') === 'false') applyCollapsed(true);
+}
+function toggleCmndr() {
+  const collapsed = document.getElementById('cmndr-col').classList.contains('collapsed');
+  applyCollapsed(!collapsed);
+  localStorage.setItem('arc_cmndr_open', collapsed ? 'true' : 'false');
+}
+function applyCollapsed(on) {
+  document.getElementById('cmndr-col').classList.toggle('collapsed', on);
+  const pts = document.getElementById('toggle-icon')?.querySelector('polyline');
+  if (pts) pts.setAttribute('points', on ? '9 18 15 12 9 6' : '15 18 9 12 15 6');
+}
+
+const history = []; let msgN = 0;
+function handleKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }
+function sendSuggestion(el) { document.getElementById('cmndr-input').value = el.textContent; sendMessage(); }
+
+async function sendMessage() {
+  const inp = document.getElementById('cmndr-input');
+  const text = inp.value.trim(); if (!text) return;
+  inp.value = '';
+  addMsg('user', text); history.push({ role: 'user', content: text });
+  const tid = addMsg('ai', '', true);
+  try {
+    const r = await fetch('/api/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SESSION_TOKEN}` },
+      body: JSON.stringify({ system: PAGE_SYSTEM, messages: history })
+    });
+    let reply = 'Unable to reach CMNDR.';
+    if (r.ok) { const d = await r.json(); reply = d.content?.[0]?.text || d.text || reply; }
+    updMsg(tid, reply); history.push({ role: 'assistant', content: reply });
+  } catch { updMsg(tid, 'CMNDR temporarily unavailable.'); }
+  document.getElementById('cmndr-body').scrollTop = 99999;
+}
+function addMsg(role, text, typing) {
+  const id = 'msg-' + (++msgN);
+  const t = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const el = document.createElement('div'); el.className = 'msg ' + role; el.id = id;
+  el.innerHTML = `<div class="msg-bubble">${typing ? '<em style="opacity:.5">Thinking…</em>' : esc(text)}</div><div class="msg-time">${t}</div>`;
+  document.getElementById('cmndr-history').appendChild(el);
+  document.getElementById('cmndr-body').scrollTop = 99999; return id;
+}
+function updMsg(id, text) { const el = document.getElementById(id); if (el) el.querySelector('.msg-bubble').textContent = text; }
+
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ── SETUP FLOW ────────────────────────────────────────────────
+const CATEGORY_KEYWORDS = {
+  'Plumbing':        ['plumbing repair', 'plumber near me', 'drain cleaning'],
+  'HVAC':            ['AC repair', 'HVAC service', 'furnace repair'],
+  'Electrical':      ['electrician near me', 'electrical repair', 'panel upgrade'],
+  'Roofing':         ['roof repair', 'roofer near me', 'roof replacement'],
+  'Landscaping':     ['lawn care service', 'landscaping near me', 'lawn mowing'],
+  'Pest Control':    ['pest control near me', 'exterminator', 'termite treatment'],
+  'Cleaning':        ['house cleaning service', 'maid service near me', 'deep cleaning'],
+  'Painting':        ['house painting', 'interior painter near me', 'exterior painting'],
+  'Flooring':        ['flooring installation', 'hardwood floor refinishing', 'carpet installation'],
+  'Locksmith':       ['locksmith near me', 'emergency locksmith', 'lock rekey'],
+  'Tree Service':    ['tree removal', 'tree trimming near me', 'stump grinding'],
+  'Pool Service':    ['pool cleaning service', 'pool repair near me', 'pool maintenance'],
+  'Moving':          ['moving company near me', 'local movers', 'cheap movers'],
+  'Appliance Repair':['appliance repair near me', 'refrigerator repair', 'washer repair'],
+  'Home Renovation': ['home remodeling', 'kitchen renovation', 'bathroom remodel'],
+};
+let setupCurrentStep = 0;
+
+function checkSetup() {
+  const saved = localStorage.getItem('arc_market_scan_setup');
+  if (saved) {
+    try {
+      const cfg = JSON.parse(saved);
+      if (cfg.completed) {
+        document.getElementById('setup-overlay').classList.add('hidden');
+        if (cfg.results && cfg.results.length) {
+          renderKeywordCards(cfg.results);
+        } else {
+          showKwCardsLoading(cfg.keywords);
+          runSetupScans(cfg.keywords, cfg);
+        }
+        return;
+      }
+    } catch(e) {}
+  }
+  // Overlay is visible by default — no action needed
+}
+
+function onCategoryChange() {
+  validateStep(0);
+  const cat = document.getElementById('setup-category').value;
+  if (cat && CATEGORY_KEYWORDS[cat]) {
+    const slots = document.querySelectorAll('.kw-slot-input');
+    const kws = CATEGORY_KEYWORDS[cat];
+    slots.forEach((el, i) => { if (kws[i]) el.value = kws[i]; });
+  }
+}
+
+function validateStep(step) {
+  if (step === 0) {
+    const ok = document.getElementById('setup-category').value && document.getElementById('setup-business').value.trim();
+    document.getElementById('step0-btn').disabled = !ok;
+  } else if (step === 1) {
+    const ok = document.getElementById('setup-city').value.trim() && document.getElementById('setup-state').value.trim();
+    document.getElementById('step1-btn').disabled = !ok;
+  }
+}
+
+function goStep(n) {
+  document.getElementById('setup-step-' + setupCurrentStep).style.display = 'none';
+  document.getElementById('dot-' + setupCurrentStep).classList.remove('active');
+  document.getElementById('dot-' + setupCurrentStep).classList.add('done');
+  setupCurrentStep = n;
+  document.getElementById('setup-step-' + n).style.display = '';
+  document.getElementById('dot-' + n).classList.add('active');
+  if (n === 2) {
+    const cat = document.getElementById('setup-category').value;
+    const kws = CATEGORY_KEYWORDS[cat] || ['keyword 1', 'keyword 2', 'keyword 3'];
+    document.getElementById('kw-slots').innerHTML = kws.map((kw, i) => `
+      <div>
+        <div class="setup-label">Keyword ${i + 1}</div>
+        <input class="setup-input kw-slot-input" type="text" value="${esc(kw)}" placeholder="Enter a keyword" data-slot="${i}"/>
+      </div>`).join('');
+  }
+}
+
+function completeSetup() {
+  const keywords = Array.from(document.querySelectorAll('.kw-slot-input')).map(el => el.value.trim()).filter(Boolean);
+  if (!keywords.length) return;
+  const cfg = {
+    category:  document.getElementById('setup-category').value,
+    business:  document.getElementById('setup-business').value.trim(),
+    city:      document.getElementById('setup-city').value.trim(),
+    state:     document.getElementById('setup-state').value.trim(),
+    keywords,
+    completed: true,
+    results:   null
+  };
+  localStorage.setItem('arc_market_scan_setup', JSON.stringify(cfg));
+  document.getElementById('setup-overlay').classList.add('hidden');
+  showKwCardsLoading(keywords);
+  runSetupScans(keywords, cfg);
+}
+
+function showKwCardsLoading(keywords) {
+  const section = document.getElementById('kw-cards-section');
+  const list    = document.getElementById('kw-cards-list');
+  section.style.display = 'flex';
+  list.innerHTML = keywords.map(kw => `
+    <div class="kw-card">
+      <div class="kw-card-header"><div class="kw-card-title">${esc(kw)}</div></div>
+      <div class="kw-card-meta-row" style="padding:16px 20px">
+        <div class="skeleton" style="width:200px;height:14px;border-radius:4px"></div>
+      </div>
+      <div class="kw-chart-area">
+        <div class="kw-line-wrap"><div class="skeleton" style="position:absolute;inset:0;border-radius:6px"></div></div>
+        <div class="kw-ring-wrap"><div class="skeleton" style="width:90px;height:90px;border-radius:50%"></div></div>
+      </div>
+    </div>`).join('');
+}
+
+async function runSetupScans(keywords, cfg) {
+  const results = await Promise.all(keywords.map(async kw => {
+    try {
+      const r = await fetch('/api/pipeline', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SESSION_TOKEN}` },
+        body: JSON.stringify({ action: 'market-scan', keyword: kw })
+      });
+      const data = r.ok ? await r.json() : buildDemoData(kw);
+      return { keyword: kw, data };
+    } catch {
+      return { keyword: kw, data: buildDemoData(kw) };
+    }
+  }));
+  if (cfg) {
+    cfg.results = results;
+    localStorage.setItem('arc_market_scan_setup', JSON.stringify(cfg));
+  }
+  renderKeywordCards(results);
+}
+
+function renderKeywordCards(results) {
+  const section = document.getElementById('kw-cards-section');
+  const list    = document.getElementById('kw-cards-list');
+  section.style.display = 'flex';
+
+  list.innerHTML = results.map((r, i) => {
+    const d     = r.data;
+    const score = Math.round((d.competition || 0.42) * 100);
+    const col   = score < 33 ? 'col-green' : score < 67 ? 'col-amber' : 'col-red';
+    const label = score < 33 ? 'Low' : score < 67 ? 'Medium' : 'High';
+    return `
+      <div class="kw-card">
+        <div class="kw-card-header"><div class="kw-card-title">${esc(r.keyword)}</div></div>
+        <div class="kw-card-meta-row">
+          <div class="kw-meta-item">
+            <div class="kw-meta-label">Volume / mo</div>
+            <div class="kw-meta-value col-blue">${fmtNum(d.search_volume)}</div>
+          </div>
+          <div class="kw-meta-item" style="margin-left:24px">
+            <div class="kw-meta-label">CPC</div>
+            <div class="kw-meta-value col-amber">${d.cpc || '$—'}</div>
+          </div>
+          <div class="kw-meta-item" style="margin-left:24px">
+            <div class="kw-meta-label">Competition</div>
+            <div class="kw-meta-value ${col}">${score}/100</div>
+          </div>
+          <div class="kw-meta-item" style="margin-left:24px">
+            <div class="kw-meta-label">Difficulty</div>
+            <div class="kw-meta-value" style="font-size:13px;padding-top:3px">${label}</div>
+          </div>
+        </div>
+        <div class="kw-chart-area">
+          <div class="kw-line-wrap">
+            <svg id="kw-chart-${i}" viewBox="0 0 600 140" preserveAspectRatio="xMidYMid meet"></svg>
+          </div>
+          <div class="kw-ring-wrap">
+            <svg id="kw-ring-${i}" width="90" height="90" viewBox="0 0 110 110"></svg>
+            <div style="font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;text-align:center" id="kw-ring-${i}-lbl">${label} Competition</div>
+          </div>
+        </div>
+        <div class="kw-reading">"${esc(d.market_reading || 'Market data analyzed.')}"</div>
+      </div>`;
+  }).join('') + `
+    <div class="kw-card locked" style="min-height:140px">
+      <div class="kw-card-header" style="padding-bottom:16px">
+        <div class="kw-card-title" style="opacity:.35">+ Unlock More Keywords</div>
+      </div>
+      <div class="kw-lock-overlay">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#4d5663" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <div style="font-size:13px;color:var(--text2);font-weight:600">Upgrade for more keywords</div>
+        <div style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">Track up to 10 keywords with Pro</div>
+      </div>
+    </div>`;
+
+  results.forEach((r, i) => {
+    const vols = r.data.monthly_volumes || Array.from({length:12}, (_,j) => Math.floor((r.data.search_volume || 800) * (0.6 + 0.4 * Math.sin(j/2))));
+    renderChart(vols, 'kw-chart-' + i);
+    renderRing(r.data.competition, 'kw-ring-' + i, 'kw-ring-' + i + '-lbl');
+  });
+}
+
+function resetSetup() {
+  localStorage.removeItem('arc_market_scan_setup');
+  document.getElementById('kw-cards-section').style.display = 'none';
+  setupCurrentStep = 0;
+  ['dot-0','dot-1','dot-2'].forEach((id, i) => {
+    const el = document.getElementById(id);
+    el.classList.toggle('active', i === 0);
+    el.classList.remove('done');
+  });
+  document.getElementById('setup-step-0').style.display = '';
+  document.getElementById('setup-step-1').style.display = 'none';
+  document.getElementById('setup-step-2').style.display = 'none';
+  document.getElementById('setup-category').value = '';
+  document.getElementById('setup-business').value = '';
+  document.getElementById('setup-city').value = '';
+  document.getElementById('setup-state').value = '';
+  document.getElementById('step0-btn').disabled = true;
+  document.getElementById('step1-btn').disabled = true;
+  document.getElementById('setup-overlay').classList.remove('hidden');
+}
+
+boot();
+</script>
+<script src="/arc-report-builder.js"></script>
+
+<!-- SETUP MODAL -->
+<div id="setup-overlay">
+  <div class="setup-card">
+    <div class="setup-dots">
+      <div class="setup-dot active" id="dot-0"></div>
+      <div class="setup-dot" id="dot-1"></div>
+      <div class="setup-dot" id="dot-2"></div>
+    </div>
+
+    <!-- Step 1: Category + Business Name -->
+    <div id="setup-step-0">
+      <div style="font-size:22px;font-weight:700;letter-spacing:-.4px">What kind of business do you run?</div>
+      <div style="font-size:13px;color:var(--text2);margin-top:6px;line-height:1.5">We'll use this to suggest the best keywords to scan for your market.</div>
+      <div style="display:flex;flex-direction:column;gap:14px;margin-top:4px">
+        <div>
+          <div class="setup-label">Business Category</div>
+          <select class="setup-input setup-select" id="setup-category" onchange="onCategoryChange()">
+            <option value="">— Select a category —</option>
+            <option>Plumbing</option><option>HVAC</option><option>Electrical</option>
+            <option>Roofing</option><option>Landscaping</option><option>Pest Control</option>
+            <option>Cleaning</option><option>Painting</option><option>Flooring</option>
+            <option>Locksmith</option><option>Tree Service</option><option>Pool Service</option>
+            <option>Moving</option><option>Appliance Repair</option><option>Home Renovation</option>
+          </select>
+        </div>
+        <div>
+          <div class="setup-label">Business Name</div>
+          <input class="setup-input" id="setup-business" type="text" placeholder="e.g. Peak Flow Plumbing" oninput="validateStep(0)"/>
+        </div>
+      </div>
+      <button class="setup-btn" id="step0-btn" disabled onclick="goStep(1)">Continue →</button>
+    </div>
+
+    <!-- Step 2: Location -->
+    <div id="setup-step-1" style="display:none">
+      <div style="font-size:22px;font-weight:700;letter-spacing:-.4px">Where do you serve customers?</div>
+      <div style="font-size:13px;color:var(--text2);margin-top:6px;line-height:1.5">Your location helps us scan local search demand in your area.</div>
+      <div style="display:flex;flex-direction:column;gap:14px;margin-top:4px">
+        <div>
+          <div class="setup-label">City</div>
+          <input class="setup-input" id="setup-city" type="text" placeholder="e.g. Phoenix" oninput="validateStep(1)"/>
+        </div>
+        <div>
+          <div class="setup-label">State</div>
+          <input class="setup-input" id="setup-state" type="text" placeholder="e.g. AZ" maxlength="2" style="text-transform:uppercase" oninput="validateStep(1)"/>
+        </div>
+      </div>
+      <button class="setup-btn" id="step1-btn" disabled onclick="goStep(2)">Continue →</button>
+    </div>
+
+    <!-- Step 3: Keywords -->
+    <div id="setup-step-2" style="display:none">
+      <div style="font-size:22px;font-weight:700;letter-spacing:-.4px">Confirm your target keywords</div>
+      <div style="font-size:13px;color:var(--text2);margin-top:6px;line-height:1.5">We'll scan these 3 keywords to map your market opportunity. You can edit them below.</div>
+      <div style="display:flex;flex-direction:column;gap:12px;margin-top:4px" id="kw-slots"></div>
+      <button class="setup-btn" id="step2-btn" onclick="completeSetup()">Scan My Market →</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

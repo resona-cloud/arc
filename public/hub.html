@@ -1,6 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script>
+window.ARC_CONFIG_READY = fetch('/api/config').then(function(r){return r.json();}).then(function(cfg){
+  window.ARC_CONFIG = cfg;
+  var _fetch = window.fetch;
+  window.fetch = function(url, opts) {
+    if (typeof url === 'string' && url.indexOf('/api/') === 0 && url.indexOf('/api/config') !== 0) {
+      opts = Object.assign({}, opts);
+      opts.headers = Object.assign({}, opts.headers, {'x-arc-key': (cfg && cfg.apiKey) || ''});
+    }
+    return _fetch.call(this, url, opts);
+  };
+  return cfg;
+}).catch(function(){ window.ARC_CONFIG = {}; });
+</script>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>CMNDR — Hub</title>
@@ -1123,7 +1137,7 @@
 </div>
 
 <script>
-const WB_API = '/api/report';
+const WB_API = '/api/pipeline?action=report';
 const WB_WEBHOOK = 'https://hook.us2.make.com/fsilm67y7ny25rfo7ulhhdket8snpmcd';
 let wbClient = 'peak-flow';
 let wbClientName = 'Peak Flow Plumbing & HVAC';
@@ -1140,7 +1154,7 @@ let SESSION_TOKEN = null;
     const r = await fetch('/api/auth?action=me', { headers: { Authorization: `Bearer ${token}` } });
     if (!r.ok) throw new Error('invalid');
     const { user, profile } = await r.json();
-    if (!profile.role.startsWith('resona_')) { window.location.href = '/app'; return; }
+    if (!["admin","client","demo","resona_admin","resona_advisor","client_user","display"].includes(profile.role)) { window.location.href = '/app'; return; }
     SESSION_TOKEN = token;
     wbUserRole = profile.role;
     const name = profile.full_name || user.email || '?';
@@ -1816,11 +1830,11 @@ async function wbPrepareReport() {
 
   // Load email preview
   try {
-    let apiUrl = `/api/email?client=${wbClient}&range=${wbRange}`;
+    let apiUrl = `/api/pipeline?action=email&client=${wbClient}&range=${wbRange}`;
     if (wbRange === 'custom') {
       const from = document.getElementById('wb-from')?.value;
       const to = document.getElementById('wb-to')?.value;
-      if (from && to) apiUrl = `/api/email?client=${wbClient}&from=${from}&to=${to}`;
+      if (from && to) apiUrl = `/api/pipeline?action=email&client=${wbClient}&from=${from}&to=${to}`;
     }
     const r = await fetch(apiUrl);
     const { html, subject } = await r.json();

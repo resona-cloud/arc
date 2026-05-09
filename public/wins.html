@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>
+window.ARC_CONFIG_READY = fetch('/api/config').then(function(r){return r.json();}).then(function(cfg){
+  window.ARC_CONFIG = cfg;
+  var _fetch = window.fetch;
+  window.fetch = function(url, opts) {
+    if (typeof url === 'string' && url.indexOf('/api/') === 0 && url.indexOf('/api/config') !== 0) {
+      opts = Object.assign({}, opts);
+      opts.headers = Object.assign({}, opts.headers, {'x-arc-key': (cfg && cfg.apiKey) || ''});
+    }
+    return _fetch.call(this, url, opts);
+  };
+  return cfg;
+}).catch(function(){ window.ARC_CONFIG = {}; });
+</script>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Win Board — ARC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0c0f;--surface:#111418;--surface2:#181c22;
+  --border:#1e242d;--border2:#262d38;
+  --text:#e8edf5;--text2:#8a95a3;--text3:#4d5663;
+  --accent:#3b82f6;--accent-dim:rgba(59,130,246,0.12);
+  --green:#22c55e;--amber:#f59e0b;--red:#ef4444;
+  --teal:#00d4aa;--teal-dim:rgba(0,212,170,0.1);
+  --purple:#a855f7;
+  --nav-h:56px;--strip-h:80px;
+  --win-sprint:#00d4aa;
+  --win-exception:#0066ff;
+  --win-automation:#a855f7;
+  --win-connection:#f59e0b;
+  --win-entropy:#10b981;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',-apple-system,sans-serif;font-size:14px}
+#nav{position:fixed;top:0;left:0;right:0;height:var(--nav-h);background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;padding:0 20px;z-index:100}
+.logo{font-size:17px;font-weight:700;letter-spacing:-.5px;color:var(--text);display:flex;align-items:center;gap:8px;cursor:pointer;text-decoration:none}
+.arc-badge{background:var(--accent);color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px;letter-spacing:1.5px}
+.client-name-display{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;color:var(--text)}
+.spacer{flex:1}
+.arc-dd-wrap{position:relative;display:flex;align-items:center}
+.arc-dd-btn{background:transparent;border:0.5px solid var(--border);border-radius:6px;color:var(--text2);font-size:12px;font-family:'DM Mono',monospace;padding:5px 11px;cursor:pointer;transition:all 150ms ease;white-space:nowrap;letter-spacing:.05em}
+.arc-dd-btn:hover{border-color:var(--border2);color:var(--text)}
+.arc-dd{position:absolute;top:calc(100% + 8px);left:0;min-width:180px;background:#13131a;border:1px solid #2a2a3a;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.4);padding:4px;z-index:1000;display:none}
+.arc-dd.open{display:block}
+.arc-dd-right{left:auto;right:0}
+.arc-dd-item{padding:10px 16px;font-family:'DM Mono',monospace;font-size:12px;color:#f0f0f0;cursor:pointer;border-radius:5px;transition:background 100ms ease,color 100ms ease;position:relative;display:flex;align-items:center;gap:8px;user-select:none}
+.arc-dd-item:hover{background:#1a1a24;color:#00d4aa}
+.arc-dd-item.active-page{color:#00d4aa}
+.arc-dd-sep{border-top:1px solid #2a2a3a;margin:4px 0}
+.arc-dd-item.has-sub{justify-content:space-between}
+.arc-dd-item.has-sub::after{content:'›';font-size:14px;opacity:.5;flex-shrink:0;margin-left:auto}
+.arc-sub{position:absolute;left:100%;top:-4px;min-width:180px;background:#13131a;border:1px solid #2a2a3a;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.4);padding:4px;display:none;z-index:1001}
+.arc-dd-item.has-sub:hover .arc-sub{display:block}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#fff;cursor:pointer;flex-shrink:0}
+#shell{display:flex;flex-direction:column;height:100vh;padding-top:var(--nav-h)}
+#health-strip{height:var(--strip-h);flex-shrink:0;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:stretch}
+.hc{display:flex;flex-direction:column;justify-content:center;padding:0 28px;flex:1;border-right:1px solid var(--border)}
+.hc:last-child{border-right:none}
+.hc-label{font-size:10px;color:var(--text3);letter-spacing:.7px;text-transform:uppercase;margin-bottom:5px;font-family:'DM Mono',monospace}
+.hc-value{font-size:26px;font-weight:700;letter-spacing:-1px;line-height:1}
+.hc-sub{font-size:11px;color:var(--text3);margin-top:4px;font-family:'DM Mono',monospace}
+.col-blue{color:var(--accent)}.col-green{color:var(--green)}.col-amber{color:var(--amber)}.col-teal{color:var(--teal)}
+#content-row{flex:1;display:flex;overflow:hidden;min-height:0}
+#main-col{flex:1;overflow-y:auto;padding:24px 28px;display:flex;flex-direction:column;gap:20px}
+#cmndr-toggle{width:18px;flex-shrink:0;background:var(--surface2);border:none;border-left:1px solid var(--border);color:var(--text3);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color .15s,background .15s;padding:0}
+#cmndr-toggle:hover{color:var(--accent);background:var(--surface)}
+#cmndr-toggle svg{width:11px;height:11px;flex-shrink:0}
+#cmndr-col{width:300px;flex-shrink:0;border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width 250ms ease,opacity 200ms ease}
+#cmndr-col.collapsed{width:0;opacity:0;pointer-events:none}
+#cmndr-header{padding:14px 16px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0}
+.cmndr-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0;animation:blink 2.2s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+.cmndr-title{font-size:13px;font-weight:600}.cmndr-sub{font-size:11px;color:var(--text3);margin-top:1px}
+#cmndr-body{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.cmndr-narrative{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:12px}
+.cn-label{font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--accent);margin-bottom:6px;font-family:'DM Mono',monospace}
+.cn-text{font-size:13px;color:var(--text2);line-height:1.65}
+.cmndr-history{display:flex;flex-direction:column;gap:8px}
+.msg{display:flex;flex-direction:column}
+.msg.user .msg-bubble{background:var(--accent-dim);border:1px solid var(--accent);align-self:flex-end;color:var(--text)}
+.msg.ai .msg-bubble{background:var(--surface2);border:1px solid var(--border2);align-self:flex-start;color:var(--text2)}
+.msg-bubble{max-width:92%;padding:7px 11px;border-radius:8px;font-size:13px;line-height:1.55;margin-bottom:2px}
+.msg-time{font-size:10px;color:var(--text3)}
+.msg.user .msg-time{align-self:flex-end}.msg.ai .msg-time{align-self:flex-start}
+#cmndr-input-area{padding:10px 16px 14px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:7px;flex-shrink:0}
+#cmndr-suggestions{display:flex;gap:5px;flex-wrap:wrap}
+.suggestion-pill{background:var(--surface2);border:1px solid var(--border2);border-radius:12px;padding:3px 9px;font-size:11px;color:var(--text2);cursor:pointer;transition:all .12s;white-space:nowrap;font-family:'DM Mono',monospace}
+.suggestion-pill:hover{border-color:var(--accent);color:var(--accent)}
+.input-row{display:flex;gap:7px;align-items:flex-end}
+#cmndr-input{flex:1;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:13px;padding:7px 11px;outline:none;resize:none;font-family:inherit;min-height:36px;max-height:120px}
+#cmndr-input:focus{border-color:var(--accent)}
+#cmndr-send{background:var(--accent);border:none;border-radius:6px;width:34px;height:34px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0}
+#cmndr-send:hover{background:#2563eb}
+#cmndr-send svg{width:13px;height:13px;fill:currentColor}
+/* PAGE */
+.page-title{font-size:24px;font-weight:700;letter-spacing:-.5px;font-family:'Syne',sans-serif}
+.page-sub{font-size:13px;color:var(--text2);margin-top:4px;line-height:1.55;max-width:560px}
+/* SUMMARY STRIP */
+.summary-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+.sum-card{background:#13131a;border:1px solid #2a2a3a;border-radius:8px;padding:16px 18px;text-align:center}
+.sum-icon{font-size:20px;margin-bottom:6px}
+.sum-count{font-size:32px;font-weight:700;letter-spacing:-1.5px;line-height:1;color:var(--teal);font-family:'Syne',sans-serif}
+.sum-label{font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-top:4px}
+/* FILTER BAR */
+.filter-bar{display:flex;gap:8px;flex-wrap:wrap}
+.filter-chip{background:var(--surface2);border:1px solid var(--border2);border-radius:14px;padding:5px 14px;font-size:11px;font-family:'DM Mono',monospace;color:var(--text2);cursor:pointer;transition:all .12s;user-select:none}
+.filter-chip:hover{border-color:var(--teal);color:var(--teal)}
+.filter-chip.active{background:var(--teal-dim);border-color:var(--teal);color:var(--teal)}
+/* WIN FEED */
+#win-feed{display:flex;flex-direction:column;gap:10px}
+.win-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0;overflow:hidden;display:flex;position:relative;transition:border-color .15s}
+.win-card:hover{border-color:var(--border2)}
+.win-accent{width:4px;flex-shrink:0}
+.win-body{flex:1;padding:14px 16px;min-width:0;position:relative}
+.win-type-badge{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.7px;text-transform:uppercase;color:var(--text3);margin-bottom:5px}
+.win-title{font-size:15px;font-weight:700;letter-spacing:-.2px;color:var(--text);font-family:'Syne',sans-serif;margin-bottom:3px}
+.win-subtitle{font-size:13px;color:var(--text2)}
+.win-time{font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);margin-top:6px}
+.win-watermark{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:28px;opacity:.08;pointer-events:none;user-select:none}
+/* SKELETON */
+.skeleton{background:var(--border2);border-radius:6px;animation:pulse 1.5s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+/* EMPTY STATE */
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;gap:14px;text-align:center}
+.empty-title{font-size:18px;font-weight:700;letter-spacing:-.3px;font-family:'Syne',sans-serif;color:var(--text2)}
+.empty-sub{font-size:14px;color:var(--text3);max-width:380px;line-height:1.6}
+.empty-link{font-family:'DM Mono',monospace;font-size:12px;color:var(--teal);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+</style>
+<script type="module" src="/js/auth.js"></script>
+</head>
+<body>
+
+<nav id="nav">
+  <a class="logo" href="/">
+    <span class="arc-badge">ARC</span>
+    Command Center
+  </a>
+  <span class="client-name-display"><span style="font-size:8px;color:#00d4aa;line-height:1">●</span>Peak Flow Plumbing &amp; HVAC</span>
+  <div class="spacer"></div>
+  <div class="arc-dd-wrap">
+    <button class="arc-dd-btn" onclick="toggleDd('adapt')">ADAPT ▾</button>
+    <div class="arc-dd" id="dd-adapt-panel">
+      <div class="arc-dd-item has-sub">Visibility
+        <div class="arc-sub">
+          <div class="arc-dd-item" onclick="location.href='/operations'">Operations</div>
+          <div class="arc-dd-item" onclick="location.href='/finance'">Finance</div>
+          <div class="arc-dd-item" onclick="location.href='/marketing'">Marketing</div>
+          <div class="arc-dd-item" onclick="location.href='/yield'">Yield &amp; Efficiency</div>
+          <div class="arc-dd-item" onclick="location.href='/market-scan'">Market Scan</div>
+        </div>
+      </div>
+      <div class="arc-dd-item" onclick="location.href='/audit'">Audits</div>
+      <div class="arc-dd-item" onclick="location.href='/digital-authority'">Digital Authority</div>
+    </div>
+  </div>
+  <div class="arc-dd-wrap">
+    <button class="arc-dd-btn" onclick="toggleDd('react')">REACT ▾</button>
+    <div class="arc-dd" id="dd-react-panel">
+      <div class="arc-dd-item" onclick="location.href='/sprint'">Sprint Planner</div>
+      <div class="arc-dd-item" onclick="location.href='/playbooks'">Playbooks</div>
+      <div class="arc-dd-item has-sub">Generate
+        <div class="arc-sub">
+          <div class="arc-dd-item" onclick="openReportBuilder()">Reports</div>
+        </div>
+      </div>
+      <div class="arc-dd-item active-page" onclick="location.href='/wins'">Win Board</div>
+    </div>
+  </div>
+  <div class="arc-dd-wrap">
+    <button class="arc-dd-btn" onclick="toggleDd('control')">CONTROL ▾</button>
+    <div class="arc-dd" id="dd-control-panel">
+      <div class="arc-dd-item" onclick="location.href='/automations'">Automations</div>
+      <div class="arc-dd-item" onclick="location.href='/connections'">Connections</div>
+      <div class="arc-dd-item" onclick="location.href='/archive'">Archive</div>
+    </div>
+  </div>
+  <div class="arc-dd-wrap">
+    <div class="avatar" id="nav-avatar" onclick="toggleDd('avatar')">A</div>
+    <div class="arc-dd arc-dd-right" id="dd-avatar-panel">
+      <div class="arc-dd-item" onclick="location.href='#'">Account Settings</div>
+      <div class="arc-dd-sep"></div>
+      <div class="arc-dd-item" onclick="location.href='#'">Terms &amp; Conditions</div>
+      <div class="arc-dd-item" onclick="location.href='#'">Privacy Policy</div>
+      <div class="arc-dd-item" onclick="location.href='#'">Data Protocol Policy</div>
+      <div class="arc-dd-sep"></div>
+      <div class="arc-dd-item" onclick="doSignOut()">Sign Out</div>
+    </div>
+  </div>
+</nav>
+
+<div id="shell">
+  <div id="health-strip">
+    <div class="hc">
+      <div class="hc-label">Total Wins</div>
+      <div class="hc-value col-teal" id="hs-total">—</div>
+      <div class="hc-sub" id="hs-total-sub">Loading…</div>
+    </div>
+    <div class="hc">
+      <div class="hc-label">Sprint Wins</div>
+      <div class="hc-value col-blue" id="hs-sprint">—</div>
+      <div class="hc-sub">Completed stages</div>
+    </div>
+    <div class="hc">
+      <div class="hc-label">Automations</div>
+      <div class="hc-value" style="color:var(--purple)" id="hs-auto">—</div>
+      <div class="hc-sub">Execution milestones</div>
+    </div>
+    <div class="hc">
+      <div class="hc-label">Exceptions Fixed</div>
+      <div class="hc-value col-green" id="hs-exc">—</div>
+      <div class="hc-sub">Resolved</div>
+    </div>
+  </div>
+
+  <div id="content-row">
+    <div id="main-col">
+
+      <!-- Page Header -->
+      <div>
+        <div class="page-title">Win Board</div>
+        <div class="page-sub">Every resolved exception, completed sprint, and automation milestone — your progress made visible.</div>
+      </div>
+
+      <!-- Summary Strip -->
+      <div class="summary-strip" id="summary-strip">
+        <div class="sum-card"><div class="sum-icon">🏁</div><div class="sum-count" id="sum-sprint">—</div><div class="sum-label">Sprint Wins</div></div>
+        <div class="sum-card"><div class="sum-icon">✅</div><div class="sum-count" id="sum-exception">—</div><div class="sum-label">Exceptions Resolved</div></div>
+        <div class="sum-card"><div class="sum-icon">⚡</div><div class="sum-count" id="sum-automation">—</div><div class="sum-label">Automation Milestones</div></div>
+        <div class="sum-card"><div class="sum-icon">🔗</div><div class="sum-count" id="sum-connection">—</div><div class="sum-label">Connections Made</div></div>
+        <div class="sum-card"><div class="sum-icon">📈</div><div class="sum-count" id="sum-entropy">—</div><div class="sum-label">Entropy Improvements</div></div>
+      </div>
+
+      <!-- Filter Bar -->
+      <div class="filter-bar" id="filter-bar">
+        <div class="filter-chip active" data-type="ALL" onclick="setFilter('ALL',this)">ALL</div>
+        <div class="filter-chip" data-type="sprint_win" onclick="setFilter('sprint_win',this)">SPRINTS</div>
+        <div class="filter-chip" data-type="exception_win" onclick="setFilter('exception_win',this)">EXCEPTIONS</div>
+        <div class="filter-chip" data-type="automation_win" onclick="setFilter('automation_win',this)">AUTOMATIONS</div>
+        <div class="filter-chip" data-type="connection_win" onclick="setFilter('connection_win',this)">CONNECTIONS</div>
+        <div class="filter-chip" data-type="entropy_win" onclick="setFilter('entropy_win',this)">ENTROPY</div>
+      </div>
+
+      <!-- Win Feed -->
+      <div id="win-feed">
+        <!-- loading skeletons -->
+        <div id="loading-state">
+          <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);margin-bottom:12px">Loading your wins…</div>
+          ${[0,1,2].map(() => `<div class="win-card" style="margin-bottom:10px"><div class="win-accent" style="background:var(--border2)"></div><div class="win-body"><div class="skeleton" style="width:80px;height:10px;margin-bottom:8px"></div><div class="skeleton" style="width:220px;height:14px;margin-bottom:6px"></div><div class="skeleton" style="width:160px;height:12px"></div></div></div>`).join('')}
+        </div>
+        <div id="wins-list" style="display:none"></div>
+        <div id="empty-state" style="display:none" class="empty-state">
+          <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
+            <path d="M28 8 L34 22 L50 24 L38 36 L42 52 L28 44 L14 52 L18 36 L6 24 L22 22 Z" stroke="#00d4aa" stroke-width="1.5" stroke-linejoin="round" fill="none" opacity=".4"/>
+          </svg>
+          <div class="empty-title">No wins recorded yet.</div>
+          <div class="empty-sub">Complete your first sprint stage or resolve an exception to start your Win Board.</div>
+          <span class="empty-link" onclick="location.href='/sprint'">Go to Sprint Planner →</span>
+        </div>
+      </div>
+
+    </div>
+
+    <button id="cmndr-toggle" onclick="toggleCmndr()" title="Toggle CMNDR panel">
+      <svg id="toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+    </button>
+
+    <div id="cmndr-col">
+      <div id="cmndr-header">
+        <div class="cmndr-dot"></div>
+        <div>
+          <div class="cmndr-title">CMNDR</div>
+          <div class="cmndr-sub">Win Intelligence</div>
+        </div>
+      </div>
+      <div id="cmndr-body">
+        <div class="cmndr-narrative">
+          <div class="cn-label">Win Board</div>
+          <div class="cn-text" id="cmndr-narrative-text">Every win here represents a real business improvement. Use these signals to identify what's working and double down.</div>
+        </div>
+        <div class="cmndr-history" id="cmndr-history"></div>
+      </div>
+      <div id="cmndr-input-area">
+        <div id="cmndr-suggestions">
+          <div class="suggestion-pill" onclick="sendSuggestion(this)">What's my biggest win this month?</div>
+          <div class="suggestion-pill" onclick="sendSuggestion(this)">How do I get more wins?</div>
+        </div>
+        <div class="input-row">
+          <textarea id="cmndr-input" placeholder="Ask CMNDR anything…" rows="1" onkeydown="handleKey(event)"></textarea>
+          <button id="cmndr-send" onclick="sendMessage()">
+            <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SESSION_TOKEN = localStorage.getItem('cmndr_session');
+const PAGE_SYSTEM = 'You are CMNDR, an AI operations intelligence for Resona. The user is on their Win Board viewing progress milestones. Be motivating but data-driven. Max 3 sentences.';
+
+const WIN_COLORS = { sprint_win:'#00d4aa', exception_win:'#0066ff', automation_win:'#a855f7', connection_win:'#f59e0b', entropy_win:'#10b981' };
+const WIN_ICONS  = { sprint_win:'🏁', exception_win:'✅', automation_win:'⚡', connection_win:'🔗', entropy_win:'📈' };
+const WIN_LABELS = { sprint_win:'SPRINT WIN', exception_win:'EXCEPTION RESOLVED', automation_win:'AUTOMATION MILESTONE', connection_win:'CONNECTION MADE', entropy_win:'ENTROPY IMPROVEMENT' };
+
+let allWins = [];
+let currentFilter = 'ALL';
+
+function timeAgo(dateStr) {
+  if (!dateStr) return '—';
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return m + ' minute' + (m === 1 ? '' : 's') + ' ago';
+  const h = Math.floor(m / 60);
+  if (h < 24) return h + ' hour' + (h === 1 ? '' : 's') + ' ago';
+  const d = Math.floor(h / 24);
+  if (d < 7) return d + ' day' + (d === 1 ? '' : 's') + ' ago';
+  const w = Math.floor(d / 7);
+  if (w < 5) return w + ' week' + (w === 1 ? '' : 's') + ' ago';
+  return Math.floor(d / 30) + ' months ago';
+}
+
+function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function setFilter(type, el) {
+  currentFilter = type;
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  renderWins();
+}
+
+function renderWins() {
+  const list = document.getElementById('wins-list');
+  const empty = document.getElementById('empty-state');
+  const filtered = currentFilter === 'ALL' ? allWins : allWins.filter(w => w.win_type === currentFilter);
+
+  if (filtered.length === 0) {
+    list.style.display = 'none';
+    empty.style.display = 'flex';
+    return;
+  }
+
+  empty.style.display = 'none';
+  list.style.display = 'block';
+  list.innerHTML = filtered.map(w => {
+    const col = WIN_COLORS[w.win_type] || '#4d5663';
+    const icon = WIN_ICONS[w.win_type] || '●';
+    const label = WIN_LABELS[w.win_type] || w.win_type;
+    return `<div class="win-card">
+      <div class="win-accent" style="background:${col}"></div>
+      <div class="win-body">
+        <div class="win-type-badge" style="color:${col}">${label}</div>
+        <div class="win-title">${esc(w.title)}</div>
+        <div class="win-subtitle">${esc(w.subtitle || w.context || '')}</div>
+        <div class="win-time">${timeAgo(w.achieved_at)}</div>
+        <div class="win-watermark">${icon}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function loadWins() {
+  try {
+    const r = await fetch('/api/pipeline?action=win-board&client=peak-flow', {
+      headers: { Authorization: `Bearer ${SESSION_TOKEN}` }
+    });
+    if (!r.ok) throw new Error('API error');
+    const data = await r.json();
+    allWins = data.wins || [];
+    const s = data.summary || {};
+
+    // Update health strip
+    document.getElementById('hs-total').textContent = data.total || 0;
+    document.getElementById('hs-total-sub').textContent = data.demo ? 'Demo data' : 'All time';
+    document.getElementById('hs-sprint').textContent = s.sprint || 0;
+    document.getElementById('hs-auto').textContent = s.automation || 0;
+    document.getElementById('hs-exc').textContent = s.exception || 0;
+
+    // Update summary strip
+    document.getElementById('sum-sprint').textContent = s.sprint || 0;
+    document.getElementById('sum-exception').textContent = s.exception || 0;
+    document.getElementById('sum-automation').textContent = s.automation || 0;
+    document.getElementById('sum-connection').textContent = s.connection || 0;
+    document.getElementById('sum-entropy').textContent = s.entropy || 0;
+
+    // Render feed
+    document.getElementById('loading-state').style.display = 'none';
+    renderWins();
+
+    // Update CMNDR narrative
+    const total = data.total || 0;
+    document.getElementById('cmndr-narrative-text').textContent = total > 0
+      ? `${total} wins recorded. Your automation milestones are leading — keep building on that momentum.`
+      : 'No wins recorded yet. Complete a sprint stage or resolve an exception to start tracking progress.';
+  } catch(e) {
+    document.getElementById('loading-state').style.display = 'none';
+    document.getElementById('empty-state').style.display = 'flex';
+    // Still try to zero out counts
+    ['hs-total','hs-sprint','hs-auto','hs-exc','sum-sprint','sum-exception','sum-automation','sum-connection','sum-entropy'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.textContent = '0';
+    });
+    const sub = document.getElementById('hs-total-sub'); if (sub) sub.textContent = 'Error loading';
+  }
+}
+
+// ── NAV DROPDOWNS ─────────────────────────────────────────────────────────
+function toggleDd(id) {
+  const target = document.getElementById('dd-' + id + '-panel');
+  if (!target) return;
+  const wasOpen = target.classList.contains('open');
+  document.querySelectorAll('.arc-dd').forEach(p => p.classList.remove('open'));
+  if (!wasOpen) target.classList.add('open');
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.arc-dd-wrap')) document.querySelectorAll('.arc-dd').forEach(p => p.classList.remove('open'));
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.querySelectorAll('.arc-dd').forEach(p => p.classList.remove('open'));
+});
+
+// ── BOOT ──────────────────────────────────────────────────────────────────
+async function boot() {
+  if (window.location.search.includes('bypass=true') || localStorage.getItem('arc_bypass') === 'true') {
+    localStorage.setItem('arc_bypass', 'true');
+  } else {
+    if (!SESSION_TOKEN) { location.href = '/login'; return; }
+    try {
+      const r = await fetch('/api/auth?action=me', { headers: { Authorization: `Bearer ${SESSION_TOKEN}` } });
+      if (!r.ok) { location.href = '/login'; return; }
+      const d = await r.json(); const p = d.profile;
+      if (!p || !p.role || !["admin","client","demo","resona_admin","resona_advisor","client_user","display"].includes(p.role)) { location.href = '/login'; return; }
+      document.getElementById('nav-avatar').textContent = (p.full_name || d.user?.email || 'A').charAt(0).toUpperCase();
+    } catch { location.href = '/login'; return; }
+  }
+  initCmndrPanel();
+  loadWins();
+}
+
+// ── CMNDR PANEL ───────────────────────────────────────────────────────────
+function initCmndrPanel() { if (localStorage.getItem('arc_cmndr_open') === 'false') applyCollapsed(true); }
+function toggleCmndr() { const c = document.getElementById('cmndr-col').classList.contains('collapsed'); applyCollapsed(!c); localStorage.setItem('arc_cmndr_open', c ? 'true' : 'false'); }
+function applyCollapsed(on) { document.getElementById('cmndr-col').classList.toggle('collapsed', on); const pts = document.getElementById('toggle-icon')?.querySelector('polyline'); if (pts) pts.setAttribute('points', on ? '9 18 15 12 9 6' : '15 18 9 12 15 6'); }
+
+const history = []; let msgN = 0;
+function handleKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }
+function sendSuggestion(el) { document.getElementById('cmndr-input').value = el.textContent; sendMessage(); }
+async function sendMessage() {
+  const inp = document.getElementById('cmndr-input');
+  const text = inp.value.trim(); if (!text) return;
+  inp.value = '';
+  addMsg('user', text); history.push({ role: 'user', content: text });
+  const tid = addMsg('ai', '', true);
+  try {
+    const r = await fetch('/api/ask', { method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${SESSION_TOKEN}`}, body:JSON.stringify({ system:PAGE_SYSTEM, messages:history }) });
+    let reply = 'Unable to reach CMNDR.';
+    if (r.ok) { const d = await r.json(); reply = d.content?.[0]?.text || d.text || reply; }
+    updMsg(tid, reply); history.push({ role:'assistant', content:reply });
+  } catch { updMsg(tid, 'CMNDR temporarily unavailable.'); }
+  document.getElementById('cmndr-body').scrollTop = 99999;
+}
+function addMsg(role, text, typing) {
+  const id = 'msg-' + (++msgN);
+  const t = new Date().toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+  const el = document.createElement('div'); el.className = 'msg ' + role; el.id = id;
+  el.innerHTML = `<div class="msg-bubble">${typing ? '<em style="opacity:.5">Thinking…</em>' : esc(text)}</div><div class="msg-time">${t}</div>`;
+  document.getElementById('cmndr-history').appendChild(el);
+  document.getElementById('cmndr-body').scrollTop = 99999; return id;
+}
+function updMsg(id, text) { const el = document.getElementById(id); if (el) el.querySelector('.msg-bubble').textContent = text; }
+
+boot();
+</script>
+<script src="/arc-report-builder.js"></script>
+</body>
+</html>

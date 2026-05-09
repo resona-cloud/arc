@@ -1,1114 +1,640 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Data Connections — CMNDR</title>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    :root {
-      --bg: #0f0f1a;
-      --card: #1a1a2e;
-      --card2: #16213e;
-      --border: #2a2a3e;
-      --border2: #3a3a5e;
-      --text: #e8e6de;
-      --text2: #9c9a92;
-      --text3: #6b6b67;
-      --blue: #378ADD;
-      --blue2: #2563eb;
-      --success: #1D9E75;
-      --warning: #EF9F27;
-      --danger: #E24B4A;
-      --radius-md: 8px;
-      --radius-lg: 12px;
-      --radius-xl: 16px;
+<script>
+window.ARC_CONFIG_READY = fetch('/api/config').then(function(r){return r.json();}).then(function(cfg){
+  window.ARC_CONFIG = cfg;
+  var _fetch = window.fetch;
+  window.fetch = function(url, opts) {
+    if (typeof url === 'string' && url.indexOf('/api/') === 0 && url.indexOf('/api/config') !== 0) {
+      opts = Object.assign({}, opts);
+      opts.headers = Object.assign({}, opts.headers, {'x-arc-key': (cfg && cfg.apiKey) || ''});
     }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-    }
-
-    /* ── Top bar ── */
-    .topbar {
-      background: var(--card);
-      border-bottom: 1px solid var(--border);
-      padding: 0 24px;
-      height: 52px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-    }
-    .topbar-left { display: flex; align-items: center; gap: 16px; }
-    .back-btn {
-      display: flex; align-items: center; gap: 6px;
-      font-size: 12px; color: var(--text3);
-      background: none; border: none; cursor: pointer;
-      padding: 6px 0; transition: color .12s;
-    }
-    .back-btn:hover { color: var(--text); }
-    .topbar-logo { font-size: 11px; font-weight: 600; color: var(--blue); letter-spacing: .1em; text-transform: uppercase; }
-    .topbar-title { font-size: 14px; font-weight: 500; }
-    .topbar-right { display: flex; align-items: center; gap: 10px; }
-    .topbar-user { font-size: 12px; color: var(--text3); }
-
-    /* ── Layout ── */
-    .page { max-width: 860px; margin: 0 auto; padding: 40px 24px 80px; }
-
-    /* ── Hero ── */
-    .hero { margin-bottom: 40px; }
-    .hero-eyebrow { font-size: 11px; font-weight: 600; color: var(--blue); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 10px; }
-    .hero-title { font-size: 28px; font-weight: 600; margin-bottom: 10px; line-height: 1.2; }
-    .hero-sub { font-size: 14px; color: var(--text2); line-height: 1.6; max-width: 560px; }
-
-    /* ── Section labels ── */
-    .section-lbl {
-      font-size: 10px; font-weight: 600; color: var(--text3);
-      text-transform: uppercase; letter-spacing: .08em;
-      margin: 36px 0 14px;
-    }
-
-    /* ── Connection cards ── */
-    .conn-card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      padding: 18px 20px;
-      margin-bottom: 8px;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      transition: border-color .15s;
-    }
-    .conn-card:hover { border-color: var(--border2); }
-    .conn-icon {
-      width: 44px; height: 44px;
-      border-radius: var(--radius-md);
-      background: var(--card2);
-      border: 1px solid var(--border);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 20px; flex-shrink: 0;
-    }
-    .conn-info { flex: 1; min-width: 0; }
-    .conn-name { font-size: 14px; font-weight: 500; }
-    .conn-desc { font-size: 12px; color: var(--text2); margin-top: 2px; }
-    .conn-status { font-size: 11px; margin-top: 5px; display: flex; align-items: center; gap: 5px; }
-    .status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-    .status-connected .status-dot { background: var(--success); }
-    .status-disconnected .status-dot { background: var(--text3); }
-    .status-error .status-dot { background: var(--danger); }
-    .status-pending .status-dot { background: var(--warning); }
-    .conn-actions { display: flex; gap: 6px; flex-shrink: 0; }
-    .conn-btn {
-      font-size: 12px; padding: 7px 16px;
-      border-radius: var(--radius-md);
-      border: 1px solid var(--border2);
-      background: none; color: var(--text2);
-      cursor: pointer; transition: all .12s; white-space: nowrap;
-    }
-    .conn-btn:hover { background: var(--border); color: var(--text); }
-    .conn-btn.primary { background: var(--blue); color: #fff; border-color: var(--blue); }
-    .conn-btn.primary:hover { opacity: .85; }
-    .conn-btn.danger { border-color: var(--danger); color: var(--danger); }
-    .conn-btn.danger:hover { background: rgba(226,75,74,.1); }
-
-    /* ── Upload card ── */
-    .upload-card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-xl);
-      padding: 32px;
-      margin-bottom: 8px;
-    }
-    .upload-zone {
-      border: 2px dashed var(--border2);
-      border-radius: var(--radius-lg);
-      padding: 40px 24px;
-      text-align: center;
-      cursor: pointer;
-      transition: border-color .15s, background .15s;
-    }
-    .upload-zone:hover, .upload-zone.drag-over {
-      border-color: var(--blue);
-      background: rgba(55,138,221,.05);
-    }
-    .upload-icon { font-size: 32px; margin-bottom: 12px; }
-    .upload-title { font-size: 15px; font-weight: 500; margin-bottom: 6px; }
-    .upload-sub { font-size: 13px; color: var(--text2); margin-bottom: 16px; }
-    .upload-browse {
-      font-size: 13px; padding: 8px 20px;
-      border-radius: var(--radius-md);
-      border: 1px solid var(--border2);
-      background: none; color: var(--text);
-      cursor: pointer; transition: all .12s;
-    }
-    .upload-browse:hover { background: var(--border); }
-    #file-input { display: none; }
-
-    /* ── Upload progress ── */
-    .upload-progress { display: none; margin-top: 20px; }
-    .progress-bar-wrap { background: var(--border); border-radius: 4px; height: 4px; overflow: hidden; margin-top: 8px; }
-    .progress-bar { height: 100%; background: var(--blue); border-radius: 4px; transition: width .3s; width: 0%; }
-    .progress-label { font-size: 12px; color: var(--text2); }
-
-    /* ── Column mapping ── */
-    .mapping-section { display: none; margin-top: 28px; border-top: 1px solid var(--border); padding-top: 24px; }
-    .mapping-section.visible { display: block; }
-    .mapping-title { font-size: 14px; font-weight: 500; margin-bottom: 6px; }
-    .mapping-sub { font-size: 12px; color: var(--text2); margin-bottom: 20px; }
-    .mapping-grid { display: grid; grid-template-columns: 1fr 40px 1fr; gap: 8px; align-items: center; }
-    .mapping-col-head { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 4px; }
-    .mapping-row { display: contents; }
-    .mapping-source {
-      font-size: 13px; padding: 8px 12px;
-      background: var(--card2);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-md);
-      color: var(--text);
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    .mapping-arrow { text-align: center; color: var(--text3); font-size: 14px; }
-    .mapping-select {
-      font-size: 13px; padding: 8px 12px;
-      background: var(--card2);
-      border: 1px solid var(--border2);
-      border-radius: var(--radius-md);
-      color: var(--text);
-      cursor: pointer; width: 100%;
-      appearance: none;
-    }
-    .mapping-select:focus { outline: none; border-color: var(--blue); }
-    .mapping-actions { margin-top: 20px; display: flex; gap: 10px; }
-    .preview-table-wrap { margin-top: 20px; overflow-x: auto; }
-    .preview-table { width: 100%; font-size: 12px; border-collapse: collapse; }
-    .preview-table th { text-align: left; padding: 8px 12px; background: var(--card2); border-bottom: 1px solid var(--border); color: var(--text2); font-weight: 500; white-space: nowrap; }
-    .preview-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); color: var(--text2); white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
-
-    /* ── API Key modal ── */
-    .modal-backdrop {
-      position: fixed; inset: 0;
-      background: rgba(0,0,0,.7);
-      z-index: 200;
-      display: flex; align-items: center; justify-content: center;
-      opacity: 0; pointer-events: none;
-      transition: opacity .2s;
-    }
-    .modal-backdrop.open { opacity: 1; pointer-events: all; }
-    .modal {
-      background: var(--card);
-      border: 1px solid var(--border2);
-      border-radius: var(--radius-xl);
-      padding: 32px;
-      max-width: 480px; width: calc(100% - 32px);
-      position: relative;
-      transform: translateY(12px);
-      transition: transform .2s;
-    }
-    .modal-backdrop.open .modal { transform: translateY(0); }
-    .modal-close {
-      position: absolute; top: 16px; right: 20px;
-      font-size: 20px; color: var(--text3);
-      background: none; border: none; cursor: pointer;
-      transition: color .12s; line-height: 1;
-    }
-    .modal-close:hover { color: var(--text); }
-    .modal-icon { font-size: 28px; margin-bottom: 12px; }
-    .modal-title { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
-    .modal-sub { font-size: 13px; color: var(--text2); margin-bottom: 24px; line-height: 1.6; }
-    .modal-label { font-size: 12px; font-weight: 500; color: var(--text2); margin-bottom: 6px; }
-    .modal-input {
-      width: 100%; font-size: 13px; padding: 10px 14px;
-      background: var(--bg); color: var(--text);
-      border: 1px solid var(--border2); border-radius: var(--radius-md);
-      outline: none; transition: border-color .12s;
-      font-family: 'SF Mono', 'Fira Code', monospace;
-    }
-    .modal-input:focus { border-color: var(--blue); }
-    .modal-hint { font-size: 11px; color: var(--text3); margin-top: 6px; }
-    .modal-actions { margin-top: 24px; display: flex; gap: 10px; justify-content: flex-end; }
-    .modal-btn {
-      font-size: 13px; padding: 9px 20px;
-      border-radius: var(--radius-md);
-      border: 1px solid var(--border2);
-      background: none; color: var(--text2);
-      cursor: pointer; transition: all .12s;
-    }
-    .modal-btn:hover { background: var(--border); color: var(--text); }
-    .modal-btn.primary { background: var(--blue); color: #fff; border-color: var(--blue); }
-    .modal-btn.primary:hover { opacity: .85; }
-    .modal-btn:disabled { opacity: .5; cursor: default; }
-
-    /* ── Coming soon cards ── */
-    .coming-card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      padding: 18px 20px;
-      margin-bottom: 8px;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      opacity: .7;
-    }
-    .coming-badge {
-      font-size: 10px; font-weight: 600; padding: 3px 8px;
-      border-radius: 20px; background: rgba(55,138,221,.15);
-      color: var(--blue); letter-spacing: .04em;
-    }
-    .notify-btn {
-      font-size: 12px; padding: 7px 16px;
-      border-radius: var(--radius-md);
-      border: 1px solid var(--border2);
-      background: none; color: var(--text3);
-      cursor: pointer; transition: all .12s;
-    }
-    .notify-btn:hover { background: var(--border); color: var(--text); }
-
-    /* ── Bottom banner ── */
-    .bottom-banner {
-      margin-top: 48px;
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-      border: 1px solid var(--border2);
-      border-radius: var(--radius-xl);
-      padding: 28px 32px;
-      display: flex;
-      align-items: center;
-      gap: 24px;
-    }
-    .banner-icon { font-size: 32px; flex-shrink: 0; }
-    .banner-text {}
-    .banner-title { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
-    .banner-sub { font-size: 13px; color: var(--text2); line-height: 1.6; }
-
-    /* ── Toast ── */
-    .toast {
-      position: fixed; bottom: 24px; right: 24px;
-      background: var(--card); color: var(--text);
-      border: 1px solid var(--border2);
-      font-size: 13px; padding: 12px 18px;
-      border-radius: var(--radius-md);
-      box-shadow: 0 4px 20px rgba(0,0,0,.4);
-      opacity: 0; transition: opacity .25s; pointer-events: none; z-index: 999;
-    }
-    .toast.show { opacity: 1; }
-
-    /* ── Responsive ── */
-    @media (max-width: 640px) {
-      .page { padding: 24px 16px 60px; }
-      .conn-card, .coming-card { flex-wrap: wrap; }
-      .conn-actions { width: 100%; }
-      .conn-btn { flex: 1; text-align: center; }
-      .bottom-banner { flex-direction: column; padding: 24px; }
-      .mapping-grid { grid-template-columns: 1fr; }
-      .mapping-arrow { display: none; }
-    }
-  </style>
+    return _fetch.call(this, url, opts);
+  };
+  return cfg;
+}).catch(function(){ window.ARC_CONFIG = {}; });
+</script>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Connections — ARC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0c0f;--surface:#111418;--surface2:#181c22;
+  --border:#1e242d;--border2:#262d38;
+  --text:#e8edf5;--text2:#8a95a3;--text3:#4d5663;
+  --accent:#3b82f6;--accent-dim:rgba(59,130,246,0.12);
+  --green:#22c55e;--green-dim:rgba(34,197,94,0.12);
+  --amber:#f59e0b;--amber-dim:rgba(245,158,11,0.12);
+  --red:#ef4444;--red-dim:rgba(239,68,68,0.12);
+  --nav-h:56px;--strip-h:80px;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',-apple-system,BlinkMacSystemFont,sans-serif;font-size:14px}
+/* NAV */
+#nav{position:fixed;top:0;left:0;right:0;height:var(--nav-h);background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;padding:0 20px;z-index:100}
+.logo{font-size:17px;font-weight:700;letter-spacing:-.5px;color:var(--text);display:flex;align-items:center;gap:8px;cursor:pointer;text-decoration:none}
+.arc-badge{background:var(--accent);color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px;letter-spacing:1.5px}
+.client-name-display{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;color:var(--text);cursor:default}
+.spacer{flex:1}
+/* ARC NAV DROPDOWNS */
+.arc-dd-wrap{position:relative;display:flex;align-items:center}
+.arc-dd-btn{background:transparent;border:0.5px solid var(--border);border-radius:6px;color:var(--text2);font-size:12px;font-family:'DM Mono',monospace;padding:5px 11px;cursor:pointer;transition:all 150ms ease;white-space:nowrap;letter-spacing:.05em}
+.arc-dd-btn:hover{border-color:var(--border2);color:var(--text)}
+.arc-dd{position:absolute;top:calc(100% + 8px);left:0;min-width:180px;background:#13131a;border:1px solid #2a2a3a;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.4);padding:4px;z-index:1000;display:none}
+.arc-dd.open{display:block}
+.arc-dd-right{left:auto;right:0}
+.arc-dd-item{padding:10px 16px;font-family:'DM Mono',monospace;font-size:12px;color:#f0f0f0;cursor:pointer;border-radius:5px;transition:background 100ms ease,color 100ms ease;position:relative;display:flex;align-items:center;gap:8px;user-select:none}
+.arc-dd-item:hover{background:#1a1a24;color:#00d4aa}
+.arc-dd-item.active-page{color:#00d4aa}
+.arc-dd-sep{border-top:1px solid #2a2a3a;margin:4px 0}
+.arc-dd-item.has-sub{justify-content:space-between}
+.arc-dd-item.has-sub::after{content:'›';font-size:14px;opacity:.5;flex-shrink:0;margin-left:auto}
+.arc-sub{position:absolute;left:100%;top:-4px;min-width:180px;background:#13131a;border:1px solid #2a2a3a;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.4);padding:4px;display:none;z-index:1001}
+.arc-dd-item.has-sub:hover .arc-sub{display:block}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#fff;cursor:pointer;flex-shrink:0}
+/* SHELL */
+#shell{display:flex;flex-direction:column;height:100vh;padding-top:var(--nav-h)}
+/* HEALTH STRIP */
+#health-strip{height:var(--strip-h);flex-shrink:0;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:stretch}
+.hc{display:flex;flex-direction:column;justify-content:center;padding:0 28px;flex:1;border-right:1px solid var(--border)}
+.hc:last-child{border-right:none}
+.hc-label{font-size:10px;color:var(--text3);letter-spacing:.7px;text-transform:uppercase;margin-bottom:5px;font-family:'DM Mono',monospace}
+.hc-value{font-size:26px;font-weight:700;letter-spacing:-1px;line-height:1}
+.hc-sub{font-size:11px;color:var(--text3);margin-top:4px;font-family:'DM Mono',monospace}
+.col-blue{color:var(--accent)}.col-green{color:var(--green)}.col-amber{color:var(--amber)}
+/* CONTENT ROW */
+#content-row{flex:1;display:flex;overflow:hidden;min-height:0}
+#main-col{flex:1;overflow-y:auto;padding:24px 28px;display:flex;flex-direction:column;gap:20px}
+/* CMNDR TOGGLE */
+#cmndr-toggle{width:18px;flex-shrink:0;background:var(--surface2);border:none;border-left:1px solid var(--border);color:var(--text3);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color .15s,background .15s;padding:0}
+#cmndr-toggle:hover{color:var(--accent);background:var(--surface)}
+#cmndr-toggle svg{width:11px;height:11px;flex-shrink:0}
+/* CMNDR COL */
+#cmndr-col{width:300px;flex-shrink:0;border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width 250ms ease,opacity 200ms ease}
+#cmndr-col.collapsed{width:0;opacity:0;pointer-events:none}
+#cmndr-header{padding:14px 16px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0}
+.cmndr-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0;animation:blink 2.2s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+.cmndr-title{font-size:13px;font-weight:600}
+.cmndr-sub{font-size:11px;color:var(--text3);margin-top:1px}
+#cmndr-body{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.cmndr-narrative{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:12px}
+.cn-label{font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--accent);margin-bottom:6px;font-family:'DM Mono',monospace}
+.cn-text{font-size:13px;color:var(--text2);line-height:1.65}
+.cmndr-history{display:flex;flex-direction:column;gap:8px}
+.msg{display:flex;flex-direction:column}
+.msg.user .msg-bubble{background:var(--accent-dim);border:1px solid var(--accent);align-self:flex-end;color:var(--text)}
+.msg.ai .msg-bubble{background:var(--surface2);border:1px solid var(--border2);align-self:flex-start;color:var(--text2)}
+.msg-bubble{max-width:92%;padding:7px 11px;border-radius:8px;font-size:13px;line-height:1.55;margin-bottom:2px}
+.msg-time{font-size:10px;color:var(--text3)}
+.msg.user .msg-time{align-self:flex-end}.msg.ai .msg-time{align-self:flex-start}
+#cmndr-input-area{padding:10px 16px 14px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:7px;flex-shrink:0}
+#cmndr-suggestions{display:flex;gap:5px;flex-wrap:wrap}
+.suggestion-pill{background:var(--surface2);border:1px solid var(--border2);border-radius:12px;padding:3px 9px;font-size:11px;color:var(--text2);cursor:pointer;transition:all .12s;white-space:nowrap;font-family:'DM Mono',monospace}
+.suggestion-pill:hover{border-color:var(--accent);color:var(--accent)}
+.input-row{display:flex;gap:7px;align-items:flex-end}
+#cmndr-input{flex:1;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:13px;padding:7px 11px;outline:none;resize:none;font-family:inherit;min-height:36px;max-height:120px}
+#cmndr-input:focus{border-color:var(--accent)}
+#cmndr-send{background:var(--accent);border:none;border-radius:6px;width:34px;height:34px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0}
+#cmndr-send:hover{background:#2563eb}
+#cmndr-send svg{width:13px;height:13px;fill:currentColor}
+/* CONNECTIONS PAGE */
+.section-hd{font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);font-family:'DM Mono',monospace;margin-bottom:12px}
+.conn-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.conn-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:10px;transition:border-color .15s}
+.conn-card:hover{border-color:var(--border2)}
+.conn-card-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.conn-card-left{display:flex;align-items:center;gap:12px}
+.conn-icon{width:36px;height:36px;border-radius:8px;background:var(--surface2);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.conn-name{font-size:13px;font-weight:600;color:var(--text)}
+.conn-auth{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;margin-top:2px}
+.pill-connected{display:inline-flex;align-items:center;gap:5px;background:var(--green-dim);border:1px solid rgba(34,197,94,0.25);border-radius:20px;padding:3px 10px;font-size:11px;color:var(--green);font-family:'DM Mono',monospace;white-space:nowrap}
+.pill-connected::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--green);flex-shrink:0}
+.pill-disconnected{display:inline-flex;align-items:center;gap:5px;background:var(--surface2);border:1px solid var(--border2);border-radius:20px;padding:3px 10px;font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;white-space:nowrap}
+.pill-disconnected::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--text3);flex-shrink:0}
+.conn-card-actions{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.conn-desc{font-size:12px;color:var(--text2);line-height:1.5}
+.conn-btn-connect{background:var(--accent);border:none;border-radius:6px;color:#fff;font-size:12px;font-family:'DM Mono',monospace;padding:6px 14px;cursor:pointer;transition:opacity .15s;white-space:nowrap}
+.conn-btn-connect:hover{opacity:.85}
+.conn-btn-manage{background:none;border:1px solid var(--border2);border-radius:6px;color:var(--text2);font-size:12px;font-family:'DM Mono',monospace;padding:5px 12px;cursor:pointer;transition:all .15s}
+.conn-btn-manage:hover{border-color:var(--border);color:var(--text)}
+.conn-btn-sync{background:none;border:1px solid var(--border2);border-radius:6px;color:var(--text2);font-size:12px;font-family:'DM Mono',monospace;padding:5px 12px;cursor:pointer;transition:all .15s}
+.conn-btn-sync:hover{border-color:var(--accent);color:var(--accent)}
+/* FOOTER NOTE */
+.conn-footer{font-size:12px;color:var(--text3);font-family:'DM Mono',monospace;border-top:1px solid var(--border);padding-top:16px;margin-top:4px}
+.conn-footer a{color:var(--accent);text-decoration:none;cursor:pointer}
+.conn-footer a:hover{text-decoration:underline}
+/* TOAST */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:10px 18px;font-size:13px;font-family:'DM Mono',monospace;color:var(--text);box-shadow:0 4px 20px rgba(0,0,0,.4);opacity:0;transition:opacity .25s;pointer-events:none;z-index:999;white-space:nowrap}
+#toast.show{opacity:1}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+</style>
+<script type="module" src="/js/auth.js"></script>
 </head>
 <body>
 
-<!-- Top bar -->
-<div class="topbar">
-  <div class="topbar-left">
-    <button class="back-btn" onclick="window.location.href='/app'">
-      <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M8 2l-5 4.5L8 11" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      Back
+<nav id="nav">
+  <a class="logo" href="/">
+    <span class="arc-badge">ARC</span>
+    Command Center
+  </a>
+  <span class="client-name-display"><span style="font-size:8px;color:#00d4aa;line-height:1">●</span>Peak Flow Plumbing &amp; HVAC</span>
+  <div class="spacer"></div>
+  <div class="arc-dd-wrap">
+    <button class="arc-dd-btn" onclick="toggleDd('adapt')">ADAPT ▾</button>
+    <div class="arc-dd" id="dd-adapt-panel">
+      <div class="arc-dd-item has-sub">Visibility
+        <div class="arc-sub">
+          <div class="arc-dd-item" onclick="location.href='/operations'">Operations</div>
+          <div class="arc-dd-item" onclick="location.href='/finance'">Finance</div>
+          <div class="arc-dd-item" onclick="location.href='/marketing'">Marketing</div>
+          <div class="arc-dd-item" onclick="location.href='/yield'">Yield &amp; Efficiency</div>
+          <div class="arc-dd-item" onclick="location.href='/market-scan'">Market Scan</div>
+        </div>
+      </div>
+      <div class="arc-dd-item" onclick="location.href='/audit'">Audits</div>
+      <div class="arc-dd-item" onclick="location.href='/digital-authority'">Digital Authority</div>
+    </div>
+  </div>
+  <div class="arc-dd-wrap">
+    <button class="arc-dd-btn" onclick="toggleDd('react')">REACT ▾</button>
+    <div class="arc-dd" id="dd-react-panel">
+      <div class="arc-dd-item" onclick="location.href='/sprint'">Sprint Planner</div>
+      <div class="arc-dd-item" onclick="location.href='/playbooks'">Playbooks</div>
+      <div class="arc-dd-item has-sub">Generate
+        <div class="arc-sub">
+          <div class="arc-dd-item" onclick="openReportBuilder()">Reports</div>
+        </div>
+      </div>
+      <div class="arc-dd-item" onclick="location.href='/wins'">Win Board</div>
+    </div>
+  </div>
+  <div class="arc-dd-wrap">
+    <button class="arc-dd-btn" onclick="toggleDd('control')">CONTROL ▾</button>
+    <div class="arc-dd" id="dd-control-panel">
+      <div class="arc-dd-item" onclick="location.href='/automations'">Automations</div>
+      <div class="arc-dd-item active-page">Connections</div>
+      <div class="arc-dd-item" onclick="location.href='/archive'">Archive</div>
+    </div>
+  </div>
+  <div class="arc-dd-wrap">
+    <div class="avatar" id="nav-avatar" onclick="toggleDd('avatar')">A</div>
+    <div class="arc-dd arc-dd-right" id="dd-avatar-panel">
+      <div class="arc-dd-item" onclick="location.href='#'">Account Settings</div>
+      <div class="arc-dd-sep"></div>
+      <div class="arc-dd-item" onclick="location.href='#'">Terms &amp; Conditions</div>
+      <div class="arc-dd-item" onclick="location.href='#'">Privacy Policy</div>
+      <div class="arc-dd-item" onclick="location.href='#'">Data Protocol Policy</div>
+      <div class="arc-dd-sep"></div>
+      <div class="arc-dd-item" onclick="doSignOut()">Sign Out</div>
+    </div>
+  </div>
+</nav>
+
+<div id="shell">
+
+  <div id="health-strip">
+    <div class="hc">
+      <div class="hc-label">Connected Sources</div>
+      <div class="hc-value col-green">3</div>
+      <div class="hc-sub">Active integrations</div>
+    </div>
+    <div class="hc">
+      <div class="hc-label">Available Sources</div>
+      <div class="hc-value col-blue">6</div>
+      <div class="hc-sub">Ready to connect</div>
+    </div>
+    <div class="hc">
+      <div class="hc-label">Last Sync</div>
+      <div class="hc-value" style="font-size:20px;letter-spacing:-.5px">2h ago</div>
+      <div class="hc-sub">All sources healthy</div>
+    </div>
+  </div>
+
+  <div id="content-row">
+    <div id="main-col">
+
+      <!-- Connected -->
+      <div>
+        <div class="section-hd">Connected</div>
+        <div class="conn-grid">
+
+          <div class="conn-card">
+            <div class="conn-card-top">
+              <div class="conn-card-left">
+                <div class="conn-icon">📊</div>
+                <div>
+                  <div class="conn-name">Google Sheets</div>
+                  <div class="conn-auth">OAuth 2.0</div>
+                </div>
+              </div>
+              <span class="pill-connected">CONNECTED</span>
+            </div>
+            <div class="conn-desc">Syncing job data, technician logs, and weekly revenue summaries from your shared workbooks.</div>
+            <div class="conn-card-actions">
+              <button class="conn-btn-sync" onclick="showToast('Syncing Google Sheets…')">Sync now</button>
+              <button class="conn-btn-manage" onclick="showToast('Manage connection settings')">Manage</button>
+            </div>
+          </div>
+
+          <div class="conn-card">
+            <div class="conn-card-top">
+              <div class="conn-card-left">
+                <div class="conn-icon">💳</div>
+                <div>
+                  <div class="conn-name">Stripe</div>
+                  <div class="conn-auth">API Key</div>
+                </div>
+              </div>
+              <span class="pill-connected">CONNECTED</span>
+            </div>
+            <div class="conn-desc">Pulling revenue, charges, refunds, and MRR into your Finance report in real time.</div>
+            <div class="conn-card-actions">
+              <button class="conn-btn-sync" onclick="syncConnector('stripe')">Sync now</button>
+              <button class="conn-btn-manage" onclick="showToast('Manage Stripe connection')">Manage</button>
+            </div>
+          </div>
+
+          <div class="conn-card">
+            <div class="conn-card-top">
+              <div class="conn-card-left">
+                <div class="conn-icon">🗂</div>
+                <div>
+                  <div class="conn-name">Airtable</div>
+                  <div class="conn-auth">OAuth 2.0</div>
+                </div>
+              </div>
+              <span class="pill-connected">CONNECTED</span>
+            </div>
+            <div class="conn-desc">Customer records, pipeline data, and project tracking bases synced to CMNDR nightly.</div>
+            <div class="conn-card-actions">
+              <button class="conn-btn-sync" onclick="showToast('Syncing Airtable…')">Sync now</button>
+              <button class="conn-btn-manage" onclick="showToast('Manage Airtable connection')">Manage</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Available -->
+      <div>
+        <div class="section-hd">Available</div>
+        <div class="conn-grid">
+
+          <div class="conn-card">
+            <div class="conn-card-top">
+              <div class="conn-card-left">
+                <div class="conn-icon">📈</div>
+                <div>
+                  <div class="conn-name">Google Analytics</div>
+                  <div class="conn-auth">OAuth 2.0</div>
+                </div>
+              </div>
+              <span class="pill-disconnected">NOT CONNECTED</span>
+            </div>
+            <div class="conn-desc">Pull traffic, conversions, and audience data into your Marketing report.</div>
+            <div class="conn-card-actions">
+              <button class="conn-btn-connect" onclick="startGA4OAuth()">Connect →</button>
+            </div>
+          </div>
+
+          <div class="conn-card">
+            <div class="conn-card-top">
+              <div class="conn-card-left">
+                <div class="conn-icon">🔍</div>
+                <div>
+                  <div class="conn-name">Search Console</div>
+                  <div class="conn-auth">OAuth 2.0</div>
+                </div>
+              </div>
+              <span class="pill-disconnected">NOT CONNECTED</span>
+            </div>
+            <div class="conn-desc">Sync search queries, impressions, clicks, and rankings into Forecast reports.</div>
+            <div class="conn-card-actions">
+              <button class="conn-btn-connect" onclick="startGSCOAuth()">Connect →</button>
+            </div>
+          </div>
+
+          <div class="conn-card">
+            <div class="conn-card-top">
+              <div class="conn-card-left">
+                <div class="conn-icon">📋</div>
+                <div>
+                  <div class="conn-name">Monday.com</div>
+                  <div class="conn-auth">API Key</div>
+                </div>
+              </div>
+              <span class="pill-disconnected">NOT CONNECTED</span>
+            </div>
+            <div class="conn-desc">Import board items, timelines, and project status into your Operations view.</div>
+            <div class="conn-card-actions">
+              <button class="conn-btn-connect" onclick="openApiKeyModal('monday')">Connect →</button>
+            </div>
+          </div>
+
+          <div class="conn-card">
+            <div class="conn-card-top">
+              <div class="conn-card-left">
+                <div class="conn-icon">🧾</div>
+                <div>
+                  <div class="conn-name">QuickBooks</div>
+                  <div class="conn-auth">OAuth 2.0</div>
+                </div>
+              </div>
+              <span class="pill-disconnected">NOT CONNECTED</span>
+            </div>
+            <div class="conn-desc">Pull P&amp;L, invoices, expenses, and cash flow into your Finance report.</div>
+            <div class="conn-card-actions">
+              <button class="conn-btn-connect" onclick="startQBOAuth()">Connect →</button>
+            </div>
+          </div>
+
+          <div class="conn-card">
+            <div class="conn-card-top">
+              <div class="conn-card-left">
+                <div class="conn-icon">✉️</div>
+                <div>
+                  <div class="conn-name">Mailchimp</div>
+                  <div class="conn-auth">API Key</div>
+                </div>
+              </div>
+              <span class="pill-disconnected">NOT CONNECTED</span>
+            </div>
+            <div class="conn-desc">Sync subscribers, campaign performance, and open rates into Marketing reports.</div>
+            <div class="conn-card-actions">
+              <button class="conn-btn-connect" onclick="openApiKeyModal('mailchimp')">Connect →</button>
+            </div>
+          </div>
+
+          <div class="conn-card">
+            <div class="conn-card-top">
+              <div class="conn-card-left">
+                <div class="conn-icon">⚙️</div>
+                <div>
+                  <div class="conn-name">Make</div>
+                  <div class="conn-auth">API Key</div>
+                </div>
+              </div>
+              <span class="pill-disconnected">NOT CONNECTED</span>
+            </div>
+            <div class="conn-desc">Expose Make scenario run logs and execution history directly in your Automations view.</div>
+            <div class="conn-card-actions">
+              <button class="conn-btn-connect" onclick="openApiKeyModal('make')">Connect →</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="conn-footer">
+        More integrations coming soon. <a onclick="showToast('Request submitted — we\'ll follow up shortly.')">Request a connector →</a>
+      </div>
+
+    </div>
+
+    <button id="cmndr-toggle" onclick="toggleCmndr()" title="Toggle CMNDR panel">
+      <svg id="toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
     </button>
-    <span class="topbar-logo">CMNDR</span>
-    <span class="topbar-title">Data Connections</span>
+
+    <div id="cmndr-col">
+      <div id="cmndr-header">
+        <div class="cmndr-dot"></div>
+        <div>
+          <div class="cmndr-title">CMNDR</div>
+          <div class="cmndr-sub">Data Intelligence</div>
+        </div>
+      </div>
+      <div id="cmndr-body">
+        <div class="cmndr-narrative">
+          <div class="cn-label">Connection Status</div>
+          <div class="cn-text">3 of 9 sources connected. Google Sheets and Stripe are syncing correctly. Connecting QuickBooks would unlock full P&amp;L visibility and improve your Finance report accuracy by ~40%.</div>
+        </div>
+        <div class="cmndr-history" id="cmndr-history"></div>
+      </div>
+      <div id="cmndr-input-area">
+        <div id="cmndr-suggestions">
+          <div class="suggestion-pill" onclick="sendSuggestion(this)">Which source is most valuable?</div>
+          <div class="suggestion-pill" onclick="sendSuggestion(this)">Why connect QuickBooks?</div>
+          <div class="suggestion-pill" onclick="sendSuggestion(this)">How is data secured?</div>
+        </div>
+        <div class="input-row">
+          <textarea id="cmndr-input" placeholder="Ask CMNDR anything…" rows="1" onkeydown="handleKey(event)"></textarea>
+          <button id="cmndr-send" onclick="sendMessage()">
+            <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
-  <div class="topbar-right">
-    <span class="topbar-user" id="topbar-user"></span>
-  </div>
+
 </div>
 
-<!-- Page content -->
-<div class="page">
-
-  <!-- Hero -->
-  <div class="hero">
-    <div class="hero-eyebrow">Step 1 of 3</div>
-    <div class="hero-title">Connect your data sources</div>
-    <div class="hero-sub">Link your business tools to power your CMNDR dashboard. Your advisor uses this data to surface insights, flag anomalies, and build your weekly Power Briefing.</div>
-  </div>
-
-  <!-- CSV / Excel Upload -->
-  <div class="section-lbl">Upload Data</div>
-  <div class="upload-card">
-    <div class="upload-zone" id="upload-zone"
-         ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
-      <div class="upload-icon">📁</div>
-      <div class="upload-title">Drag &amp; drop your spreadsheet</div>
-      <div class="upload-sub">Supports .xlsx, .xls, and .csv files up to 10 MB</div>
-      <button class="upload-browse" onclick="document.getElementById('file-input').click()">Browse files</button>
-      <input type="file" id="file-input" accept=".csv,.xlsx,.xls" onchange="handleFileSelect(event)"/>
-    </div>
-
-    <div class="upload-progress" id="upload-progress">
-      <div class="progress-label" id="progress-label">Parsing file…</div>
-      <div class="progress-bar-wrap"><div class="progress-bar" id="progress-bar"></div></div>
-    </div>
-
-    <!-- Column mapping (shown after upload) -->
-    <div class="mapping-section" id="mapping-section">
-      <div class="mapping-title" id="mapping-title">Map your columns</div>
-      <div class="mapping-sub">Match your spreadsheet columns to CMNDR fields. Unmapped columns will be ignored.</div>
-
-      <div class="preview-table-wrap" id="preview-table-wrap"></div>
-
-      <div style="margin-top:20px;">
-        <div class="mapping-grid" id="mapping-grid" style="column-gap:10px; row-gap:10px;"></div>
-      </div>
-
-      <div class="mapping-actions">
-        <button class="conn-btn" onclick="resetUpload()">Cancel</button>
-        <button class="conn-btn primary" id="import-btn" onclick="doImport()">Import data</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Live Connections -->
-  <div class="section-lbl">Live Connections</div>
-
-  <div class="conn-card" id="gsc-card">
-    <div class="conn-icon">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-        <circle cx="12" cy="12" r="9" stroke="#378ADD" stroke-width="1.6"/>
-        <path d="M12 3a9 9 0 0 1 6.36 15.36" stroke="#1D9E75" stroke-width="1.6" stroke-linecap="round"/>
-        <path d="M12 8v4l3 3" stroke="#EF9F27" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-    </div>
-    <div class="conn-info">
-      <div class="conn-name">Google Search Console</div>
-      <div class="conn-desc">Pull your search queries, impressions, clicks and rankings directly into your Forecast and Marketing reports.</div>
-      <div class="conn-status status-disconnected" id="gsc-status">
-        <div class="status-dot"></div>
-        <span id="gsc-status-text">Not connected</span>
-      </div>
-    </div>
-    <div class="conn-actions" id="gsc-actions">
-      <button class="conn-btn primary" id="gsc-connect-btn" onclick="startGSCOAuth()">Connect</button>
-    </div>
-  </div>
-
-  <div class="conn-card" id="ga4-card">
-    <div class="conn-icon">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-        <path d="M3 3v18h18" stroke="#EF9F27" stroke-width="1.8"
-          stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M7 16l4-4 4 4 4-8" stroke="#378ADD" stroke-width="1.8"
-          stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-    </div>
-    <div class="conn-info">
-      <div class="conn-name">Google Analytics 4</div>
-      <div class="conn-desc">Pull traffic, conversions, and audience data directly into your dashboard.</div>
-      <div class="conn-status status-disconnected" id="ga4-status">
-        <div class="status-dot"></div>
-        <span id="ga4-status-text">Not connected</span>
-      </div>
-    </div>
-    <div class="conn-actions" id="ga4-actions">
-      <button class="conn-btn primary" id="ga4-connect-btn" onclick="startGA4OAuth()">Connect</button>
-    </div>
-  </div>
-
-  <div class="conn-card" id="stripe-card">
-    <div class="conn-icon">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-        <rect x="2" y="5" width="20" height="14" rx="2" stroke="#6772E5" stroke-width="1.6"/>
-        <path d="M2 10h20" stroke="#6772E5" stroke-width="1.6"/>
-        <path d="M6 15h4" stroke="#6772E5" stroke-width="1.6" stroke-linecap="round"/>
-      </svg>
-    </div>
-    <div class="conn-info">
-      <div class="conn-name">Stripe</div>
-      <div class="conn-desc">Connect Stripe to pull revenue, charges, refunds, and MRR into your Finance report.</div>
-      <div class="conn-status status-disconnected" id="stripe-status">
-        <div class="status-dot"></div>
-        <span id="stripe-status-text">Not connected</span>
-      </div>
-    </div>
-    <div class="conn-actions" id="stripe-actions">
-      <button class="conn-btn primary" onclick="openApiKeyModal('stripe')">Connect</button>
-    </div>
-  </div>
-
-  <div class="conn-card" id="mailchimp-card">
-    <div class="conn-icon">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-        <path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z" stroke="#FFE01B" stroke-width="1.6"/>
-        <path d="M22 6l-10 7L2 6" stroke="#FFE01B" stroke-width="1.6" stroke-linecap="round"/>
-      </svg>
-    </div>
-    <div class="conn-info">
-      <div class="conn-name">Mailchimp</div>
-      <div class="conn-desc">Sync subscribers, campaign performance, and open rates into your Marketing report.</div>
-      <div class="conn-status status-disconnected" id="mailchimp-status">
-        <div class="status-dot"></div>
-        <span id="mailchimp-status-text">Not connected</span>
-      </div>
-    </div>
-    <div class="conn-actions" id="mailchimp-actions">
-      <button class="conn-btn primary" onclick="openApiKeyModal('mailchimp')">Connect</button>
-    </div>
-  </div>
-
-  <div class="conn-card" id="quickbooks-card">
-    <div class="conn-icon">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-        <circle cx="12" cy="12" r="10" stroke="#2CA01C" stroke-width="1.6"/>
-        <path d="M8 12h8M12 8v8" stroke="#2CA01C" stroke-width="1.6" stroke-linecap="round"/>
-      </svg>
-    </div>
-    <div class="conn-info">
-      <div class="conn-name">QuickBooks Online</div>
-      <div class="conn-desc">Pull P&amp;L, invoices, expenses, and cash flow directly into your Finance report.</div>
-      <div class="conn-status status-disconnected" id="quickbooks-status">
-        <div class="status-dot"></div>
-        <span id="quickbooks-status-text">Not connected</span>
-      </div>
-    </div>
-    <div class="conn-actions" id="quickbooks-actions">
-      <button class="conn-btn primary" onclick="startQBOAuth()">Connect</button>
-    </div>
-  </div>
-
-  <div class="conn-card" id="square-card">
-    <div class="conn-icon">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-        <rect x="3" y="3" width="18" height="18" rx="3" stroke="#00B272" stroke-width="1.6"/>
-        <rect x="8" y="8" width="8" height="8" rx="1" stroke="#00B272" stroke-width="1.6"/>
-      </svg>
-    </div>
-    <div class="conn-info">
-      <div class="conn-name">Square</div>
-      <div class="conn-desc">Sync POS payments, top items, and location data for your revenue report.</div>
-      <div class="conn-status status-disconnected" id="square-status">
-        <div class="status-dot"></div>
-        <span id="square-status-text">Not connected</span>
-      </div>
-    </div>
-    <div class="conn-actions" id="square-actions">
-      <button class="conn-btn primary" onclick="openApiKeyModal('square')">Connect</button>
-    </div>
-  </div>
-
-  <div class="conn-card" id="google_ads-card">
-    <div class="conn-icon">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-        <path d="M3 17L8.5 7l5.5 9.5" stroke="#4285F4" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-        <circle cx="18" cy="16" r="3" stroke="#4285F4" stroke-width="1.6"/>
-        <path d="M8.5 7h9" stroke="#4285F4" stroke-width="1.6" stroke-linecap="round"/>
-      </svg>
-    </div>
-    <div class="conn-info">
-      <div class="conn-name">Google Ads</div>
-      <div class="conn-desc">Pull campaign performance, keywords, and ad spend into your marketing report.</div>
-      <div class="conn-status status-disconnected" id="google_ads-status">
-        <div class="status-dot"></div>
-        <span id="google_ads-status-text">Not connected</span>
-      </div>
-    </div>
-    <div class="conn-actions" id="google_ads-actions">
-      <button class="conn-btn primary" onclick="startGoogleAdsOAuth()">Connect</button>
-    </div>
-  </div>
-
-  <!-- Bottom banner -->
-  <div style="margin-top:40px;padding:20px;background:var(--card);border:1px solid var(--border);border-radius:12px;text-align:center;">
-    <div style="font-size:13px;color:var(--text2);margin-bottom:6px;">More integrations are on the way.</div>
-    <div style="font-size:12px;color:var(--text3);">Your Resona advisor can help configure your connections.</div>
-  </div>
-</div>
-
-<div class="toast" id="toast"></div>
+<div id="toast"></div>
 
 <script>
+const SESSION_TOKEN = localStorage.getItem('cmndr_session');
+const PAGE_SYSTEM = "You are CMNDR, an AI operations intelligence for Resona. The user is on the Connections page managing their data integrations. Be concise and direct. Max 3 sentences.";
 let CLIENT = null;
-let currentSource = null;
-let uploadState = null;
 
-const TARGET_FIELDS = [
-  { value: '', label: '— Skip —' },
-  { value: 'date', label: 'Date' },
-  { value: 'revenue', label: 'Revenue' },
-  { value: 'jobs_completed', label: 'Jobs Completed' },
-  { value: 'new_customers', label: 'New Customers' },
-  { value: 'ad_spend', label: 'Ad Spend' },
-  { value: 'leads', label: 'Leads' },
-  { value: 'conversions', label: 'Conversions' },
-  { value: 'technician', label: 'Technician Name' },
-  { value: 'job_type', label: 'Job Type' },
-  { value: 'invoice_amount', label: 'Invoice Amount' },
-  { value: 'customer_name', label: 'Customer Name' },
-  { value: 'notes', label: 'Notes' },
-];
-
-// ── Auth ─────────────────────────────────────────────────────
-(async () => {
-  const token = localStorage.getItem('cmndr_session');
-  if (!token) { window.location.href = '/login'; return; }
-  try {
-    const r = await fetch('/api/auth?action=me', { headers: { Authorization: `Bearer ${token}` } });
-    if (!r.ok) throw new Error('invalid');
-    const { client_id, name } = await r.json();
-    CLIENT = client_id;
-    document.getElementById('topbar-user').textContent = name || '';
-  } catch(e) {
-    localStorage.removeItem('cmndr_session');
-    window.location.href = '/login';
-  }
-})();
-
-// ── GA4 OAuth ─────────────────────────────────────────────────
-function startGA4OAuth() {
-  const btn = document.getElementById('ga4-connect-btn');
-  btn.textContent = 'Redirecting...';
-  btn.disabled = true;
-  const clientId = new URLSearchParams(window.location.search).get('client') || CLIENT || 'peak-flow';
-  window.location.href = `/api/connections?action=oauth-init&connector=google_analytics&client_id=${clientId}`;
+// ── NAV DROPDOWNS ──────────────────────────────────────────────
+function toggleDd(id) {
+  const target = document.getElementById('dd-' + id + '-panel');
+  if (!target) return;
+  const wasOpen = target.classList.contains('open');
+  document.querySelectorAll('.arc-dd').forEach(p => p.classList.remove('open'));
+  if (!wasOpen) target.classList.add('open');
 }
+document.addEventListener('click', e => {
+  if (!e.target.closest('.arc-dd-wrap')) document.querySelectorAll('.arc-dd').forEach(p => p.classList.remove('open'));
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.querySelectorAll('.arc-dd').forEach(p => p.classList.remove('open'));
+});
 
-function syncGA4() {
-  const clientId = new URLSearchParams(window.location.search).get('client') || CLIENT || 'peak-flow';
-  fetch('/api/connections?action=ga4-sync', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ client_id: clientId })
-  })
-  .then(r => r.json())
-  .then(d => {
-    if (d.success) showToast('GA4 data synced — ' + d.records_synced + ' records updated');
-    else showToast('Sync failed. Try again.');
-  })
-  .catch(() => showToast('Sync failed. Try again.'));
-}
-
-function disconnectGA4() {
-  const clientId = new URLSearchParams(window.location.search).get('client') || CLIENT || 'peak-flow';
-  if (!confirm('Disconnect Google Analytics 4?')) return;
-  fetch('/api/connections?action=disconnect', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ client_id: clientId, connector_key: 'google_analytics' })
-  })
-  .then(() => {
-    document.getElementById('ga4-status').className = 'conn-status status-disconnected';
-    document.getElementById('ga4-status-text').textContent = 'Not connected';
-    document.getElementById('ga4-actions').innerHTML =
-      '<button class="conn-btn primary" id="ga4-connect-btn" onclick="startGA4OAuth()">Connect</button>';
-    showToast('Google Analytics 4 disconnected');
-  });
-}
-
-// ── File upload ───────────────────────────────────────────────
-function onDragOver(e) {
-  e.preventDefault();
-  document.getElementById('upload-zone').classList.add('drag-over');
-}
-function onDragLeave(e) {
-  document.getElementById('upload-zone').classList.remove('drag-over');
-}
-function onDrop(e) {
-  e.preventDefault();
-  document.getElementById('upload-zone').classList.remove('drag-over');
-  const file = e.dataTransfer.files[0];
-  if (file) processFile(file);
-}
-function handleFileSelect(e) {
-  const file = e.target.files[0];
-  if (file) processFile(file);
-}
-
-function processFile(file) {
-  if (file.size > 10 * 1024 * 1024) { showToast('File must be under 10 MB'); return; }
-  const ext = file.name.split('.').pop().toLowerCase();
-  if (!['csv','xlsx','xls'].includes(ext)) { showToast('Only .csv, .xlsx, .xls files are supported'); return; }
-
-  const prog = document.getElementById('upload-progress');
-  const bar = document.getElementById('progress-bar');
-  const label = document.getElementById('progress-label');
-  prog.style.display = 'block';
-  bar.style.width = '0%';
-  label.textContent = 'Reading file…';
-
-  const reader = new FileReader();
-  reader.onprogress = (e) => {
-    if (e.lengthComputable) bar.style.width = Math.round(e.loaded / e.total * 50) + '%';
-  };
-  reader.onload = async (e) => {
-    bar.style.width = '60%';
-    label.textContent = 'Uploading…';
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(e.target.result)));
+// ── BOOT ──────────────────────────────────────────────────────
+async function boot() {
+  if (window.location.search.includes('bypass=true') || localStorage.getItem('arc_bypass') === 'true') {
+    localStorage.setItem('arc_bypass', 'true');
+  } else {
+    if (!SESSION_TOKEN) { location.href = '/login'; return; }
     try {
-      const r = await fetch('/api/connections?action=upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('cmndr_session')}` },
-        body: JSON.stringify({ client: CLIENT, filename: file.name, data: base64, mime_type: file.type })
-      });
-      bar.style.width = '100%';
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error || 'Upload failed');
-      label.textContent = `✓ ${data.total_columns} columns detected · ${file.name}`;
-      uploadState = data;
-      showMapping(data);
-    } catch(err) {
-      prog.style.display = 'none';
-      showToast('Upload failed: ' + err.message);
-    }
-  };
-  reader.readAsArrayBuffer(file);
-}
-
-function showMapping(data) {
-  const section = document.getElementById('mapping-section');
-  document.getElementById('mapping-title').textContent = 'Map columns from ' + data.filename;
-  section.classList.add('visible');
-
-  // Preview table
-  const wrap = document.getElementById('preview-table-wrap');
-  if (data.preview && data.preview.length > 0) {
-    const headers = data.headers;
-    let html = '<table class="preview-table"><thead><tr>';
-    headers.forEach(h => html += `<th>${h}</th>`);
-    html += '</tr></thead><tbody>';
-    data.preview.forEach(row => {
-      html += '<tr>';
-      headers.forEach(h => html += `<td>${row[h] || ''}</td>`);
-      html += '</tr>';
-    });
-    html += '</tbody></table>';
-    wrap.innerHTML = html;
+      const r = await fetch('/api/auth?action=me', { headers: { Authorization: `Bearer ${SESSION_TOKEN}` } });
+      if (!r.ok) { location.href = '/login'; return; }
+      const d = await r.json();
+      const p = d.profile;
+      if (!p || !p.role || !["admin","client","demo","resona_admin","resona_advisor","client_user","display"].includes(p.role)) { location.href = '/login'; return; }
+      CLIENT = p.client_id || null;
+      document.getElementById('nav-avatar').textContent = (p.full_name || d.user?.email || 'A').charAt(0).toUpperCase();
+    } catch { location.href = '/login'; return; }
   }
-
-  // Mapping grid
-  const grid = document.getElementById('mapping-grid');
-  const optionsHTML = TARGET_FIELDS.map(f => `<option value="${f.value}">${f.label}</option>`).join('');
-  let html = `<div class="mapping-col-head">Your column</div><div></div><div class="mapping-col-head">CMNDR field</div>`;
-  data.headers.forEach(h => {
-    const suggested = autoSuggest(h);
-    html += `
-      <div class="mapping-source">${h}</div>
-      <div class="mapping-arrow">→</div>
-      <select class="mapping-select" data-source="${h}">
-        ${TARGET_FIELDS.map(f => `<option value="${f.value}" ${f.value === suggested ? 'selected' : ''}>${f.label}</option>`).join('')}
-      </select>`;
-  });
-  grid.innerHTML = html;
+  initCmndrPanel();
+  checkConnectionReturn();
 }
 
-function autoSuggest(col) {
-  const c = col.toLowerCase().replace(/[^a-z]/g, '');
-  if (/date|day|week|month/.test(c)) return 'date';
-  if (/revenue|sales|income/.test(c)) return 'revenue';
-  if (/job|order|ticket/.test(c)) return 'jobs_completed';
-  if (/customer|client|new/.test(c)) return 'new_customers';
-  if (/spend|ad|cost/.test(c)) return 'ad_spend';
-  if (/lead|prospect/.test(c)) return 'leads';
-  if (/convert|booked/.test(c)) return 'conversions';
-  if (/tech|staff/.test(c)) return 'technician';
-  if (/amount|invoice/.test(c)) return 'invoice_amount';
-  return '';
+// ── CMNDR PANEL ───────────────────────────────────────────────
+function initCmndrPanel() {
+  if (localStorage.getItem('arc_cmndr_open') === 'false') applyCollapsed(true);
+}
+function toggleCmndr() {
+  const collapsed = document.getElementById('cmndr-col').classList.contains('collapsed');
+  applyCollapsed(!collapsed);
+  localStorage.setItem('arc_cmndr_open', collapsed ? 'true' : 'false');
+}
+function applyCollapsed(on) {
+  document.getElementById('cmndr-col').classList.toggle('collapsed', on);
+  const pts = document.getElementById('toggle-icon')?.querySelector('polyline');
+  if (pts) pts.setAttribute('points', on ? '9 18 15 12 9 6' : '15 18 9 12 15 6');
 }
 
-async function doImport() {
-  if (!uploadState) return;
-  const selects = document.querySelectorAll('#mapping-grid .mapping-select');
-  const mapping = {};
-  selects.forEach(s => { if (s.value) mapping[s.dataset.source] = s.value; });
+// ── CMNDR CHAT ────────────────────────────────────────────────
+const history = []; let msgN = 0;
+function handleKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }
+function sendSuggestion(el) { document.getElementById('cmndr-input').value = el.textContent; sendMessage(); }
 
-  if (Object.keys(mapping).length === 0) { showToast('Please map at least one column'); return; }
-
-  const btn = document.getElementById('import-btn');
-  btn.disabled = true;
-  btn.textContent = 'Importing…';
-
+async function sendMessage() {
+  const inp = document.getElementById('cmndr-input');
+  const text = inp.value.trim(); if (!text) return;
+  inp.value = '';
+  addMsg('user', text); history.push({ role: 'user', content: text });
+  const tid = addMsg('ai', '', true);
   try {
-    const r = await fetch('/api/connections?action=map-columns', {
+    const r = await fetch('/api/ask', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('cmndr_session')}` },
-      body: JSON.stringify({
-        client: CLIENT,
-        storage_path: uploadState.storage_path,
-        filename: uploadState.filename,
-        mapping,
-      })
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SESSION_TOKEN}` },
+      body: JSON.stringify({ system: PAGE_SYSTEM, messages: history })
     });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.error || 'Import failed');
-    showToast(`✓ Imported ${data.inserted} rows successfully`);
-    resetUpload();
-  } catch(e) {
-    btn.disabled = false;
-    btn.textContent = 'Import data';
-    showToast('Import failed: ' + e.message);
-  }
+    let reply = 'Unable to reach CMNDR.';
+    if (r.ok) { const d = await r.json(); reply = d.content?.[0]?.text || d.text || reply; }
+    updMsg(tid, reply); history.push({ role: 'assistant', content: reply });
+  } catch { updMsg(tid, 'CMNDR temporarily unavailable.'); }
+  document.getElementById('cmndr-body').scrollTop = 99999;
 }
-
-function resetUpload() {
-  document.getElementById('upload-progress').style.display = 'none';
-  document.getElementById('mapping-section').classList.remove('visible');
-  document.getElementById('file-input').value = '';
-  uploadState = null;
+function addMsg(role, text, typing) {
+  const id = 'msg-' + (++msgN);
+  const t = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const el = document.createElement('div'); el.className = 'msg ' + role; el.id = id;
+  el.innerHTML = `<div class="msg-bubble">${typing ? '<em style="opacity:.5">Thinking…</em>' : esc(text)}</div><div class="msg-time">${t}</div>`;
+  document.getElementById('cmndr-history').appendChild(el);
+  document.getElementById('cmndr-body').scrollTop = 99999; return id;
 }
+function updMsg(id, text) { const el = document.getElementById(id); if (el) el.querySelector('.msg-bubble').textContent = text; }
+function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
-// ── Toast ─────────────────────────────────────────────────────
+// ── TOAST ──────────────────────────────────────────────────────
 let toastTimer;
 function showToast(msg) {
   const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
+  t.textContent = msg; t.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), 3500);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
 }
 
-// ── GSC OAuth ─────────────────────────────────────────────────
+// ── OAUTH FLOWS ────────────────────────────────────────────────
+function clientId() {
+  return new URLSearchParams(window.location.search).get('client') || CLIENT || 'peak-flow';
+}
+function startGA4OAuth() {
+  showToast('Redirecting to Google…');
+  setTimeout(() => { window.location.href = `/api/connections?action=oauth-init&connector=google_analytics&client_id=${clientId()}`; }, 600);
+}
 function startGSCOAuth() {
-  const btn = document.getElementById('gsc-connect-btn');
-  btn.textContent = 'Redirecting...';
-  btn.disabled = true;
-  const clientId = new URLSearchParams(window.location.search).get('client') || CLIENT || 'peak-flow';
-  window.location.href = `/api/connections?action=oauth-init&connector=google_search_console&client_id=${clientId}`;
+  showToast('Redirecting to Google…');
+  setTimeout(() => { window.location.href = `/api/connections?action=oauth-init&connector=google_search_console&client_id=${clientId()}`; }, 600);
 }
-
-function syncGSC() {
-  const clientId = new URLSearchParams(window.location.search).get('client') || CLIENT || 'peak-flow';
-  fetch('/api/connections?action=gsc-sync', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ client_id: clientId })
-  })
-  .then(r => r.json())
-  .then(d => {
-    if (d.success) showToast('GSC data synced — ' + d.records_synced + ' records updated');
-    else showToast('Sync failed. Try again.');
-  })
-  .catch(() => showToast('Sync failed. Try again.'));
-}
-
-function disconnectGSC() {
-  const clientId = new URLSearchParams(window.location.search).get('client') || CLIENT || 'peak-flow';
-  if (!confirm('Disconnect Google Search Console?')) return;
-  fetch('/api/connections?action=disconnect', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ client_id: clientId, connector_key: 'google_search_console' })
-  })
-  .then(() => {
-    document.getElementById('gsc-status').className = 'conn-status status-disconnected';
-    document.getElementById('gsc-status-text').textContent = 'Not connected';
-    document.getElementById('gsc-actions').innerHTML =
-      '<button class="conn-btn primary" id="gsc-connect-btn" onclick="startGSCOAuth()">Connect</button>';
-    showToast('Google Search Console disconnected');
-  });
-}
-
-function checkConnectionReturn() {
-  const params = new URLSearchParams(window.location.search);
-  const connected = params.get('connected');
-  if (connected === 'google_search_console') {
-    const status = document.getElementById('gsc-status');
-    const statusText = document.getElementById('gsc-status-text');
-    const actions = document.getElementById('gsc-actions');
-    if (status) status.className = 'conn-status status-connected';
-    if (statusText) statusText.textContent = 'Connected — syncing data';
-    if (actions) actions.innerHTML =
-      '<button class="conn-btn" onclick="syncGSC()">Sync now</button>' +
-      '<button class="conn-btn danger" onclick="disconnectGSC()">Disconnect</button>';
-    showToast('Google Search Console connected successfully!');
-    window.history.replaceState({}, '', '/connections');
-  } else if (connected === 'google_analytics') {
-    const status = document.getElementById('ga4-status');
-    const statusText = document.getElementById('ga4-status-text');
-    const actions = document.getElementById('ga4-actions');
-    if (status) status.className = 'conn-status status-connected';
-    if (statusText) statusText.textContent = 'Connected — syncing data';
-    if (actions) actions.innerHTML =
-      '<button class="conn-btn" onclick="syncGA4()">Sync now</button>' +
-      '<button class="conn-btn danger" onclick="disconnectGA4()">Disconnect</button>';
-    showToast('Google Analytics 4 connected successfully!');
-    window.history.replaceState({}, '', '/connections');
-  } else if (connected === 'quickbooks') {
-    const status = document.getElementById('quickbooks-status');
-    const statusText = document.getElementById('quickbooks-status-text');
-    const actions = document.getElementById('quickbooks-actions');
-    if (status) status.className = 'conn-status status-connected';
-    if (statusText) statusText.textContent = 'Connected — syncing data';
-    if (actions) actions.innerHTML =
-      '<button class="conn-btn" onclick="syncConnector(\'quickbooks\')">Sync now</button>' +
-      '<button class="conn-btn danger" onclick="disconnectConnector(\'quickbooks\')">Disconnect</button>';
-    showToast('QuickBooks Online connected successfully!');
-    window.history.replaceState({}, '', '/connections');
-  } else if (connected === 'google_ads') {
-    const status = document.getElementById('google_ads-status');
-    const statusText = document.getElementById('google_ads-status-text');
-    const actions = document.getElementById('google_ads-actions');
-    if (status) status.className = 'conn-status status-connected';
-    if (statusText) statusText.textContent = 'Connected — syncing data';
-    if (actions) actions.innerHTML =
-      '<button class="conn-btn" onclick="syncConnector(\'google_ads\')">Sync now</button>' +
-      '<button class="conn-btn danger" onclick="disconnectConnector(\'google_ads\')">Disconnect</button>';
-    showToast('Google Ads connected successfully!');
-    window.history.replaceState({}, '', '/connections');
-  }
-}
-
-async function loadConnectionStatuses() {
-  const clientId = new URLSearchParams(window.location.search).get('client') || CLIENT || 'peak-flow';
-  try {
-    const res = await fetch(`/api/connections?action=list&client_id=${clientId}`);
-    const data = await res.json();
-    const sources = data.data || data.sources || [];
-    const gsc = sources.find(s => s.connector_key === 'google_search_console' || s.id === 'google_search_console');
-    if (gsc?.connected || gsc?.is_connected) {
-      const status = document.getElementById('gsc-status');
-      const statusText = document.getElementById('gsc-status-text');
-      const actions = document.getElementById('gsc-actions');
-      if (status) status.className = 'conn-status status-connected';
-      if (statusText) {
-        const lastSync = gsc.last_sync_at || gsc.last_synced_at;
-        statusText.textContent = lastSync
-          ? 'Last sync: ' + new Date(lastSync).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-          : 'Connected';
-      }
-      if (actions) actions.innerHTML =
-        '<button class="conn-btn" onclick="syncGSC()">Sync now</button>' +
-        '<button class="conn-btn danger" onclick="disconnectGSC()">Disconnect</button>';
-    }
-
-    const ga4 = sources.find(s => s.connector_key === 'google_analytics' || s.id === 'google_analytics');
-    if (ga4?.connected || ga4?.is_connected) {
-      const status = document.getElementById('ga4-status');
-      const statusText = document.getElementById('ga4-status-text');
-      const actions = document.getElementById('ga4-actions');
-      if (status) status.className = 'conn-status status-connected';
-      if (statusText) {
-        const lastSync = ga4.last_sync_at || ga4.last_synced_at;
-        statusText.textContent = lastSync
-          ? 'Last sync: ' + new Date(lastSync).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-          : 'Connected';
-      }
-      if (actions) actions.innerHTML =
-        '<button class="conn-btn" onclick="syncGA4()">Sync now</button>' +
-        '<button class="conn-btn danger" onclick="disconnectGA4()">Disconnect</button>';
-    }
-    const connectors = ['stripe', 'mailchimp', 'quickbooks', 'square', 'google_ads'];
-    for (const c of connectors) {
-      const src = sources.find(s => s.connector_key === c || s.id === c);
-      if (src?.connected || src?.is_connected) {
-        const status = document.getElementById(c + '-status');
-        const statusText = document.getElementById(c + '-status-text');
-        const actions = document.getElementById(c + '-actions');
-        if (status) status.className = 'conn-status status-connected';
-        if (statusText) {
-          statusText.textContent = src.last_sync_at
-            ? 'Last sync: ' + new Date(src.last_sync_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-            : 'Connected';
-        }
-        if (actions) actions.innerHTML =
-          `<button class="conn-btn" onclick="syncConnector('${c}')">Sync now</button>` +
-          `<button class="conn-btn danger" onclick="disconnectConnector('${c}')">Disconnect</button>`;
-      }
-    }
-  } catch(e) {
-    console.error('[connections] status load failed', e);
-  }
-}
-
-// ── QuickBooks OAuth ──────────────────────────────────────────
 function startQBOAuth() {
-  const btn = document.querySelector('#quickbooks-actions .conn-btn');
-  if (btn) { btn.textContent = 'Redirecting...'; btn.disabled = true; }
-  const clientId = new URLSearchParams(window.location.search).get('client') || CLIENT || 'peak-flow';
-  window.location.href = `/api/connections?action=oauth-init&connector=quickbooks&client_id=${clientId}`;
+  showToast('Redirecting to QuickBooks…');
+  setTimeout(() => { window.location.href = `/api/connections?action=oauth-init&connector=quickbooks&client_id=${clientId()}`; }, 600);
 }
 
-function startGoogleAdsOAuth() {
-  const btn = document.querySelector('#google_ads-actions .conn-btn');
-  if (btn) { btn.textContent = 'Redirecting...'; btn.disabled = true; }
-  const clientId = new URLSearchParams(window.location.search).get('client') || CLIENT || 'peak-flow';
-  window.location.href = `/api/connections?action=oauth-init&connector=google_ads&client_id=${clientId}`;
-}
-
-// ── API Key modal (Stripe / Mailchimp / Square) ───────────────
+// ── API KEY MODAL ──────────────────────────────────────────────
 function openApiKeyModal(connector) {
   const configs = {
-    stripe: {
-      name: 'Stripe',
-      instruction: 'Find your Secret Key in Stripe Dashboard → Developers → API Keys. Use a Restricted Key with read-only access to Charges, Customers, and Subscriptions.',
-      placeholder: 'sk_live_...'
-    },
-    mailchimp: {
-      name: 'Mailchimp',
-      instruction: 'Find your API Key in Mailchimp → Account → Extras → API Keys. Generate a new key if needed.',
-      placeholder: 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-us00'
-    },
-    square: {
-      name: 'Square',
-      instruction: 'Find your Access Token in Square Developer Dashboard → Applications → select your app → Credentials. Use a Production Access Token.',
-      placeholder: 'EAAAl...'
-    }
+    mailchimp: { name: 'Mailchimp', hint: 'Account → Extras → API Keys', placeholder: 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-us00' },
+    monday:    { name: 'Monday.com', hint: 'Profile → Developers → API v2 token', placeholder: 'eyJhbGciOiJIUzI1Ni...' },
+    make:      { name: 'Make', hint: 'Profile → API → Generate token', placeholder: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx' }
   };
-  const config = configs[connector];
-  if (!config) return;
-
-  document.getElementById('api-key-modal')?.remove();
-
+  const c = configs[connector]; if (!c) return;
+  document.getElementById('arc-api-modal')?.remove();
   const modal = document.createElement('div');
-  modal.id = 'api-key-modal';
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center;';
+  modal.id = 'arc-api-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:500;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)';
   modal.innerHTML = `
-    <div style="background:#1a1a2e;border:1px solid #2a2a3e;border-radius:16px;padding:32px;max-width:480px;width:calc(100% - 32px);position:relative;">
-      <button onclick="document.getElementById('api-key-modal').remove()"
-        style="position:absolute;top:16px;right:20px;font-size:20px;color:#6b7280;background:none;border:none;cursor:pointer;line-height:1;">×</button>
-      <div style="font-size:16px;font-weight:600;margin-bottom:8px;">Connect ${config.name}</div>
-      <div style="font-size:13px;color:#9c9a92;margin-bottom:20px;line-height:1.6;">${config.instruction}</div>
-      <div style="margin-bottom:12px;">
-        <label style="font-size:12px;color:#6b7280;display:block;margin-bottom:6px;">API Key</label>
-        <div style="position:relative;">
-          <input type="password" id="modal-api-key" placeholder="${config.placeholder}"
-            style="width:100%;background:#0f0f1a;border:1px solid #2a2a3e;color:#e8e6de;padding:10px 40px 10px 14px;border-radius:8px;font-size:13px;outline:none;font-family:monospace;"/>
-          <button onclick="toggleModalKeyVis()"
-            style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#6b7280;font-size:12px;">Show</button>
-        </div>
-      </div>
-      <div style="margin-bottom:20px;">
-        <label style="font-size:12px;color:#6b7280;display:block;margin-bottom:6px;">Label (optional)</label>
-        <input type="text" id="modal-api-label" placeholder="${config.name} Key"
-          style="width:100%;background:#0f0f1a;border:1px solid #2a2a3e;color:#e8e6de;padding:10px 14px;border-radius:8px;font-size:13px;outline:none;"/>
-      </div>
+    <div style="background:#111418;border:1px solid #262d38;border-radius:12px;padding:28px;max-width:440px;width:calc(100% - 32px);position:relative;">
+      <button onclick="document.getElementById('arc-api-modal').remove()" style="position:absolute;top:14px;right:16px;background:none;border:none;color:#4d5663;font-size:18px;cursor:pointer;line-height:1">×</button>
+      <div style="font-size:15px;font-weight:600;margin-bottom:6px">Connect ${c.name}</div>
+      <div style="font-size:12px;color:#8a95a3;margin-bottom:20px;font-family:'DM Mono',monospace">${c.hint}</div>
+      <label style="font-size:11px;color:#4d5663;font-family:'DM Mono',monospace;display:block;margin-bottom:6px">API KEY</label>
+      <input type="password" id="modal-api-key" placeholder="${c.placeholder}"
+        style="width:100%;background:#0a0c0f;border:1px solid #262d38;color:#e8edf5;padding:9px 12px;border-radius:6px;font-size:12px;font-family:'DM Mono',monospace;outline:none;margin-bottom:16px"/>
       <button onclick="submitApiKey('${connector}')"
-        style="width:100%;padding:11px;border-radius:8px;border:none;background:#378ADD;color:#fff;font-size:14px;font-weight:600;cursor:pointer;">
+        style="width:100%;padding:10px;border-radius:6px;border:none;background:#3b82f6;color:#fff;font-size:13px;font-family:'DM Mono',monospace;cursor:pointer">
         Connect &amp; Verify
       </button>
-      <div id="modal-error" style="margin-top:10px;font-size:12px;color:#E24B4A;display:none;"></div>
+      <div id="modal-error" style="margin-top:8px;font-size:11px;color:#ef4444;font-family:'DM Mono',monospace;display:none"></div>
     </div>`;
   document.body.appendChild(modal);
   modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
-}
-
-function toggleModalKeyVis() {
-  const input = document.getElementById('modal-api-key');
-  const btn = input?.nextElementSibling;
-  if (!input) return;
-  input.type = input.type === 'password' ? 'text' : 'password';
-  if (btn) btn.textContent = input.type === 'password' ? 'Show' : 'Hide';
+  document.getElementById('modal-api-key').focus();
 }
 
 async function submitApiKey(connector) {
-  const keyInput = document.getElementById('modal-api-key');
-  const labelInput = document.getElementById('modal-api-label');
-  const errorEl = document.getElementById('modal-error');
-  const submitBtn = document.querySelector('#api-key-modal button[onclick^="submitApiKey"]');
-
-  const api_key = keyInput?.value?.trim();
-  if (!api_key) {
-    if (errorEl) { errorEl.textContent = 'Please enter your API key.'; errorEl.style.display = ''; }
-    return;
-  }
-
-  if (submitBtn) { submitBtn.textContent = 'Connecting...'; submitBtn.disabled = true; }
-  if (errorEl) errorEl.style.display = 'none';
-
-  const clientId = new URLSearchParams(window.location.search).get('client') || CLIENT || 'peak-flow';
-
+  const key = document.getElementById('modal-api-key')?.value?.trim();
+  const err = document.getElementById('modal-error');
+  if (!key) { if (err) { err.textContent = 'Please enter your API key.'; err.style.display = ''; } return; }
+  if (err) err.style.display = 'none';
+  const btn = document.querySelector('#arc-api-modal button[onclick^="submitApiKey"]');
+  if (btn) { btn.textContent = 'Connecting…'; btn.disabled = true; }
   try {
-    const saveRes = await fetch('/api/connections?action=save-key', {
+    const r = await fetch('/api/connections?action=save-key', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ client_id: clientId, connector_key: connector, api_key, label: labelInput?.value?.trim() || connector })
+      body: JSON.stringify({ client_id: clientId(), connector_key: connector, api_key: key, label: connector })
     });
-    const saveData = await saveRes.json();
-    if (!saveData.success) throw new Error(saveData.error || 'Save failed');
-
-    const testRes = await fetch('/api/connections?action=test', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ client_id: clientId, connector_key: connector })
-    });
-    const testData = await testRes.json();
-
-    document.getElementById('api-key-modal')?.remove();
-
-    const status = document.getElementById(connector + '-status');
-    const statusText = document.getElementById(connector + '-status-text');
-    const actions = document.getElementById(connector + '-actions');
-
-    if (testData.success) {
-      if (status) status.className = 'conn-status status-connected';
-      if (statusText) statusText.textContent = 'Connected — syncing data';
-      if (actions) actions.innerHTML =
-        `<button class="conn-btn" onclick="syncConnector('${connector}')">Sync now</button>` +
-        `<button class="conn-btn danger" onclick="disconnectConnector('${connector}')">Disconnect</button>`;
-      showToast(connector.charAt(0).toUpperCase() + connector.slice(1) + ' connected successfully!');
-    } else {
-      if (status) status.className = 'conn-status status-error';
-      if (statusText) statusText.textContent = 'Key saved but connection test failed';
-      showToast('Key saved but verification failed — check your key and try again.');
-    }
+    const d = await r.json();
+    if (!d.success) throw new Error(d.error || 'Save failed');
+    document.getElementById('arc-api-modal')?.remove();
+    showToast(connector.charAt(0).toUpperCase() + connector.slice(1) + ' connected successfully');
   } catch(e) {
-    if (errorEl) { errorEl.textContent = e.message; errorEl.style.display = ''; }
-    if (submitBtn) { submitBtn.textContent = 'Connect & Verify'; submitBtn.disabled = false; }
+    if (err) { err.textContent = e.message; err.style.display = ''; }
+    if (btn) { btn.textContent = 'Connect & Verify'; btn.disabled = false; }
   }
 }
 
-// ── Generic sync / disconnect ─────────────────────────────────
+// ── SYNC ────────────────────────────────────────────────────────
 async function syncConnector(connector) {
-  const clientId = new URLSearchParams(window.location.search).get('client') || CLIENT || 'peak-flow';
-  const actionMap = { stripe: 'stripe-sync', mailchimp: 'mailchimp-sync', quickbooks: 'qb-sync', square: 'square-sync', google_ads: 'google-ads-sync' };
-  const action = actionMap[connector];
-  if (!action) return;
-
+  showToast('Syncing ' + connector + '…');
+  const actionMap = { stripe: 'stripe-sync', mailchimp: 'mailchimp-sync' };
+  const action = actionMap[connector]; if (!action) return;
   try {
-    const res = await fetch(`/api/connections?action=${action}`, {
+    const r = await fetch(`/api/connections?action=${action}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ client_id: clientId })
+      body: JSON.stringify({ client_id: clientId() })
     });
-    const data = await res.json();
-    if (data.success) {
-      showToast(connector + ' synced — ' + data.records_synced + ' records updated');
-      const statusText = document.getElementById(connector + '-status-text');
-      if (statusText) statusText.textContent = 'Last sync: ' + new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    } else {
-      showToast('Sync failed. Try again.');
-    }
-  } catch(e) { showToast('Sync failed. Try again.'); }
+    const d = await r.json();
+    showToast(d.success ? connector + ' synced — ' + (d.records_synced || 0) + ' records' : 'Sync failed. Try again.');
+  } catch { showToast('Sync failed. Try again.'); }
 }
 
-async function disconnectConnector(connector) {
-  const clientId = new URLSearchParams(window.location.search).get('client') || CLIENT || 'peak-flow';
-  if (!confirm('Disconnect ' + connector + '?')) return;
-
-  try {
-    await fetch('/api/connections?action=disconnect', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ client_id: clientId, connector_key: connector })
-    });
-    const status = document.getElementById(connector + '-status');
-    const statusText = document.getElementById(connector + '-status-text');
-    const actions = document.getElementById(connector + '-actions');
-    if (status) status.className = 'conn-status status-disconnected';
-    if (statusText) statusText.textContent = 'Not connected';
-    if (actions) {
-      let reconnectBtn;
-      if (connector === 'quickbooks') reconnectBtn = '<button class="conn-btn primary" onclick="startQBOAuth()">Connect</button>';
-      else if (connector === 'google_ads') reconnectBtn = '<button class="conn-btn primary" onclick="startGoogleAdsOAuth()">Connect</button>';
-      else reconnectBtn = `<button class="conn-btn primary" onclick="openApiKeyModal('${connector}')">Connect</button>`;
-      actions.innerHTML = reconnectBtn;
-    }
-    showToast(connector + ' disconnected');
-  } catch(e) { showToast('Disconnect failed.'); }
+// ── OAUTH RETURN ───────────────────────────────────────────────
+function checkConnectionReturn() {
+  const connected = new URLSearchParams(window.location.search).get('connected');
+  if (connected) {
+    showToast(connected.replace(/_/g, ' ') + ' connected successfully');
+    window.history.replaceState({}, '', '/connections');
+  }
 }
 
-document.addEventListener('DOMContentLoaded', checkConnectionReturn);
-document.addEventListener('DOMContentLoaded', loadConnectionStatuses);
+boot();
 </script>
+<script src="/arc-report-builder.js"></script>
 </body>
 </html>

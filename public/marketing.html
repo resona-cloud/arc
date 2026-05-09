@@ -1,6 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script>
+window.ARC_CONFIG_READY = fetch('/api/config').then(function(r){return r.json();}).then(function(cfg){
+  window.ARC_CONFIG = cfg;
+  var _fetch = window.fetch;
+  window.fetch = function(url, opts) {
+    if (typeof url === 'string' && url.indexOf('/api/') === 0 && url.indexOf('/api/config') !== 0) {
+      opts = Object.assign({}, opts);
+      opts.headers = Object.assign({}, opts.headers, {'x-arc-key': (cfg && cfg.apiKey) || ''});
+    }
+    return _fetch.call(this, url, opts);
+  };
+  return cfg;
+}).catch(function(){ window.ARC_CONFIG = {}; });
+</script>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>ARC — Marketing</title>
@@ -129,8 +143,23 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .mc-explain{display:inline-block;margin-top:6px;font-size:10px;font-family:monospace;color:#0066ff;cursor:pointer;transition:color 150ms ease}
 .mc-explain:hover{color:#8888a0}
 /* Info icons */
-.info-icon{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;border:1px solid var(--hint,#4d5663);color:var(--hint,#4d5663);font-size:9px;font-style:italic;font-family:'DM Mono',monospace;font-weight:600;cursor:pointer;margin-left:6px;vertical-align:middle;flex-shrink:0;transition:background 150ms ease,color 150ms ease,border-color 150ms ease;position:relative;top:-1px}
+.info-icon{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;border:1px solid var(--hint,#4d5663);color:var(--hint,#4d5663);font-size:9px !important;font-style:italic !important;font-variant:normal !important;text-transform:lowercase !important;font-family:'DM Mono',monospace;font-weight:600;cursor:pointer;margin-left:6px;vertical-align:middle;flex-shrink:0;transition:background 150ms ease,color 150ms ease,border-color 150ms ease;position:relative;top:-1px}
 .info-icon:hover{background:rgba(0,102,255,0.1);color:#0066ff;border-color:#0066ff}
+/* ── ARC nav dropdowns ── */
+.arc-dd-wrap{position:relative;display:flex;align-items:center}
+.arc-dd-btn{background:transparent;border:0.5px solid var(--border);border-radius:6px;color:var(--text2);font-size:12px;font-family:'DM Mono',monospace;padding:5px 11px;cursor:pointer;transition:all 150ms ease;white-space:nowrap;letter-spacing:.05em}
+.arc-dd-btn:hover{border-color:var(--border2);color:var(--text)}
+.arc-dd{position:absolute;top:calc(100% + 8px);left:0;min-width:180px;background:#13131a;border:1px solid #2a2a3a;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.4);padding:4px;z-index:1000;display:none}
+.arc-dd.open{display:block}
+.arc-dd-right{left:auto;right:0}
+.arc-dd-item{padding:10px 16px;font-family:'DM Mono',monospace;font-size:12px;color:#f0f0f0;cursor:pointer;border-radius:5px;transition:background 100ms ease,color 100ms ease;position:relative;display:flex;align-items:center;gap:8px;user-select:none}
+.arc-dd-item:hover{background:#1a1a24;color:#00d4aa}
+.arc-dd-item.active-page{color:#00d4aa}
+.arc-dd-sep{border-top:1px solid #2a2a3a;margin:4px 0}
+.arc-dd-item.has-sub{justify-content:space-between}
+.arc-dd-item.has-sub::after{content:'›';font-size:14px;opacity:.5;flex-shrink:0;margin-left:auto}
+.arc-sub{position:absolute;left:100%;top:-4px;min-width:180px;background:#13131a;border:1px solid #2a2a3a;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.4);padding:4px;display:none;z-index:1001}
+.arc-dd-item.has-sub:hover .arc-sub{display:block}
 .info-tooltip{position:absolute;z-index:999;background:rgba(19,19,26,0.70);border:0.5px solid var(--border);border-radius:8px;padding:8px 12px;max-width:320px;min-width:200px;width:max-content;font-size:11px;font-family:'DM Mono',monospace;color:var(--text2);line-height:1.5;pointer-events:none;opacity:0;transition:opacity 150ms ease;box-shadow:0 8px 24px rgba(0,0,0,0.4);white-space:normal;backdrop-filter:blur(4px)}
 .info-tooltip.visible{opacity:1}
 .action-link{color:var(--accent);font-size:11px;cursor:pointer;text-decoration:none;margin-left:6px}
@@ -140,6 +169,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .route-option{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;padding:8px;border:1px solid var(--border2);border-radius:6px;margin-bottom:6px}
 .route-option:hover{border-color:var(--accent)}
 </style>
+<script type="module" src="/js/auth.js"></script>
 </head>
 <body>
 
@@ -150,13 +180,55 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
   </a>
   <span class="client-name-display"><span style="font-size:8px;color:#00d4aa;line-height:1">●</span>Peak Flow Plumbing &amp; HVAC</span>
   <div class="spacer"></div>
-  <button class="nav-btn" onclick="location.href='/automations'">⚡ Automations</button>
-  <button class="nav-btn cmndr-btn" onclick="toggleCmndr()">
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
-    CMNDR ✦
-  </button>
-  <button class="nav-btn" onclick="location.href='/connections'">Connections</button>
-  <div class="avatar" id="nav-avatar">A</div>
+  <div class="arc-dd-wrap">
+    <button class="arc-dd-btn" onclick="toggleDd('adapt')">ADAPT ▾</button>
+    <div class="arc-dd" id="dd-adapt-panel">
+      <div class="arc-dd-item has-sub">Visibility
+        <div class="arc-sub">
+          <div class="arc-dd-item" onclick="location.href='/operations'">Operations</div>
+          <div class="arc-dd-item" onclick="location.href='/finance'">Finance</div>
+          <div class="arc-dd-item active-page" onclick="location.href='/marketing'">Marketing</div>
+          <div class="arc-dd-item" onclick="location.href='/yield'">Yield &amp; Efficiency</div>
+          <div class="arc-dd-item" onclick="location.href='/market-scan'">Market Scan</div>
+        </div>
+      </div>
+      <div class="arc-dd-item" onclick="location.href='/audit'">Audits</div>
+      <div class="arc-dd-item" onclick="location.href='/digital-authority'">Digital Authority</div>
+    </div>
+  </div>
+  <div class="arc-dd-wrap">
+    <button class="arc-dd-btn" onclick="toggleDd('react')">REACT ▾</button>
+    <div class="arc-dd" id="dd-react-panel">
+      <div class="arc-dd-item" onclick="location.href='/sprint'">Sprint Planner</div>
+      <div class="arc-dd-item" onclick="location.href='/playbooks'">Playbooks</div>
+      <div class="arc-dd-item has-sub">Generate
+        <div class="arc-sub">
+          <div class="arc-dd-item" onclick="openReportBuilder()">Reports</div>
+        </div>
+      </div>
+      <div class="arc-dd-item" onclick="location.href='/wins'">Win Board</div>
+    </div>
+  </div>
+  <div class="arc-dd-wrap">
+    <button class="arc-dd-btn" onclick="toggleDd('control')">CONTROL ▾</button>
+    <div class="arc-dd" id="dd-control-panel">
+      <div class="arc-dd-item" onclick="location.href='/automations'">Automations</div>
+      <div class="arc-dd-item" onclick="location.href='/connections'">Connections</div>
+      <div class="arc-dd-item" onclick="location.href='/archive'">Archive</div>
+    </div>
+  </div>
+  <div class="arc-dd-wrap">
+    <div class="avatar" id="nav-avatar" onclick="toggleDd('avatar')" style="cursor:pointer">A</div>
+    <div class="arc-dd arc-dd-right" id="dd-avatar-panel">
+      <div class="arc-dd-item" onclick="location.href='#'">Account Settings</div>
+      <div class="arc-dd-sep"></div>
+      <div class="arc-dd-item" onclick="location.href='#'">Terms &amp; Conditions</div>
+      <div class="arc-dd-item" onclick="location.href='#'">Privacy Policy</div>
+      <div class="arc-dd-item" onclick="location.href='#'">Data Protocol Policy</div>
+      <div class="arc-dd-sep"></div>
+      <div class="arc-dd-item" onclick="doSignOut()">Sign Out</div>
+    </div>
+  </div>
 </nav>
 
 <div id="shell">
@@ -181,15 +253,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 
   <div id="content-row">
     <div id="main-col">
-
-      <div id="module-nav">
-        <div class="module-chip" onclick="location.href='/'">All</div>
-        <div class="module-chip" onclick="location.href='/operations'">Operations</div>
-        <div class="module-chip active">Marketing</div>
-        <div class="module-chip" onclick="location.href='/finance'">Finance</div>
-        <div class="module-chip" onclick="location.href='/yield'">Yield &amp; Efficiency</div>
-        <div class="module-chip" onclick="location.href='/audit'">Audit</div>
-      </div>
 
       <div>
         <div class="page-title">Marketing</div>
@@ -384,7 +447,7 @@ async function boot() {
       const r = await fetch('/api/auth?action=me', { headers: { Authorization: `Bearer ${SESSION_TOKEN}` } });
       if (!r.ok) { location.href = '/login'; return; }
       const d = await r.json(); const p = d.profile;
-      if (!p || !p.role || !p.role.startsWith('resona_')) { location.href = '/login'; return; }
+      if (!p || !p.role || !["admin","client","demo","resona_admin","resona_advisor","client_user","display"].includes(p.role)) { location.href = '/login'; return; }
       document.getElementById('nav-avatar').textContent = (p.full_name || d.user?.email || 'A').charAt(0).toUpperCase();
     } catch { location.href = '/login'; return; }
   }
@@ -493,6 +556,9 @@ function createInfoIcon(tooltipText) {
   const icon = document.createElement('span');
   icon.className = 'info-icon';
   icon.textContent = 'i';
+  icon.setAttribute('aria-label', 'info');
+  icon.style.textTransform = 'lowercase';
+  icon.style.fontVariant = 'normal';
   const tooltip = document.createElement('div');
   tooltip.className = 'info-tooltip';
   tooltip.textContent = tooltipText;
@@ -519,9 +585,28 @@ function initInfoIcons() {
     el.style.alignItems = 'center';
   });
 }
-document.addEventListener('DOMContentLoaded', initInfoIcons);
+document.addEventListener('DOMContentLoaded', () => {
+  initInfoIcons();
+  document.querySelectorAll('.info-icon').forEach(icon => { icon.textContent = 'i'; icon.style.textTransform = 'lowercase'; });
+});
+
+// ── ARC NAV DROPDOWNS ─────────────────────────────────────────────
+function toggleDd(id) {
+  const target = document.getElementById('dd-' + id + '-panel');
+  if (!target) return;
+  const wasOpen = target.classList.contains('open');
+  document.querySelectorAll('.arc-dd').forEach(p => p.classList.remove('open'));
+  if (!wasOpen) target.classList.add('open');
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.arc-dd-wrap')) document.querySelectorAll('.arc-dd').forEach(p => p.classList.remove('open'));
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.querySelectorAll('.arc-dd').forEach(p => p.classList.remove('open'));
+});
 
 boot();
 </script>
+<script src="/arc-report-builder.js"></script>
 </body>
 </html>

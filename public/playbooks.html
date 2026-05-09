@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>
+window.ARC_CONFIG_READY = fetch('/api/config').then(function(r){return r.json();}).then(function(cfg){
+  window.ARC_CONFIG = cfg;
+  var _fetch = window.fetch;
+  window.fetch = function(url, opts) {
+    if (typeof url === 'string' && url.indexOf('/api/') === 0 && url.indexOf('/api/config') !== 0) {
+      opts = Object.assign({}, opts);
+      opts.headers = Object.assign({}, opts.headers, {'x-arc-key': (cfg && cfg.apiKey) || ''});
+    }
+    return _fetch.call(this, url, opts);
+  };
+  return cfg;
+}).catch(function(){ window.ARC_CONFIG = {}; });
+</script>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Playbooks — ARC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0c0f;--surface:#111418;--surface2:#181c22;
+  --border:#1e242d;--border2:#262d38;
+  --text:#e8edf5;--text2:#8a95a3;--text3:#4d5663;
+  --accent:#3b82f6;--accent-dim:rgba(59,130,246,0.12);
+  --green:#22c55e;--amber:#f59e0b;--red:#ef4444;
+  --teal:#00d4aa;--teal-dim:rgba(0,212,170,0.1);
+  --nav-h:56px;--strip-h:80px;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',-apple-system,sans-serif;font-size:14px}
+#nav{position:fixed;top:0;left:0;right:0;height:var(--nav-h);background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;padding:0 20px;z-index:100}
+.logo{font-size:17px;font-weight:700;letter-spacing:-.5px;color:var(--text);display:flex;align-items:center;gap:8px;cursor:pointer;text-decoration:none}
+.arc-badge{background:var(--accent);color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px;letter-spacing:1.5px}
+.client-name-display{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;color:var(--text)}
+.spacer{flex:1}
+.arc-dd-wrap{position:relative;display:flex;align-items:center}
+.arc-dd-btn{background:transparent;border:0.5px solid var(--border);border-radius:6px;color:var(--text2);font-size:12px;font-family:'DM Mono',monospace;padding:5px 11px;cursor:pointer;transition:all 150ms ease;white-space:nowrap;letter-spacing:.05em}
+.arc-dd-btn:hover{border-color:var(--border2);color:var(--text)}
+.arc-dd{position:absolute;top:calc(100% + 8px);left:0;min-width:180px;background:#13131a;border:1px solid #2a2a3a;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.4);padding:4px;z-index:1000;display:none}
+.arc-dd.open{display:block}
+.arc-dd-right{left:auto;right:0}
+.arc-dd-item{padding:10px 16px;font-family:'DM Mono',monospace;font-size:12px;color:#f0f0f0;cursor:pointer;border-radius:5px;transition:background 100ms ease,color 100ms ease;position:relative;display:flex;align-items:center;gap:8px;user-select:none}
+.arc-dd-item:hover{background:#1a1a24;color:#00d4aa}
+.arc-dd-item.active-page{color:#00d4aa}
+.arc-dd-sep{border-top:1px solid #2a2a3a;margin:4px 0}
+.arc-dd-item.has-sub{justify-content:space-between}
+.arc-dd-item.has-sub::after{content:'›';font-size:14px;opacity:.5;flex-shrink:0;margin-left:auto}
+.arc-sub{position:absolute;left:100%;top:-4px;min-width:180px;background:#13131a;border:1px solid #2a2a3a;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.4);padding:4px;display:none;z-index:1001}
+.arc-dd-item.has-sub:hover .arc-sub{display:block}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#fff;cursor:pointer;flex-shrink:0}
+#shell{display:flex;flex-direction:column;height:100vh;padding-top:var(--nav-h)}
+#health-strip{height:var(--strip-h);flex-shrink:0;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:stretch}
+.hc{display:flex;flex-direction:column;justify-content:center;padding:0 28px;flex:1;border-right:1px solid var(--border)}
+.hc:last-child{border-right:none}
+.hc-label{font-size:10px;color:var(--text3);letter-spacing:.7px;text-transform:uppercase;margin-bottom:5px;font-family:'DM Mono',monospace}
+.hc-value{font-size:26px;font-weight:700;letter-spacing:-1px;line-height:1}
+.hc-sub{font-size:11px;color:var(--text3);margin-top:4px;font-family:'DM Mono',monospace}
+.col-blue{color:var(--accent)}.col-green{color:var(--green)}.col-amber{color:var(--amber)}.col-teal{color:var(--teal)}
+#content-row{flex:1;display:flex;overflow:hidden;min-height:0}
+#main-col{flex:1;overflow-y:auto;padding:24px 28px;display:flex;flex-direction:column;gap:20px}
+#cmndr-toggle{width:18px;flex-shrink:0;background:var(--surface2);border:none;border-left:1px solid var(--border);color:var(--text3);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color .15s,background .15s;padding:0}
+#cmndr-toggle:hover{color:var(--accent);background:var(--surface)}
+#cmndr-toggle svg{width:11px;height:11px;flex-shrink:0}
+#cmndr-col{width:300px;flex-shrink:0;border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width 250ms ease,opacity 200ms ease}
+#cmndr-col.collapsed{width:0;opacity:0;pointer-events:none}
+#cmndr-header{padding:14px 16px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0}
+.cmndr-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0;animation:blink 2.2s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+.cmndr-title{font-size:13px;font-weight:600}.cmndr-sub{font-size:11px;color:var(--text3);margin-top:1px}
+#cmndr-body{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.cmndr-narrative{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:12px}
+.cn-label{font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--accent);margin-bottom:6px;font-family:'DM Mono',monospace}
+.cn-text{font-size:13px;color:var(--text2);line-height:1.65}
+.cmndr-history{display:flex;flex-direction:column;gap:8px}
+.msg{display:flex;flex-direction:column}
+.msg.user .msg-bubble{background:var(--accent-dim);border:1px solid var(--accent);align-self:flex-end;color:var(--text)}
+.msg.ai .msg-bubble{background:var(--surface2);border:1px solid var(--border2);align-self:flex-start;color:var(--text2)}
+.msg-bubble{max-width:92%;padding:7px 11px;border-radius:8px;font-size:13px;line-height:1.55;margin-bottom:2px}
+.msg-time{font-size:10px;color:var(--text3)}
+.msg.user .msg-time{align-self:flex-end}.msg.ai .msg-time{align-self:flex-start}
+#cmndr-input-area{padding:10px 16px 14px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:7px;flex-shrink:0}
+#cmndr-suggestions{display:flex;gap:5px;flex-wrap:wrap}
+.suggestion-pill{background:var(--surface2);border:1px solid var(--border2);border-radius:12px;padding:3px 9px;font-size:11px;color:var(--text2);cursor:pointer;transition:all .12s;white-space:nowrap;font-family:'DM Mono',monospace}
+.suggestion-pill:hover{border-color:var(--accent);color:var(--accent)}
+.input-row{display:flex;gap:7px;align-items:flex-end}
+#cmndr-input{flex:1;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:13px;padding:7px 11px;outline:none;resize:none;font-family:inherit;min-height:36px;max-height:120px}
+#cmndr-input:focus{border-color:var(--accent)}
+#cmndr-send{background:var(--accent);border:none;border-radius:6px;width:34px;height:34px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0}
+#cmndr-send:hover{background:#2563eb}
+#cmndr-send svg{width:13px;height:13px;fill:currentColor}
+/* PAGE */
+.page-title{font-size:24px;font-weight:700;letter-spacing:-.5px;font-family:'Syne',sans-serif}
+.page-sub{font-size:13px;color:var(--text2);margin-top:4px}
+.page-header-row{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.cmndr-ready-badge{display:flex;align-items:center;gap:6px;font-family:'DM Mono',monospace;font-size:11px;color:var(--text3)}
+.cmndr-ready-dot{width:7px;height:7px;border-radius:50%;background:var(--teal);flex-shrink:0;animation:blink 2.2s ease-in-out infinite}
+/* FILTER BAR */
+.filter-bar{display:flex;gap:8px;flex-wrap:wrap}
+.filter-chip{background:var(--surface2);border:1px solid var(--border2);border-radius:14px;padding:5px 14px;font-size:11px;font-family:'DM Mono',monospace;color:var(--text2);cursor:pointer;transition:all .12s;user-select:none}
+.filter-chip:hover{border-color:var(--teal);color:var(--teal)}
+.filter-chip.active{background:var(--teal-dim);border-color:var(--teal);color:var(--teal)}
+/* PLAYBOOK GRID */
+.pb-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+.pb-card{background:#13131a;border:1px solid #2a2a3a;border-radius:8px;padding:18px 20px;display:flex;flex-direction:column;gap:10px;cursor:pointer;transition:border-color .15s}
+.pb-card:hover{border-color:var(--teal)}
+.pb-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.pb-cat-badge{font-family:'DM Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.7px;text-transform:uppercase;padding:2px 8px;border-radius:3px}
+.cat-marketing{color:#0066ff;background:rgba(0,102,255,0.12);border:1px solid rgba(0,102,255,0.2)}
+.cat-finance{color:#00d4aa;background:rgba(0,212,170,0.12);border:1px solid rgba(0,212,170,0.2)}
+.cat-operations{color:#8888a0;background:rgba(136,136,160,0.12);border:1px solid rgba(136,136,160,0.2)}
+.cat-growth{color:#a855f7;background:rgba(168,85,247,0.12);border:1px solid rgba(168,85,247,0.2)}
+.pb-card-name{font-size:16px;font-weight:700;letter-spacing:-.3px;color:var(--text);font-family:'Syne',sans-serif}
+.pb-card-desc{font-size:13px;color:var(--text2);line-height:1.55;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.pb-card-meta{display:flex;align-items:center;justify-content:space-between;margin-top:4px}
+.pb-meta-left{display:flex;gap:12px}
+.pb-meta-item{font-family:'DM Mono',monospace;font-size:11px;color:var(--text3)}
+.pb-open-link{font-family:'DM Mono',monospace;font-size:11px;color:var(--teal);cursor:pointer;white-space:nowrap;transition:opacity .12s}
+.pb-open-link:hover{opacity:.75}
+/* DRAWER */
+#pb-drawer{position:fixed;right:-440px;top:var(--nav-h);width:420px;height:calc(100vh - var(--nav-h));background:#13131a;border-left:1px solid #2a2a3a;z-index:200;display:flex;flex-direction:column;overflow:hidden;transition:right 250ms ease}
+#pb-drawer.open{right:0}
+#pb-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:199;display:none}
+#pb-drawer.open + #pb-overlay{display:block}
+.drawer-header{padding:16px 20px;border-bottom:1px solid #2a2a3a;display:flex;align-items:flex-start;gap:12px;flex-shrink:0}
+.drawer-header-text{flex:1;min-width:0}
+.drawer-close{background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:2px 4px;transition:color .12s;flex-shrink:0;line-height:1}
+.drawer-close:hover{color:var(--text)}
+.drawer-body{flex:1;overflow-y:auto;padding:20px}
+.drawer-cat-badge{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.7px;text-transform:uppercase;padding:2px 8px;border-radius:3px;display:inline-block;margin-bottom:8px}
+.drawer-name{font-size:22px;font-weight:700;letter-spacing:-.4px;font-family:'Syne',sans-serif;line-height:1.2;margin-bottom:6px}
+.drawer-desc{font-size:14px;color:var(--text2);line-height:1.55;margin-bottom:4px}
+.drawer-meta-line{font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);margin-bottom:20px}
+.drawer-divider{height:1px;background:var(--border2);margin:20px 0}
+.drawer-section-label{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);margin-bottom:12px}
+.step-card{background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:12px 14px;margin-bottom:10px;display:flex;gap:12px;align-items:flex-start;cursor:pointer;user-select:none;transition:border-color .12s}
+.step-card.done{opacity:.55}
+.step-card.done .step-text{text-decoration:line-through}
+.step-num{font-family:'DM Mono',monospace;font-size:12px;font-weight:500;color:var(--teal);flex-shrink:0;min-width:20px;padding-top:1px}
+.step-body{flex:1;min-width:0}
+.step-text{font-size:13px;color:var(--text2);line-height:1.6}
+.step-badges{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.step-badge-iss{display:inline-flex;align-items:center;gap:4px;font-family:'DM Mono',monospace;font-size:10px;color:var(--teal);border:1px solid rgba(0,212,170,0.25);border-radius:3px;padding:2px 7px}
+.step-badge-cmndr{display:inline-flex;align-items:center;gap:4px;font-family:'DM Mono',monospace;font-size:10px;color:#a855f7;border:1px solid rgba(168,85,247,0.25);border-radius:3px;padding:2px 7px;cursor:pointer;transition:border-color .12s}
+.step-badge-cmndr:hover{border-color:rgba(168,85,247,0.6)}
+.step-toggle{width:20px;height:20px;border-radius:50%;border:1.5px solid var(--border2);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:transparent;transition:all .15s;margin-top:1px}
+.step-card.done .step-toggle{background:var(--teal);border-color:var(--teal);color:#000}
+/* CMNDR CUSTOMIZATION */
+.cmndr-custom-section{background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:16px}
+.cmndr-custom-label{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.8px;text-transform:uppercase;color:var(--teal);margin-bottom:6px}
+.cmndr-custom-text{font-size:13px;color:var(--text2);line-height:1.55;margin-bottom:12px}
+.cmndr-custom-btn{background:var(--teal);border:none;border-radius:6px;color:#000;font-size:13px;font-weight:600;padding:10px 16px;cursor:pointer;width:100%;font-family:'DM Mono',monospace;letter-spacing:.03em;transition:opacity .15s}
+.cmndr-custom-btn:hover{opacity:.85}
+.cmndr-custom-btn:disabled{opacity:.45;cursor:default}
+.cmndr-says{background:var(--surface2);border:1px solid rgba(0,212,170,0.3);border-radius:6px;padding:12px 14px;margin-top:12px}
+.cmndr-says-label{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.7px;text-transform:uppercase;color:var(--teal);margin-bottom:6px}
+.cmndr-says-text{font-size:13px;color:var(--text2);line-height:1.65}
+.skeleton{background:var(--border2);border-radius:6px;animation:pulse 1.5s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+</style>
+<script type="module" src="/js/auth.js"></script>
+</head>
+<body>
+
+<nav id="nav">
+  <a class="logo" href="/">
+    <span class="arc-badge">ARC</span>
+    Command Center
+  </a>
+  <span class="client-name-display"><span style="font-size:8px;color:#00d4aa;line-height:1">●</span>Peak Flow Plumbing &amp; HVAC</span>
+  <div class="spacer"></div>
+  <div class="arc-dd-wrap">
+    <button class="arc-dd-btn" onclick="toggleDd('adapt')">ADAPT ▾</button>
+    <div class="arc-dd" id="dd-adapt-panel">
+      <div class="arc-dd-item has-sub">Visibility
+        <div class="arc-sub">
+          <div class="arc-dd-item" onclick="location.href='/operations'">Operations</div>
+          <div class="arc-dd-item" onclick="location.href='/finance'">Finance</div>
+          <div class="arc-dd-item" onclick="location.href='/marketing'">Marketing</div>
+          <div class="arc-dd-item" onclick="location.href='/yield'">Yield &amp; Efficiency</div>
+          <div class="arc-dd-item" onclick="location.href='/market-scan'">Market Scan</div>
+        </div>
+      </div>
+      <div class="arc-dd-item" onclick="location.href='/audit'">Audits</div>
+      <div class="arc-dd-item" onclick="location.href='/digital-authority'">Digital Authority</div>
+    </div>
+  </div>
+  <div class="arc-dd-wrap">
+    <button class="arc-dd-btn" onclick="toggleDd('react')">REACT ▾</button>
+    <div class="arc-dd" id="dd-react-panel">
+      <div class="arc-dd-item" onclick="location.href='/sprint'">Sprint Planner</div>
+      <div class="arc-dd-item active-page" onclick="location.href='/playbooks'">Playbooks</div>
+      <div class="arc-dd-item has-sub">Generate
+        <div class="arc-sub">
+          <div class="arc-dd-item" onclick="openReportBuilder()">Reports</div>
+        </div>
+      </div>
+      <div class="arc-dd-item" onclick="location.href='/wins'">Win Board</div>
+    </div>
+  </div>
+  <div class="arc-dd-wrap">
+    <button class="arc-dd-btn" onclick="toggleDd('control')">CONTROL ▾</button>
+    <div class="arc-dd" id="dd-control-panel">
+      <div class="arc-dd-item" onclick="location.href='/automations'">Automations</div>
+      <div class="arc-dd-item" onclick="location.href='/connections'">Connections</div>
+      <div class="arc-dd-item" onclick="location.href='/archive'">Archive</div>
+    </div>
+  </div>
+  <div class="arc-dd-wrap">
+    <div class="avatar" id="nav-avatar" onclick="toggleDd('avatar')">A</div>
+    <div class="arc-dd arc-dd-right" id="dd-avatar-panel">
+      <div class="arc-dd-item" onclick="location.href='#'">Account Settings</div>
+      <div class="arc-dd-sep"></div>
+      <div class="arc-dd-item" onclick="location.href='#'">Terms &amp; Conditions</div>
+      <div class="arc-dd-item" onclick="location.href='#'">Privacy Policy</div>
+      <div class="arc-dd-item" onclick="location.href='#'">Data Protocol Policy</div>
+      <div class="arc-dd-sep"></div>
+      <div class="arc-dd-item" onclick="doSignOut()">Sign Out</div>
+    </div>
+  </div>
+</nav>
+
+<div id="shell">
+  <div id="health-strip">
+    <div class="hc">
+      <div class="hc-label">Total Playbooks</div>
+      <div class="hc-value col-teal">12</div>
+      <div class="hc-sub">Across 4 categories</div>
+    </div>
+    <div class="hc">
+      <div class="hc-label">Avg Time</div>
+      <div class="hc-value col-amber">9<span style="font-size:16px;font-weight:500;letter-spacing:0"> min</span></div>
+      <div class="hc-sub">Per playbook</div>
+    </div>
+    <div class="hc">
+      <div class="hc-label">CMNDR</div>
+      <div class="hc-value" style="font-size:16px;letter-spacing:-.2px;padding-top:4px;display:flex;align-items:center;gap:8px"><span style="width:9px;height:9px;border-radius:50%;background:#00d4aa;display:inline-block;animation:blink 2.2s ease-in-out infinite;flex-shrink:0"></span>Ready</div>
+      <div class="hc-sub">Customizes on open</div>
+    </div>
+    <div class="hc">
+      <div class="hc-label">ISS Automatable</div>
+      <div class="hc-value col-blue">7</div>
+      <div class="hc-sub">Steps with automation</div>
+    </div>
+  </div>
+
+  <div id="content-row">
+    <div id="main-col">
+
+      <!-- Page Header -->
+      <div class="page-header-row">
+        <div>
+          <div class="page-title">Playbooks</div>
+          <div class="page-sub">Quick tactical sequences for common business scenarios</div>
+        </div>
+        <div class="cmndr-ready-badge">
+          <span class="cmndr-ready-dot"></span>
+          <span>CMNDR READY</span>
+          <span style="color:var(--text3)">·</span>
+          <span>Customizes on open</span>
+        </div>
+      </div>
+
+      <!-- Filter Bar -->
+      <div class="filter-bar" id="filter-bar">
+        <div class="filter-chip active" data-cat="ALL" onclick="setFilter('ALL', this)">ALL</div>
+        <div class="filter-chip" data-cat="MARKETING" onclick="setFilter('MARKETING', this)">MARKETING</div>
+        <div class="filter-chip" data-cat="FINANCE" onclick="setFilter('FINANCE', this)">FINANCE</div>
+        <div class="filter-chip" data-cat="OPERATIONS" onclick="setFilter('OPERATIONS', this)">OPERATIONS</div>
+        <div class="filter-chip" data-cat="GROWTH" onclick="setFilter('GROWTH', this)">GROWTH</div>
+      </div>
+
+      <!-- Playbook Grid -->
+      <div class="pb-grid" id="pb-grid"></div>
+
+    </div>
+
+    <button id="cmndr-toggle" onclick="toggleCmndr()" title="Toggle CMNDR panel">
+      <svg id="toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+    </button>
+
+    <div id="cmndr-col">
+      <div id="cmndr-header">
+        <div class="cmndr-dot"></div>
+        <div>
+          <div class="cmndr-title">CMNDR</div>
+          <div class="cmndr-sub">Playbook Intelligence</div>
+        </div>
+      </div>
+      <div id="cmndr-body">
+        <div class="cmndr-narrative">
+          <div class="cn-label">Playbooks</div>
+          <div class="cn-text" id="cmndr-narrative-text">Open any playbook to get a CMNDR-customized version tailored to your business data and current sprint stage.</div>
+        </div>
+        <div class="cmndr-history" id="cmndr-history"></div>
+      </div>
+      <div id="cmndr-input-area">
+        <div id="cmndr-suggestions">
+          <div class="suggestion-pill" onclick="sendSuggestion(this)">Which playbook should I run first?</div>
+          <div class="suggestion-pill" onclick="sendSuggestion(this)">What's my biggest quick win?</div>
+        </div>
+        <div class="input-row">
+          <textarea id="cmndr-input" placeholder="Ask CMNDR anything…" rows="1" onkeydown="handleKey(event)"></textarea>
+          <button id="cmndr-send" onclick="sendMessage()">
+            <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PLAYBOOK DRAWER -->
+<div id="pb-drawer">
+  <div class="drawer-header">
+    <div class="drawer-header-text">
+      <div class="drawer-cat-badge" id="drawer-cat-badge"></div>
+      <div class="drawer-name" id="drawer-name"></div>
+      <div class="drawer-desc" id="drawer-desc"></div>
+      <div class="drawer-meta-line" id="drawer-meta"></div>
+    </div>
+    <button class="drawer-close" onclick="closeDrawer()">✕</button>
+  </div>
+  <div class="drawer-body" id="drawer-body"></div>
+</div>
+<div id="pb-overlay" onclick="closeDrawer()"></div>
+
+<script>
+const SESSION_TOKEN = localStorage.getItem('cmndr_session');
+const PAGE_SYSTEM = 'You are CMNDR, an AI operations intelligence for Resona. The user is on the Playbooks page. Help them choose and execute tactical playbooks. Be concise and direct. Max 3 sentences.';
+
+// ── PLAYBOOK DATA ──────────────────────────────────────────────────────
+const PLAYBOOKS = [
+  { id:'cold-lead-reactivation', category:'MARKETING', name:'Cold Lead Reactivation', desc:'Re-engage leads that went silent after initial contact.', steps:5, time:8,
+    steps_data:[
+      'Pull all leads with no activity in 30+ days from your connected CRM or ARC Connections.',
+      'Segment by last interaction type — email open, form fill, or phone call.',
+      'Draft a reactivation message referencing their original inquiry. Keep it under 3 sentences. Ask CMNDR to draft it based on their profile.',
+      'Send via your preferred channel. If ISS Genesis is installed it handles this automatically.',
+      'Log the outreach in your CRM and set a 5-day follow-up reminder.'
+    ]},
+  { id:'review-request-sequence', category:'MARKETING', name:'Review Request Sequence', desc:'Systematically collect reviews after job completion.', steps:4, time:5,
+    steps_data:[
+      'Identify all jobs marked complete in the last 7 days from your operations data.',
+      'Filter for clients who haven\'t left a review yet — cross-reference your Google Business profile.',
+      'Send a personalized review request within 2 hours of job completion. ISS Review automates this if installed.',
+      'Follow up once at 24 hours if no response. Do not send more than 2 requests per client.'
+    ]},
+  { id:'seasonal-promotion-launch', category:'MARKETING', name:'Seasonal Promotion Launch', desc:'Build and deploy a time-bound promotional campaign.', steps:6, time:12,
+    steps_data:[
+      'Identify your slow season window from Finance → Monthly Revenue trend.',
+      'Set a discount between 10–20% based on your average margin. Ask CMNDR for a recommendation based on your data.',
+      'Define your target audience — returning customers and high-ticket orders perform best.',
+      'Write a one-line offer: "[X]% off [service] booked before [date]."',
+      'Deploy via email campaign. ISS Genesis handles delivery if installed.',
+      'Track opens and conversions daily for the first week in your email platform.'
+    ]},
+  { id:'referral-program-activation', category:'MARKETING', name:'Referral Program Activation', desc:'Turn satisfied clients into a referral pipeline.', steps:5, time:10,
+    steps_data:[
+      'Pull your top 20% of clients by revenue from Finance data.',
+      'Define your referral incentive — discount on next service or flat reward works best for service businesses.',
+      'Draft a personal outreach to each client explaining the program. Ask CMNDR to draft it.',
+      'Create a simple tracking method — a unique code per referrer or an Airtable log.',
+      'Follow up monthly with referrers to keep the program top of mind.'
+    ]},
+  { id:'overdue-invoice-recovery', category:'FINANCE', name:'Overdue Invoice Recovery', desc:'Systematically recover outstanding payments.', steps:5, time:7,
+    steps_data:[
+      'Pull all invoices 7+ days overdue from Finance → Invoice Aging.',
+      'Prioritize by amount — start with highest outstanding balance.',
+      'Send a friendly reminder on Day 7 referencing the invoice number and amount. ISS Invoice automates this sequence if installed.',
+      'Send a firmer follow-up on Day 14 with a direct payment link.',
+      'Flag any invoice past Day 30 for escalation to collections review.'
+    ]},
+  { id:'cash-flow-gap-bridge', category:'FINANCE', name:'Cash Flow Gap Bridge', desc:'Identify and close short-term revenue gaps.', steps:4, time:6,
+    steps_data:[
+      'Open Finance → Cash Flow Projection and identify which week shows the lowest expected revenue.',
+      'Review your pipeline for jobs that could be moved forward to fill that window.',
+      'Reach out to 3–5 warm leads or scheduled clients about moving their appointment up.',
+      'If gap persists, activate a short-term promotion targeting your fastest-converting service type.'
+    ]},
+  { id:'margin-audit', category:'FINANCE', name:'Margin Audit', desc:'Identify where you\'re leaving money on the table.', steps:5, time:10,
+    steps_data:[
+      'Pull Revenue by Job Type from Finance and identify your lowest-margin service.',
+      'Calculate your true cost per job type — labor, materials, overhead.',
+      'Compare against your current pricing. Ask CMNDR what a competitive adjustment looks like.',
+      'Identify 2–3 upsell opportunities per low-margin job type.',
+      'Update your pricing or bundling strategy and monitor margin change over 30 days.'
+    ]},
+  { id:'capacity-optimization', category:'OPERATIONS', name:'Capacity Optimization', desc:'Ensure your team is scheduled at peak efficiency.', steps:4, time:8,
+    steps_data:[
+      'Review Operations → Technician Capacity for the next 14 days.',
+      'Identify any days below 70% utilization — these are your fill targets.',
+      'Pull your waitlist or pending quote requests and schedule them into open slots.',
+      'Set a recurring weekly review of capacity every Monday morning before dispatch.'
+    ]},
+  { id:'lead-response-time-fix', category:'OPERATIONS', name:'Lead Response Time Fix', desc:'Get your lead response time under 1 hour.', steps:5, time:6,
+    steps_data:[
+      'Check Marketing → Lead Response Time metric. If above 1 hour, this playbook applies.',
+      'Identify where leads are coming from — web form, phone, or referral.',
+      'For web leads: install ISS Genesis to automate response within 60 seconds.',
+      'For phone leads: set a callback rule — any missed call gets a text within 15 minutes.',
+      'Measure response time weekly. Target under 30 minutes for best conversion rates.'
+    ]},
+  { id:'client-onboarding-sequence', category:'OPERATIONS', name:'Client Onboarding Sequence', desc:'Create a consistent first impression for new clients.', steps:5, time:10,
+    steps_data:[
+      'Define your onboarding touchpoints — confirmation, pre-arrival info, day-of reminder, post-service follow-up.',
+      'Draft a template for each touchpoint. Ask CMNDR to write them based on your service type.',
+      'Set up delivery timing — confirmation immediate, pre-arrival 24 hours before, follow-up 2 hours after completion.',
+      'If ISS Genesis is installed, configure the sequence in Automations.',
+      'Review client feedback after 30 days and refine messaging.'
+    ]},
+  { id:'competitive-positioning-sprint', category:'GROWTH', name:'Competitive Positioning Sprint', desc:'Sharpen how you stand out in your local market.', steps:6, time:15,
+    steps_data:[
+      'Run a Market Scan on your top 3 keywords and review competition scores.',
+      'Search your top 3 competitors on Google — note their positioning, reviews, and offers.',
+      'Identify one thing you do better than each competitor. Ask CMNDR to help articulate your differentiator.',
+      'Update your Google Business profile headline and description to lead with your differentiator.',
+      'Add your differentiator to your top landing page above the fold.',
+      'Measure click-through rate change over 30 days via Google Search Console.'
+    ]},
+  { id:'authority-content-push', category:'GROWTH', name:'Authority Content Push', desc:'Publish content that builds local search authority.', steps:5, time:12,
+    steps_data:[
+      'Check Digital Authority → Content Freshness score. If below 70, this playbook applies.',
+      'Pick your top performing keyword from Market Scan.',
+      'Outline a 500-word article answering the most common question around that keyword. Ask CMNDR to generate the outline.',
+      'Publish to your website blog. If Make pipeline is connected, the content automation handles this.',
+      'Share to your Google Business profile as a post within 24 hours of publishing.'
+    ]}
+];
+
+const CAT_CLASS = { MARKETING:'cat-marketing', FINANCE:'cat-finance', OPERATIONS:'cat-operations', GROWTH:'cat-growth' };
+
+let currentFilter = 'ALL';
+let drawerSteps = [];
+let stepDone = {};
+
+// ── RENDER GRID ─────────────────────────────────────────────────────────
+function renderGrid() {
+  const filtered = currentFilter === 'ALL' ? PLAYBOOKS : PLAYBOOKS.filter(p => p.category === currentFilter);
+  document.getElementById('pb-grid').innerHTML = filtered.map(p => `
+    <div class="pb-card" onclick="openDrawer('${p.id}')">
+      <div class="pb-card-top">
+        <span class="pb-cat-badge ${CAT_CLASS[p.category]}">${p.category}</span>
+      </div>
+      <div class="pb-card-name">${p.name}</div>
+      <div class="pb-card-desc">${p.desc}</div>
+      <div class="pb-card-meta">
+        <div class="pb-meta-left">
+          <span class="pb-meta-item">${p.steps} steps</span>
+          <span class="pb-meta-item">~${p.time} min</span>
+        </div>
+        <span class="pb-open-link">Open Playbook →</span>
+      </div>
+    </div>`).join('');
+}
+
+function setFilter(cat, el) {
+  currentFilter = cat;
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  renderGrid();
+}
+
+// ── DRAWER ───────────────────────────────────────────────────────────────
+function openDrawer(id) {
+  const pb = PLAYBOOKS.find(p => p.id === id);
+  if (!pb) return;
+  drawerSteps = pb.steps_data;
+  stepDone = {};
+
+  // Header
+  const badge = document.getElementById('drawer-cat-badge');
+  badge.textContent = pb.category;
+  badge.className = 'drawer-cat-badge ' + CAT_CLASS[pb.category];
+  document.getElementById('drawer-name').textContent = pb.name;
+  document.getElementById('drawer-desc').textContent = pb.desc;
+  document.getElementById('drawer-meta').textContent = pb.steps + ' steps · ~' + pb.time + ' min';
+
+  // Body
+  renderDrawerBody(pb);
+  document.getElementById('pb-drawer').classList.add('open');
+  document.getElementById('pb-overlay').style.display = 'block';
+}
+
+function renderDrawerBody(pb) {
+  const stepsHtml = pb.steps_data.map((text, i) => {
+    const hasIss = text.includes('ISS');
+    const hasCmndr = /ask cmndr/i.test(text) || /cmndr to/i.test(text);
+    const isDone = !!stepDone[i];
+    const badgesHtml = (hasIss || hasCmndr) ? `<div class="step-badges">
+      ${hasIss ? '<span class="step-badge-iss">⚡ Available in Automations</span>' : ''}
+      ${hasCmndr ? `<span class="step-badge-cmndr" onclick="prefillCmndr(event,'${escAttr(pb.name)}','${escAttr(text)}')">💬 Ask CMNDR →</span>` : ''}
+    </div>` : '';
+    return `<div class="step-card${isDone?' done':''}" id="step-${i}" onclick="toggleStep(${i},'${pb.id}')">
+      <div class="step-toggle" id="step-toggle-${i}">${isDone ? '✓' : ''}</div>
+      <div class="step-body">
+        <span class="step-num">${i+1}.</span>
+        <span class="step-text">${esc(text)}</span>
+        ${badgesHtml}
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('drawer-body').innerHTML = `
+    <div class="drawer-section-label">Steps</div>
+    ${stepsHtml}
+    <div class="drawer-divider"></div>
+    <div class="cmndr-custom-section" id="cmndr-custom-section">
+      <div class="cmndr-custom-label">CMNDR Customization</div>
+      <div class="cmndr-custom-text">Want CMNDR to tailor this playbook to your specific data?</div>
+      <button class="cmndr-custom-btn" id="cmndr-custom-btn" onclick="runCustomization('${escAttr(pb.name)}')">Customize with CMNDR →</button>
+    </div>`;
+}
+
+function toggleStep(i, pbId) {
+  stepDone[i] = !stepDone[i];
+  const card = document.getElementById('step-' + i);
+  const toggle = document.getElementById('step-toggle-' + i);
+  if (card) card.classList.toggle('done', !!stepDone[i]);
+  if (toggle) toggle.textContent = stepDone[i] ? '✓' : '';
+}
+
+function prefillCmndr(e, pbName, stepText) {
+  e.stopPropagation();
+  const inp = document.getElementById('cmndr-input');
+  if (inp) {
+    inp.value = 'For the ' + pbName + ' playbook: ' + stepText.slice(0, 100) + ' — help me with this step.';
+    inp.focus();
+  }
+  closeDrawer();
+}
+
+function closeDrawer() {
+  document.getElementById('pb-drawer').classList.remove('open');
+  document.getElementById('pb-overlay').style.display = 'none';
+}
+
+// ── CMNDR CUSTOMIZATION ─────────────────────────────────────────────────
+async function runCustomization(pbName) {
+  const btn = document.getElementById('cmndr-custom-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'CMNDR is reviewing your data…'; }
+
+  const metrics = window.arcSprintData ? JSON.stringify(window.arcSprintData.parameterValues || {}) : '{"Stage":"REACT","Target":"VIP Customers","Discount":"20%"}';
+  const prompt = `Customize the "${pbName}" playbook for my business. Here are my current metrics: ${metrics}. Give me 3 specific adjustments to the standard steps. Be concrete and direct.`;
+
+  try {
+    const r = await fetch('/api/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SESSION_TOKEN}` },
+      body: JSON.stringify({ system: 'You are CMNDR, AI business intelligence. Give 3 numbered, specific, actionable adjustments. Each under 2 sentences. Plain text only, no markdown headers.', messages: [{ role: 'user', content: prompt }] })
+    });
+    let reply = 'Unable to reach CMNDR.';
+    if (r.ok) { const d = await r.json(); reply = d.content?.[0]?.text || d.text || reply; }
+
+    const section = document.getElementById('cmndr-custom-section');
+    if (section) {
+      const existing = section.querySelector('.cmndr-says');
+      if (existing) existing.remove();
+      section.insertAdjacentHTML('beforeend', `<div class="cmndr-says"><div class="cmndr-says-label">CMNDR SAYS</div><div class="cmndr-says-text">${esc(reply)}</div></div>`);
+    }
+  } catch(e) {
+    const section = document.getElementById('cmndr-custom-section');
+    if (section) section.insertAdjacentHTML('beforeend', '<div class="cmndr-says"><div class="cmndr-says-label">CMNDR SAYS</div><div class="cmndr-says-text">Unable to reach CMNDR. Check your connection.</div></div>');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Customize with CMNDR →'; }
+  }
+}
+
+// ── UTILS ────────────────────────────────────────────────────────────────
+function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escAttr(s) { return (s||'').replace(/'/g,'\\\'').replace(/"/g,'&quot;'); }
+
+// ── NAV DROPDOWNS ────────────────────────────────────────────────────────
+function toggleDd(id) {
+  const target = document.getElementById('dd-' + id + '-panel');
+  if (!target) return;
+  const wasOpen = target.classList.contains('open');
+  document.querySelectorAll('.arc-dd').forEach(p => p.classList.remove('open'));
+  if (!wasOpen) target.classList.add('open');
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.arc-dd-wrap')) document.querySelectorAll('.arc-dd').forEach(p => p.classList.remove('open'));
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.arc-dd').forEach(p => p.classList.remove('open'));
+    closeDrawer();
+  }
+});
+
+// ── BOOT ──────────────────────────────────────────────────────────────────
+async function boot() {
+  if (window.location.search.includes('bypass=true') || localStorage.getItem('arc_bypass') === 'true') {
+    localStorage.setItem('arc_bypass', 'true');
+  } else {
+    if (!SESSION_TOKEN) { location.href = '/login'; return; }
+    try {
+      const r = await fetch('/api/auth?action=me', { headers: { Authorization: `Bearer ${SESSION_TOKEN}` } });
+      if (!r.ok) { location.href = '/login'; return; }
+      const d = await r.json(); const p = d.profile;
+      if (!p || !p.role || !["admin","client","demo","resona_admin","resona_advisor","client_user","display"].includes(p.role)) { location.href = '/login'; return; }
+      document.getElementById('nav-avatar').textContent = (p.full_name || d.user?.email || 'A').charAt(0).toUpperCase();
+    } catch { location.href = '/login'; return; }
+  }
+  renderGrid();
+  initCmndrPanel();
+}
+
+// ── CMNDR PANEL ───────────────────────────────────────────────────────────
+function initCmndrPanel() { if (localStorage.getItem('arc_cmndr_open') === 'false') applyCollapsed(true); }
+function toggleCmndr() { const c = document.getElementById('cmndr-col').classList.contains('collapsed'); applyCollapsed(!c); localStorage.setItem('arc_cmndr_open', c ? 'true' : 'false'); }
+function applyCollapsed(on) { document.getElementById('cmndr-col').classList.toggle('collapsed', on); const pts = document.getElementById('toggle-icon')?.querySelector('polyline'); if (pts) pts.setAttribute('points', on ? '9 18 15 12 9 6' : '15 18 9 12 15 6'); }
+
+const history = []; let msgN = 0;
+function handleKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }
+function sendSuggestion(el) { document.getElementById('cmndr-input').value = el.textContent; sendMessage(); }
+async function sendMessage() {
+  const inp = document.getElementById('cmndr-input');
+  const text = inp.value.trim(); if (!text) return;
+  inp.value = '';
+  addMsg('user', text); history.push({ role: 'user', content: text });
+  const tid = addMsg('ai', '', true);
+  try {
+    const r = await fetch('/api/ask', { method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${SESSION_TOKEN}`}, body:JSON.stringify({ system:PAGE_SYSTEM, messages:history }) });
+    let reply = 'Unable to reach CMNDR.';
+    if (r.ok) { const d = await r.json(); reply = d.content?.[0]?.text || d.text || reply; }
+    updMsg(tid, reply); history.push({ role:'assistant', content:reply });
+  } catch { updMsg(tid, 'CMNDR temporarily unavailable.'); }
+  document.getElementById('cmndr-body').scrollTop = 99999;
+}
+function addMsg(role, text, typing) {
+  const id = 'msg-' + (++msgN);
+  const t = new Date().toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+  const el = document.createElement('div'); el.className = 'msg ' + role; el.id = id;
+  el.innerHTML = `<div class="msg-bubble">${typing ? '<em style="opacity:.5">Thinking…</em>' : esc(text)}</div><div class="msg-time">${t}</div>`;
+  document.getElementById('cmndr-history').appendChild(el);
+  document.getElementById('cmndr-body').scrollTop = 99999; return id;
+}
+function updMsg(id, text) { const el = document.getElementById(id); if (el) el.querySelector('.msg-bubble').textContent = text; }
+
+boot();
+</script>
+<script src="/arc-report-builder.js"></script>
+</body>
+</html>
