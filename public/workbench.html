@@ -951,7 +951,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   const params = new URLSearchParams(window.location.search);
   CLIENT_ID = params.get('client');
   if (!CLIENT_ID) {
-    window.location.href = '/hub.html';
+    window.location.href = '/';
     return;
   }
 
@@ -970,7 +970,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   await loadPanel('overview');
 });
 
-function goBack() { window.location.href = '/hub.html'; }
+function goBack() { window.location.href = '/'; }
 
 // ── API helper ────────────────────────────────────────
 async function api(path, opts = {}) {
@@ -1224,11 +1224,11 @@ function previewReport() {
   if (range === '7d') from = new Date(Date.now()-7*86400000).toISOString().split('T')[0];
   else if (range === '30d') from = new Date(Date.now()-30*86400000).toISOString().split('T')[0];
   else from = to;
-  window.open(`/app.html?client=${CLIENT_ID}&from=${from}&to=${to}`, '_blank');
+  window.open(`/?client=${CLIENT_ID}&from=${from}&to=${to}`, '_blank');
 }
 
 function previewArchivedReport(id, from, page) {
-  window.open(`/app.html?client=${CLIENT_ID}&from=${from}&to=${from}`, '_blank');
+  window.open(`/?client=${CLIENT_ID}&from=${from}&to=${from}`, '_blank');
 }
 
 // ── Power Metrics ─────────────────────────────────────
