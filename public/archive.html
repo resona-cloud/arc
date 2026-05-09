@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>
+window.ARC_CONFIG_READY = fetch('/api/config').then(function(r){return r.json();}).then(function(cfg){
+  window.ARC_CONFIG = cfg;
+  var _fetch = window.fetch;
+  window.fetch = function(url, opts) {
+    if (typeof url === 'string' && url.indexOf('/api/') === 0 && url.indexOf('/api/config') !== 0) {
+      opts = Object.assign({}, opts);
+      opts.headers = Object.assign({}, opts.headers, {'x-arc-key': (cfg && cfg.apiKey) || ''});
+    }
+    return _fetch.call(this, url, opts);
+  };
+  return cfg;
+}).catch(function(){ window.ARC_CONFIG = {}; });
+</script>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Archive — ARC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0c0f;--surface:#111418;--surface2:#181c22;
+  --border:#1e242d;--border2:#262d38;
+  --text:#e8edf5;--text2:#8a95a3;--text3:#4d5663;
+  --accent:#3b82f6;--accent-dim:rgba(59,130,246,0.12);
+  --teal:#00d4aa;--teal-dim:rgba(0,212,170,0.08);
+  --green:#22c55e;--amber:#f59e0b;--red:#ef4444;
+  --nav-h:56px;--strip-h:80px;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',-apple-system,BlinkMacSystemFont,sans-serif;font-size:14px}
+#nav{position:fixed;top:0;left:0;right:0;height:var(--nav-h);background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;padding:0 20px;z-index:100}
+.logo{font-size:17px;font-weight:700;letter-spacing:-.5px;color:var(--text);display:flex;align-items:center;gap:8px;cursor:pointer;text-decoration:none}
+.arc-badge{background:var(--accent);color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px;letter-spacing:1.5px}
+.client-name-display{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;color:var(--text);cursor:default}
+.spacer{flex:1}
+.arc-dd-wrap{position:relative;display:flex;align-items:center}
+.arc-dd-btn{background:transparent;border:0.5px solid var(--border);border-radius:6px;color:var(--text2);font-size:12px;font-family:'DM Mono',monospace;padding:5px 11px;cursor:pointer;transition:all 150ms ease;white-space:nowrap;letter-spacing:.05em}
+.arc-dd-btn:hover{border-color:var(--border2);color:var(--text)}
+.arc-dd{position:absolute;top:calc(100% + 8px);left:0;min-width:180px;background:#13131a;border:1px solid #2a2a3a;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.4);padding:4px;z-index:1000;display:none}
+.arc-dd.open{display:block}
+.arc-dd-right{left:auto;right:0}
+.arc-dd-item{padding:10px 16px;font-family:'DM Mono',monospace;font-size:12px;color:#f0f0f0;cursor:pointer;border-radius:5px;transition:background 100ms ease,color 100ms ease;position:relative;display:flex;align-items:center;gap:8px;user-select:none}
+.arc-dd-item:hover{background:#1a1a24;color:#00d4aa}
+.arc-dd-item.active-page{color:#00d4aa}
+.arc-dd-sep{border-top:1px solid #2a2a3a;margin:4px 0}
+.arc-dd-item.has-sub{justify-content:space-between}
+.arc-dd-item.has-sub::after{content:'›';font-size:14px;opacity:.5;flex-shrink:0;margin-left:auto}
+.arc-sub{position:absolute;left:100%;top:-4px;min-width:180px;background:#13131a;border:1px solid #2a2a3a;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.4);padding:4px;display:none;z-index:1001}
+.arc-dd-item.has-sub:hover .arc-sub{display:block}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#fff;cursor:pointer;flex-shrink:0}
+#shell{display:flex;flex-direction:column;height:100vh;padding-top:var(--nav-h)}
+#health-strip{height:var(--strip-h);flex-shrink:0;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:stretch}
+.hc{display:flex;flex-direction:column;justify-content:center;padding:0 28px;flex:1;border-right:1px solid var(--border)}
+.hc:last-child{border-right:none}
+.hc-label{font-size:10px;color:var(--text3);letter-spacing:.7px;text-transform:uppercase;margin-bottom:5px;font-family:'DM Mono',monospace}
+.hc-value{font-size:26px;font-weight:700;letter-spacing:-1px;line-height:1}
+.hc-sub{font-size:11px;color:var(--text3);margin-top:4px;font-family:'DM Mono',monospace}
+#content-row{flex:1;display:flex;overflow:hidden;min-height:0}
+#main-col{flex:1;overflow-y:auto;padding:24px 28px;display:flex;flex-direction:column;gap:20px;max-width:900px;margin:0 auto;width:100%}
+
+/* Search + Filters */
+.archive-search-row{display:flex;gap:12px;align-items:center}
+.archive-search{flex:1;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:13px;padding:10px 14px;outline:none;font-family:inherit}
+.archive-search:focus{border-color:var(--teal)}
+.archive-search::placeholder{color:var(--text3)}
+.filter-chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{background:var(--surface2);border:1px solid var(--border2);border-radius:20px;padding:5px 14px;font-size:11px;font-family:'DM Mono',monospace;color:var(--text2);cursor:pointer;transition:all .12s;letter-spacing:.04em}
+.chip:hover{border-color:var(--teal);color:var(--teal)}
+.chip.active{background:rgba(0,212,170,.1);border-color:var(--teal);color:var(--teal)}
+
+/* Empty state */
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:80px 20px;color:var(--text3);text-align:center}
+.empty-state svg{opacity:.3}
+.empty-state-title{font-size:16px;font-weight:600;color:var(--text2)}
+.empty-state-sub{font-size:13px;color:var(--text3);max-width:340px;line-height:1.6}
+
+/* Archive cards */
+.archive-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;transition:border-color .15s}
+.archive-card:hover{border-color:var(--border2)}
+.archive-card.expanded{border-color:var(--teal)}
+.card-header{display:flex;align-items:center;gap:14px;padding:16px 18px;cursor:pointer}
+.card-type-icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.card-type-report{background:rgba(59,130,246,.12)}
+.card-type-scan{background:rgba(0,212,170,.1)}
+.card-type-audit{background:rgba(245,158,11,.1)}
+.card-meta{flex:1;min-width:0}
+.card-name{font-size:14px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-date{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;margin-top:2px}
+.card-sections{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.card-chip{background:var(--surface2);border:1px solid var(--border2);border-radius:12px;padding:2px 9px;font-size:10px;font-family:'DM Mono',monospace;color:var(--text2)}
+.card-actions{display:flex;gap:8px;flex-shrink:0}
+.card-btn{background:var(--surface2);border:1px solid var(--border2);border-radius:6px;color:var(--text2);font-size:11px;font-family:'DM Mono',monospace;padding:6px 12px;cursor:pointer;transition:all .12s}
+.card-btn:hover{border-color:var(--teal);color:var(--teal)}
+.card-btn.danger:hover{border-color:var(--red);color:var(--red)}
+.card-expand-chevron{color:var(--text3);font-size:12px;flex-shrink:0;transition:transform .2s}
+.archive-card.expanded .card-expand-chevron{transform:rotate(180deg)}
+
+/* Expanded body */
+.card-body{display:none;padding:0 18px 18px;border-top:1px solid var(--border)}
+.archive-card.expanded .card-body{display:block}
+.card-body-inner{border-left:3px solid var(--teal);padding:14px 16px;margin-top:14px;background:var(--teal-dim);border-radius:0 8px 8px 0}
+</style>
+<script type="module" src="/js/auth.js"></script>
+</head>
+<body>
+
+<nav id="nav">
+  <a class="logo" href="/">
+    <span class="arc-badge">ARC</span>
+    Command Center
+  </a>
+  <span class="client-name-display"><span style="font-size:8px;color:#00d4aa;line-height:1">●</span>Peak Flow Plumbing &amp; HVAC</span>
+  <div class="spacer"></div>
+  <div class="arc-dd-wrap">
+    <button class="arc-dd-btn" onclick="toggleDd('adapt')">ADAPT ▾</button>
+    <div class="arc-dd" id="dd-adapt-panel">
+      <div class="arc-dd-item has-sub">Visibility
+        <div class="arc-sub">
+          <div class="arc-dd-item" onclick="location.href='/operations'">Operations</div>
+          <div class="arc-dd-item" onclick="location.href='/finance'">Finance</div>
+          <div class="arc-dd-item" onclick="location.href='/marketing'">Marketing</div>
+          <div class="arc-dd-item" onclick="location.href='/yield'">Yield &amp; Efficiency</div>
+          <div class="arc-dd-item" onclick="location.href='/market-scan'">Market Scan</div>
+        </div>
+      </div>
+      <div class="arc-dd-item" onclick="location.href='/audit'">Audits</div>
+      <div class="arc-dd-item" onclick="location.href='/digital-authority'">Digital Authority</div>
+    </div>
+  </div>
+  <div class="arc-dd-wrap">
+    <button class="arc-dd-btn" onclick="toggleDd('react')">REACT ▾</button>
+    <div class="arc-dd" id="dd-react-panel">
+      <div class="arc-dd-item" onclick="location.href='/sprint'">Sprint Planner</div>
+      <div class="arc-dd-item" onclick="location.href='/playbooks'">Playbooks</div>
+      <div class="arc-dd-item has-sub">Generate
+        <div class="arc-sub">
+          <div class="arc-dd-item" onclick="openReportBuilder()">Reports</div>
+        </div>
+      </div>
+      <div class="arc-dd-item" onclick="location.href='/wins'">Win Board</div>
+    </div>
+  </div>
+  <div class="arc-dd-wrap">
+    <button class="arc-dd-btn" onclick="toggleDd('control')">CONTROL ▾</button>
+    <div class="arc-dd" id="dd-control-panel">
+      <div class="arc-dd-item" onclick="location.href='/automations'">Automations</div>
+      <div class="arc-dd-item" onclick="location.href='/connections'">Connections</div>
+      <div class="arc-dd-item active-page">Archive</div>
+    </div>
+  </div>
+  <div class="arc-dd-wrap">
+    <div class="avatar" id="nav-avatar" onclick="toggleDd('avatar')">A</div>
+    <div class="arc-dd arc-dd-right" id="dd-avatar-panel">
+      <div class="arc-dd-item" onclick="location.href='#'">Account Settings</div>
+      <div class="arc-dd-sep"></div>
+      <div class="arc-dd-item" onclick="location.href='#'">Terms &amp; Conditions</div>
+      <div class="arc-dd-item" onclick="location.href='#'">Privacy Policy</div>
+      <div class="arc-dd-item" onclick="location.href='#'">Data Protocol Policy</div>
+      <div class="arc-dd-sep"></div>
+      <div class="arc-dd-item" onclick="doSignOut()">Sign Out</div>
+    </div>
+  </div>
+</nav>
+
+<div id="shell">
+
+  <div id="health-strip">
+    <div class="hc">
+      <div class="hc-label">Total Reports</div>
+      <div class="hc-value col-blue" id="strip-total">—</div>
+      <div class="hc-sub">In archive</div>
+    </div>
+    <div class="hc">
+      <div class="hc-label">Market Scans</div>
+      <div class="hc-value" id="strip-scans">—</div>
+      <div class="hc-sub">Keyword analyses</div>
+    </div>
+    <div class="hc">
+      <div class="hc-label">Audits</div>
+      <div class="hc-value" id="strip-audits">—</div>
+      <div class="hc-sub">Site audits</div>
+    </div>
+    <div class="hc">
+      <div class="hc-label">Last Generated</div>
+      <div class="hc-value" id="strip-last" style="font-size:18px">—</div>
+      <div class="hc-sub">Most recent</div>
+    </div>
+  </div>
+
+  <div id="content-row">
+    <div id="main-col">
+
+      <!-- Search + Filters -->
+      <div class="archive-search-row">
+        <input class="archive-search" type="text" placeholder="Search reports, scans, audits…" id="archive-search" oninput="renderArchive()"/>
+      </div>
+      <div class="filter-chips" id="filter-chips">
+        <div class="chip active" data-filter="all" onclick="setFilter('all')">All</div>
+        <div class="chip" data-filter="report" onclick="setFilter('report')">Reports</div>
+        <div class="chip" data-filter="scan" onclick="setFilter('scan')">Market Scans</div>
+        <div class="chip" data-filter="audit" onclick="setFilter('audit')">Audits</div>
+      </div>
+
+      <!-- Archive list -->
+      <div id="archive-list"></div>
+
+    </div>
+  </div>
+</div>
+
+<script src="/arc-report-builder.js"></script>
+<script>
+var SESSION_TOKEN = localStorage.getItem('arc_session_token') || '';
+var CLIENT_ID = localStorage.getItem('arc_client_id') || 'peak-flow';
+var _activeFilter = 'all';
+var _archiveData = [];
+
+// ── Sample / localStorage archive ─────────────────────────────────
+function loadArchive() {
+  var stored = localStorage.getItem('arc_archive');
+  if (stored) {
+    try { _archiveData = JSON.parse(stored); } catch(e) { _archiveData = []; }
+  } else {
+    _archiveData = [];
+  }
+  updateStrip();
+  renderArchive();
+}
+
+function updateStrip() {
+  var total = _archiveData.length;
+  var scans  = _archiveData.filter(function(r){ return r.type === 'scan'; }).length;
+  var audits = _archiveData.filter(function(r){ return r.type === 'audit'; }).length;
+  var last   = _archiveData.length ? _archiveData[0].date : null;
+  document.getElementById('strip-total').textContent  = total || '0';
+  document.getElementById('strip-scans').textContent  = scans || '0';
+  document.getElementById('strip-audits').textContent = audits || '0';
+  document.getElementById('strip-last').textContent   = last ? new Date(last).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '—';
+}
+
+function setFilter(f) {
+  _activeFilter = f;
+  document.querySelectorAll('.chip[data-filter]').forEach(function(c){
+    c.classList.toggle('active', c.dataset.filter === f);
+  });
+  renderArchive();
+}
+
+function renderArchive() {
+  var query   = (document.getElementById('archive-search').value || '').toLowerCase();
+  var list    = document.getElementById('archive-list');
+  var filtered = _archiveData.filter(function(r){
+    var typeMatch = _activeFilter === 'all' || r.type === _activeFilter;
+    var textMatch = !query || r.name.toLowerCase().includes(query) || (r.sections||[]).join(' ').toLowerCase().includes(query);
+    return typeMatch && textMatch;
+  });
+
+  if (!filtered.length) {
+    list.innerHTML = renderEmpty(query, _activeFilter);
+    return;
+  }
+
+  list.innerHTML = filtered.map(function(r, i){ return renderCard(r, i); }).join('');
+}
+
+function renderEmpty(query, filter) {
+  var msg = query ? 'No results for "' + query + '"'
+          : filter !== 'all' ? 'No ' + filter + 's in your archive yet'
+          : 'Your archive is empty';
+  var sub = query ? 'Try a different search term or clear the filter.'
+          : 'Reports, market scans, and audits you save or generate will appear here.';
+  return '<div class="empty-state">' +
+    '<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+      '<rect x="8" y="8" width="48" height="48" rx="8" stroke="#4d5663" stroke-width="2"/>' +
+      '<rect x="16" y="20" width="20" height="2" rx="1" fill="#4d5663"/>' +
+      '<rect x="16" y="27" width="32" height="2" rx="1" fill="#4d5663"/>' +
+      '<rect x="16" y="34" width="26" height="2" rx="1" fill="#4d5663"/>' +
+      '<rect x="16" y="41" width="16" height="2" rx="1" fill="#4d5663"/>' +
+    '</svg>' +
+    '<div class="empty-state-title">' + msg + '</div>' +
+    '<div class="empty-state-sub">' + sub + '</div>' +
+    '</div>';
+}
+
+var TYPE_META = {
+  report: { icon: '📊', label: 'Report',      cls: 'card-type-report' },
+  scan:   { icon: '🔍', label: 'Market Scan', cls: 'card-type-scan'   },
+  audit:  { icon: '🛡', label: 'Audit',       cls: 'card-type-audit'  },
+};
+
+function renderCard(r, idx) {
+  var meta = TYPE_META[r.type] || TYPE_META.report;
+  var sections = (r.sections || []).map(function(s){
+    return '<span class="card-chip">' + s + '</span>';
+  }).join('');
+  var date = r.date ? new Date(r.date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—';
+  return '<div class="archive-card" id="ac-' + idx + '">' +
+    '<div class="card-header" onclick="toggleCard(' + idx + ')">' +
+      '<div class="card-type-icon ' + meta.cls + '">' + meta.icon + '</div>' +
+      '<div class="card-meta">' +
+        '<div class="card-name">' + r.name + '</div>' +
+        '<div class="card-date">' + meta.label + ' &nbsp;·&nbsp; ' + date + '</div>' +
+        (sections ? '<div class="card-sections">' + sections + '</div>' : '') +
+      '</div>' +
+      '<div class="card-actions" onclick="event.stopPropagation()">' +
+        '<button class="card-btn" onclick="downloadCard(' + idx + ')">↓ Download</button>' +
+        '<button class="card-btn danger" onclick="deleteCard(' + idx + ')">Delete</button>' +
+      '</div>' +
+      '<span class="card-expand-chevron">▾</span>' +
+    '</div>' +
+    '<div class="card-body">' +
+      '<div class="card-body-inner">' +
+        '<div style="font-size:11px;font-family:\'DM Mono\',monospace;color:var(--teal);letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px">Preview</div>' +
+        '<div style="font-size:13px;color:var(--text2);line-height:1.7">' + (r.preview || 'No preview available.') + '</div>' +
+        (r.sections && r.sections.length ? '<div style="margin-top:14px;display:flex;gap:6px;flex-wrap:wrap">' + (r.sections||[]).map(function(s){ return '<span class="card-chip">' + s + '</span>'; }).join('') + '</div>' : '') +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+function toggleCard(idx) {
+  var card = document.getElementById('ac-' + idx);
+  if (card) card.classList.toggle('expanded');
+}
+
+function downloadCard(idx) {
+  var r = _archiveData[idx];
+  if (!r) return;
+  var blob = new Blob([JSON.stringify(r, null, 2)], { type: 'application/json' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (r.name || 'arc-report').replace(/[^a-z0-9]/gi, '-').toLowerCase() + '.json';
+  a.click();
+}
+
+function deleteCard(idx) {
+  if (!confirm('Delete this item from the archive?')) return;
+  _archiveData.splice(idx, 1);
+  localStorage.setItem('arc_archive', JSON.stringify(_archiveData));
+  updateStrip();
+  renderArchive();
+}
+
+// ── Nav ───────────────────────────────────────────────────────────
+function toggleDd(id) {
+  var panel = document.getElementById('dd-' + id + '-panel');
+  var isOpen = panel && panel.classList.contains('open');
+  document.querySelectorAll('.arc-dd').forEach(function(p){ p.classList.remove('open'); });
+  if (panel && !isOpen) panel.classList.add('open');
+}
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.arc-dd-wrap')) {
+    document.querySelectorAll('.arc-dd').forEach(function(p){ p.classList.remove('open'); });
+  }
+});
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.arc-dd').forEach(function(p){ p.classList.remove('open'); });
+  }
+});
+
+loadArchive();
+</script>
+</body>
+</html>

@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>
+window.ARC_CONFIG_READY = fetch('/api/config').then(function(r){return r.json();}).then(function(cfg){
+  window.ARC_CONFIG = cfg;
+  var _fetch = window.fetch;
+  window.fetch = function(url, opts) {
+    if (typeof url === 'string' && url.indexOf('/api/') === 0 && url.indexOf('/api/config') !== 0) {
+      opts = Object.assign({}, opts);
+      opts.headers = Object.assign({}, opts.headers, {'x-arc-key': (cfg && cfg.apiKey) || ''});
+    }
+    return _fetch.call(this, url, opts);
+  };
+  return cfg;
+}).catch(function(){ window.ARC_CONFIG = {}; });
+</script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>3PR Preview — ARC</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:       #0a0a0f;
+      --surface:  #13131a;
+      --surface2: #1a1a24;
+      --border:   #2a2a3a;
+      --accent:   #00d4aa;
+      --accent2:  #0066ff;
+      --text:     #f0f0f0;
+      --muted:    #8888a0;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 24px 64px;
+    }
+
+    /* ── Page header ── */
+    .preview-header {
+      width: 100%;
+      max-width: 680px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 40px;
+    }
+    .preview-wordmark {
+      font-family: 'Syne', sans-serif;
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: -.02em;
+      color: var(--text);
+    }
+    .preview-wordmark span { color: var(--accent); }
+    .preview-badge {
+      font-size: 10px;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--accent);
+      border: 1px solid rgba(0,212,170,.35);
+      border-radius: 4px;
+      padding: 2px 7px;
+      margin-left: 4px;
+    }
+    .preview-sep {
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+    .preview-meta {
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: .08em;
+    }
+
+    /* ── Section title ── */
+    .section-title {
+      width: 100%;
+      max-width: 680px;
+      font-family: 'Syne', sans-serif;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+    .section-sub {
+      width: 100%;
+      max-width: 680px;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 32px;
+      line-height: 1.6;
+    }
+
+    /* ── Variant switcher ── */
+    .variant-bar {
+      width: 100%;
+      max-width: 680px;
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+    .variant-btn {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 6px;
+      padding: 6px 14px;
+      cursor: pointer;
+      transition: border-color .15s, color .15s;
+    }
+    .variant-btn:hover,
+    .variant-btn.active {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* ── Component wrapper ── */
+    .component-frame {
+      width: 100%;
+      max-width: 680px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="preview-header">
+    <div class="preview-wordmark">ARC<span>.</span></div>
+    <div class="preview-badge">Preview</div>
+    <div class="preview-sep"></div>
+    <div class="preview-meta">Component: 3PR</div>
+  </div>
+
+  <!-- Title -->
+  <div class="section-title">3 Point Roadmap</div>
+  <div class="section-sub">
+    Visual sprint journey tracker — ADAPT → REACT → CONTROL — with node states, task list,
+    stage context, metrics, CMNDR box, and automation slot.
+  </div>
+
+  <!-- Variant switcher -->
+  <div class="variant-bar">
+    <button class="variant-btn active" onclick="setVariant('demo')">Demo data</button>
+    <button class="variant-btn" onclick="setVariant('early')">Early sprint</button>
+    <button class="variant-btn" onclick="setVariant('late')">Late sprint</button>
+  </div>
+
+  <!-- Component frame -->
+  <div class="component-frame" id="component-frame"></div>
+
+  <script>
+    var VARIANTS = {
+      demo: {
+        sprintName: 'Q2 Growth Sprint',
+        nodes: [
+          {
+            label: 'ADAPT', stageName: 'Market Adaptation', state: 'complete', progress: 100,
+            desc: 'Align product positioning to shifting demand signals and audit competitive gaps.',
+            impact: 'Sets targeting precision for the React stage campaigns.',
+            metrics: ['Entropy Score', 'Data Completeness'],
+            cmndprompts: ['Who should I target?', 'What does my data say?', 'Explain this stage'],
+            tasks: [
+              { title: 'Audit competitor positioning',  type: 'action'        },
+              { title: 'Map ICP signals to segments',   type: 'metric_target' },
+              { title: 'Update messaging framework',    type: 'action'        },
+              { title: 'Enable data sync trigger',      type: 'automation'    },
+              { title: 'Review demand signal report',   type: 'insight'       }
+            ]
+          },
+          {
+            label: 'REACT', stageName: 'Rapid Response', state: 'active', progress: 40,
+            desc: 'Execute targeted campaigns against the highest-leverage channels identified in ADAPT.',
+            impact: 'Drives direct pipeline from the top ICP segments identified in ADAPT.',
+            metrics: ['Relational ROI', 'Labor Deletion'],
+            cmndprompts: ['Draft my email subject line', 'What discount should I run?', 'Who should I contact first?'],
+            tasks: [
+              { title: 'Launch email sequence — segment A', type: 'action'        },
+              { title: 'Hit 25% open rate threshold',       type: 'metric_target' },
+              { title: 'Set up retargeting automation',     type: 'automation'    },
+              { title: 'Review campaign performance data',  type: 'insight'       },
+              { title: 'A/B test subject lines',            type: 'action'        }
+            ]
+          },
+          {
+            label: 'CONTROL', stageName: 'Outcome Control', state: 'locked', progress: 0,
+            desc: 'Lock in gains, measure ROI, and establish repeatable playbooks for the next sprint cycle.',
+            impact: 'Crystallises winning patterns into a reusable playbook for future sprints.',
+            metrics: ['Relational ROI', 'Entropy Score', 'Labor Deletion'],
+            cmndprompts: ['Am I on track?', "What's working best?", 'Summarize my sprint results'],
+            tasks: [
+              { title: 'Freeze winning campaign variants', type: 'action'        },
+              { title: 'Hit ROI target of 3.2x',           type: 'metric_target' },
+              { title: 'Document sprint playbook',         type: 'action'        },
+              { title: 'Enable reporting automation',      type: 'automation'    },
+              { title: 'Validate forecast accuracy',       type: 'metric_target' },
+              { title: 'Summarise sprint learnings',       type: 'insight'       }
+            ]
+          }
+        ]
+      },
+      early: {
+        sprintName: 'Retention Sprint 4',
+        nodes: [
+          {
+            label: 'ADAPT', stageName: 'Signal Mapping', state: 'active', progress: 25,
+            desc: 'Identify churn indicators in the last 90 days of usage data and segment by cohort.',
+            impact: 'Pinpoints the exact segments at risk before resources are committed to outreach.',
+            metrics: ['Entropy Score', 'Data Completeness'],
+            cmndprompts: ['Who should I target?', 'What does my data say?', 'Explain this stage'],
+            tasks: [
+              { title: 'Pull 90-day churn dataset',       type: 'action'        },
+              { title: 'Segment users by cohort',         type: 'action'        },
+              { title: 'Flag top 3 churn indicators',     type: 'metric_target' },
+              { title: 'Review usage heatmap report',     type: 'insight'       }
+            ]
+          },
+          {
+            label: 'REACT', stageName: 'Re-engagement Push', state: 'locked', progress: 0,
+            desc: 'Deploy personalised sequences to at-risk segments with contextual offers.',
+            impact: 'Converts at-risk users into retained accounts before end-of-period drop-off.',
+            metrics: ['Relational ROI', 'Labor Deletion'],
+            cmndprompts: ['Draft my email subject line', 'What discount should I run?', 'Who should I contact first?'],
+            tasks: [
+              { title: 'Write re-engagement email copy', type: 'action'        },
+              { title: 'Hit 18% reply rate',             type: 'metric_target' },
+              { title: 'Set up send automation',         type: 'automation'    }
+            ]
+          },
+          {
+            label: 'CONTROL', stageName: 'Retention Hold', state: 'locked', progress: 0,
+            desc: 'Monitor cohort recovery rates and iterate on copy. Freeze winning variants.',
+            impact: 'Establishes a repeatable retention playbook reducing future churn by stage.',
+            metrics: ['Relational ROI', 'Entropy Score', 'Labor Deletion'],
+            cmndprompts: ['Am I on track?', "What's working best?", 'Summarize my sprint results'],
+            tasks: [
+              { title: 'Monitor cohort recovery',        type: 'insight'       },
+              { title: 'Freeze top variant',             type: 'action'        },
+              { title: 'Hit 90-day retention target',    type: 'metric_target' }
+            ]
+          }
+        ]
+      },
+      late: {
+        sprintName: 'Pipeline Sprint 7',
+        nodes: [
+          {
+            label: 'ADAPT', stageName: 'ICP Refinement', state: 'complete', progress: 100,
+            desc: 'Re-scored ideal customer profile based on closed-won data from last two quarters.',
+            impact: 'Removed 40% of unqualified leads from active outreach lists.',
+            metrics: ['Entropy Score', 'Data Completeness'],
+            cmndprompts: ['Who should I target?', 'What does my data say?', 'Explain this stage'],
+            tasks: [
+              { title: 'Pull closed-won analysis',         type: 'insight'       },
+              { title: 'Re-score ICP attributes',          type: 'action'        },
+              { title: 'Update CRM segment filters',       type: 'automation'    }
+            ]
+          },
+          {
+            label: 'REACT', stageName: 'Outbound Blitz', state: 'complete', progress: 100,
+            desc: 'High-cadence multi-touch outbound to refined ICP list. A/B subject lines across three verticals.',
+            impact: 'Generated 34 net-new opportunities against the revised ICP list.',
+            metrics: ['Relational ROI', 'Labor Deletion'],
+            cmndprompts: ['Draft my email subject line', 'What discount should I run?', 'Who should I contact first?'],
+            tasks: [
+              { title: 'Send outbound sequence wave 1', type: 'action'        },
+              { title: 'A/B test 3 subject lines',      type: 'action'        },
+              { title: 'Hit 40 new conversations',      type: 'metric_target' },
+              { title: 'Automate follow-up cadence',    type: 'automation'    }
+            ]
+          },
+          {
+            label: 'CONTROL', stageName: 'Pipeline Hold', state: 'active', progress: 65,
+            desc: 'Qualify and advance open opportunities. Enforce deal hygiene and forecast accuracy targets.',
+            impact: 'Locks in a clean, forecastable pipeline before the next planning cycle.',
+            metrics: ['Relational ROI', 'Entropy Score', 'Labor Deletion'],
+            cmndprompts: ['Am I on track?', "What's working best?", 'Summarize my sprint results'],
+            tasks: [
+              { title: 'Qualify top 10 open opportunities', type: 'action'        },
+              { title: 'Enforce CRM data hygiene',          type: 'action'        },
+              { title: 'Hit 85% forecast accuracy',         type: 'metric_target' },
+              { title: 'Enable pipeline report automation', type: 'automation'    }
+            ]
+          }
+        ]
+      }
+    };
+
+    function setVariant(key) {
+      document.querySelectorAll('.variant-btn').forEach(function (b) {
+        b.classList.toggle('active', b.getAttribute('onclick').includes("'" + key + "'"));
+      });
+      renderComponent(key);
+    }
+
+    function renderComponent(key) {
+      var data = VARIANTS[key];
+      window.arcSprintData = data;
+
+      fetch('/components/three-point-roadmap.html')
+        .then(function (r) { return r.text(); })
+        .then(function (html) {
+          var frame = document.getElementById('component-frame');
+          frame.innerHTML = html;
+          frame.querySelectorAll('script').forEach(function (old) {
+            var s = document.createElement('script');
+            s.textContent = old.textContent;
+            document.body.appendChild(s);
+          });
+        })
+        .catch(function () {
+          document.getElementById('component-frame').innerHTML =
+            '<p style="color:var(--muted);font-size:12px;padding:16px">Open via a local server — file:// fetch is blocked.<br>Try: <code>npx serve ~/arc/public</code></p>';
+        });
+    }
+
+    renderComponent('demo');
+  </script>
+
+</body>
+</html>

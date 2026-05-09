@@ -1,0 +1,776 @@
+<!-- 3 Point Roadmap (3PR) — reusable HTML partial -->
+<!-- Embed inside a parent page. Requires ARC CSS vars + DM Mono / Syne fonts. -->
+<!-- Data interface: window.arcSprintData = {
+     sprintName, nodes: [{
+       label, stageName, desc, impact, metrics[], tasks[{title,type}],
+       cmndprompts[], progress, state  (complete|active|locked)
+     }]
+   } -->
+
+<style>
+  .tpr-root {
+    font-family: 'DM Mono', monospace;
+    width: 100%;
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 32px 16px 16px;
+    box-sizing: border-box;
+    position: relative;
+  }
+
+  /* ── Sprint label ── */
+  .tpr-sprint-label {
+    font-size: 10px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--muted, #8888a0);
+    text-align: center;
+    margin-bottom: 8px;
+  }
+
+  /* ── Track ── */
+  .tpr-track {
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    height: 160px;
+  }
+
+  .tpr-connectors {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    overflow: visible;
+  }
+
+  /* ── Node column ── */
+  .tpr-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    z-index: 2;
+    flex: 0 0 auto;
+    width: 64px;
+  }
+  .tpr-col[data-pos="0"] { margin-bottom: 72px; }
+  .tpr-col[data-pos="1"] { margin-bottom: 0;    }
+  .tpr-col[data-pos="2"] { margin-bottom: 36px; }
+
+  /* ── Node circle ── */
+  .tpr-node {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .tpr-node.complete {
+    background: var(--accent, #00d4aa);
+    box-shadow: 0 0 0 3px rgba(0,212,170,.25);
+  }
+  .tpr-node.complete .tpr-check {
+    color: #000;
+    font-size: 18px;
+    line-height: 1;
+    font-weight: 700;
+  }
+  .tpr-node.active {
+    background: var(--surface2, #1a1a24);
+    border: 2px solid var(--accent, #00d4aa);
+    box-shadow: 0 0 0 4px rgba(0,212,170,.18), 0 0 20px rgba(0,212,170,.25);
+    animation: tpr-pulse 2.4s ease-in-out infinite;
+  }
+  .tpr-node.active .tpr-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--accent, #00d4aa);
+  }
+  .tpr-node.locked {
+    background: var(--surface, #13131a);
+    border: 2px solid var(--border, #2a2a3a);
+  }
+  .tpr-node.locked .tpr-lock {
+    color: var(--muted, #8888a0);
+    font-size: 14px;
+    opacity: .6;
+  }
+
+  @keyframes tpr-pulse {
+    0%,100% { box-shadow: 0 0 0 4px rgba(0,212,170,.18), 0 0 20px rgba(0,212,170,.25); }
+    50%      { box-shadow: 0 0 0 8px rgba(0,212,170,.08), 0 0 32px rgba(0,212,170,.45); }
+  }
+
+  /* ── Node label ── */
+  .tpr-node-label {
+    font-size: 9px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--muted, #8888a0);
+    margin-top: 8px;
+    text-align: center;
+    white-space: nowrap;
+  }
+  .tpr-col.is-active .tpr-node-label { color: var(--accent, #00d4aa); }
+
+  /* ── Active expanded card ── */
+  .tpr-active-card {
+    background: var(--surface, #13131a);
+    border: 1px solid var(--accent, #00d4aa);
+    border-radius: 10px;
+    padding: 16px 18px 18px;
+    margin-top: 28px;
+    width: 100%;
+    box-sizing: border-box;
+    position: relative;
+  }
+  .tpr-active-card::before {
+    content: '';
+    position: absolute;
+    top: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 1px;
+    height: 8px;
+    background: var(--accent, #00d4aa);
+    opacity: .5;
+  }
+
+  .tpr-card-stage {
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text, #f0f0f0);
+    margin-bottom: 12px;
+  }
+
+  /* ── Progress bar ── */
+  .tpr-progress-track {
+    height: 4px;
+    background: var(--border, #2a2a3a);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .tpr-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent, #00d4aa), #00b090);
+    border-radius: 2px;
+    transition: width .5s ease;
+  }
+
+  /* ── Task list ── */
+  .tpr-task-list {
+    margin-top: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .tpr-task-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .tpr-task-toggle {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 1.5px solid var(--border, #2a2a3a);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    color: transparent;
+    transition: border-color .15s, background .15s, color .15s;
+  }
+  .tpr-task-item.done .tpr-task-toggle {
+    background: var(--accent, #00d4aa);
+    border-color: var(--accent, #00d4aa);
+    color: #000;
+  }
+  .tpr-task-item.done .tpr-task-title {
+    text-decoration: line-through;
+    opacity: .4;
+  }
+  .tpr-task-title {
+    font-size: 12px;
+    color: var(--text, #f0f0f0);
+    flex: 1;
+    line-height: 1.4;
+    transition: opacity .15s;
+  }
+  .tpr-task-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    letter-spacing: .05em;
+    padding: 2px 6px;
+    border-radius: 3px;
+    border: 1px solid;
+    flex-shrink: 0;
+    text-transform: lowercase;
+  }
+  .tpr-task-badge.action        { color: #6699ff; border-color: rgba(102,153,255,.3); }
+  .tpr-task-badge.metric_target { color: #e0a07a; border-color: rgba(224,160,122,.3); }
+  .tpr-task-badge.automation    { color: #aa88ff; border-color: rgba(170,136,255,.3); }
+  .tpr-task-badge.insight       { color: var(--accent, #00d4aa); border-color: rgba(0,212,170,.3); }
+
+  /* ── Section divider ── */
+  .tpr-divider {
+    height: 1px;
+    background: var(--border, #2a2a3a);
+    margin: 16px 0;
+    opacity: .5;
+  }
+
+  /* ── Stage context block ── */
+  .tpr-context-block {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .tpr-context-row {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+  }
+  .tpr-context-label {
+    font-size: 10px;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--muted, #8888a0);
+    white-space: nowrap;
+    flex-shrink: 0;
+    min-width: 102px;
+  }
+  .tpr-context-value {
+    font-size: 11px;
+    color: var(--text, #f0f0f0);
+    line-height: 1.55;
+  }
+
+  /* ── Metrics section ── */
+  .tpr-metrics-section { margin-top: 0; }
+  .tpr-metrics-label {
+    font-size: 10px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted, #8888a0);
+    margin-bottom: 8px;
+  }
+  .tpr-metrics-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .tpr-metric-chip {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted, #8888a0);
+    border: 1px solid var(--border, #2a2a3a);
+    border-radius: 20px;
+    padding: 4px 12px;
+    cursor: default;
+  }
+
+  /* ── CMNDR box ── */
+  .tpr-cmndr-box {
+    margin-top: 16px;
+    border: 1px solid var(--border, #2a2a3a);
+    border-radius: 10px;
+    overflow: hidden;
+    background: #0c0c12;
+  }
+  .tpr-cmndr-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border, #2a2a3a);
+    background: var(--surface2, #1a1a24);
+  }
+  .tpr-cmndr-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent, #00d4aa);
+    flex-shrink: 0;
+  }
+  .tpr-cmndr-name {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text, #f0f0f0);
+    letter-spacing: .08em;
+  }
+  .tpr-cmndr-sub {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted, #8888a0);
+    margin-left: auto;
+  }
+  .tpr-cmndr-body {
+    padding: 12px 14px 14px;
+  }
+  .tpr-cmndr-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  .tpr-cmndr-chip {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted, #8888a0);
+    border: 1px solid var(--border, #2a2a3a);
+    border-radius: 4px;
+    padding: 4px 10px;
+    cursor: pointer;
+    transition: border-color .12s, color .12s;
+    white-space: nowrap;
+    background: none;
+  }
+  .tpr-cmndr-chip:hover {
+    border-color: var(--accent, #00d4aa);
+    color: var(--accent, #00d4aa);
+  }
+  .tpr-cmndr-input {
+    width: 100%;
+    background: var(--surface2, #1a1a24);
+    border: 1px solid var(--border, #2a2a3a);
+    border-radius: 6px;
+    padding: 9px 12px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--text, #f0f0f0);
+    outline: none;
+    box-sizing: border-box;
+    transition: border-color .15s;
+  }
+  .tpr-cmndr-input::placeholder { color: var(--muted, #8888a0); opacity: .7; }
+  .tpr-cmndr-input:focus        { border-color: rgba(0,212,170,.4); }
+
+  /* ── Automation slot ── */
+  .tpr-auto-slot {
+    margin-top: 14px;
+    background: var(--surface2, #1a1a24);
+    border: 1.5px dashed var(--border, #2a2a3a);
+    border-radius: 10px;
+    padding: 13px 16px 14px;
+  }
+  .tpr-auto-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .tpr-auto-title {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted, #8888a0);
+  }
+  /* Toggle switch */
+  .tpr-sw {
+    position: relative;
+    width: 32px;
+    height: 18px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .tpr-sw input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute;
+  }
+  .tpr-sw-track {
+    position: absolute;
+    inset: 0;
+    background: var(--border, #2a2a3a);
+    border-radius: 9px;
+    transition: background .2s;
+  }
+  .tpr-sw-thumb {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 12px;
+    height: 12px;
+    background: #fff;
+    border-radius: 50%;
+    transition: left .2s;
+  }
+  .tpr-auto-body { font-size: 12px; line-height: 1.5; }
+  .tpr-auto-off  { color: var(--muted, #8888a0); }
+  .tpr-auto-on   {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    color: var(--accent, #00d4aa);
+  }
+  .tpr-auto-ghost-btn {
+    display: inline-block;
+    margin-top: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted, #8888a0);
+    border: 1px solid var(--border, #2a2a3a);
+    border-radius: 5px;
+    padding: 5px 12px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: border-color .15s, color .15s;
+    background: none;
+  }
+  .tpr-auto-ghost-btn:hover {
+    border-color: var(--accent, #00d4aa);
+    color: var(--accent, #00d4aa);
+  }
+  .tpr-auto-not-installed {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: .08em;
+    color: #e0a07a;
+    border: 1px solid rgba(224,160,122,.4);
+    border-radius: 3px;
+    padding: 2px 7px;
+    white-space: nowrap;
+    text-transform: uppercase;
+  }
+</style>
+
+<div class="tpr-root" id="tpr-root">
+  <div class="tpr-sprint-label" id="tpr-sprint-label">Sprint</div>
+
+  <div class="tpr-track" id="tpr-track">
+    <svg class="tpr-connectors" id="tpr-svg" viewBox="0 0 680 160" preserveAspectRatio="none"></svg>
+  </div>
+
+  <!-- Active node expanded card -->
+  <div class="tpr-active-card" id="tpr-active-card" style="display:none">
+    <div class="tpr-card-stage" id="tpr-card-stage"></div>
+
+    <!-- Progress bar -->
+    <div class="tpr-progress-track">
+      <div class="tpr-progress-fill" id="tpr-progress-fill" style="width:0%"></div>
+    </div>
+
+    <!-- Task list -->
+    <div class="tpr-task-list" id="tpr-task-list"></div>
+
+    <div class="tpr-divider"></div>
+
+    <!-- Stage context -->
+    <div class="tpr-context-block" id="tpr-context-block"></div>
+
+    <div class="tpr-divider"></div>
+
+    <!-- Metrics affected -->
+    <div class="tpr-metrics-section" id="tpr-metrics-section"></div>
+
+    <!-- CMNDR box -->
+    <div class="tpr-cmndr-box" id="tpr-cmndr-box"></div>
+
+    <!-- Automation slot -->
+    <div class="tpr-auto-slot" id="tpr-auto-slot">
+      <div class="tpr-auto-header">
+        <div class="tpr-auto-title">
+          <span>⚡</span>
+          <span>Automations</span>
+        </div>
+        <label class="tpr-sw" id="tpr-sw-label" title="Toggle automation">
+          <input type="checkbox" id="tpr-auto-cb">
+          <span class="tpr-sw-track"><span class="tpr-sw-thumb" id="tpr-sw-thumb"></span></span>
+        </label>
+      </div>
+      <div class="tpr-auto-body">
+        <div class="tpr-auto-off" id="tpr-auto-off">
+          No automation installed for this stage.
+          <br>
+          <button class="tpr-auto-ghost-btn" onclick="return false">Explore Automations →</button>
+        </div>
+        <div class="tpr-auto-on" id="tpr-auto-on" style="display:none">
+          ISS Genesis recommended for this stage.
+          <span class="tpr-auto-not-installed">Not Installed</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var DEMO = {
+    sprintName: 'Q2 Growth Sprint',
+    nodes: [
+      {
+        label: 'ADAPT',
+        stageName: 'Market Adaptation',
+        desc: 'Align product positioning to shifting demand signals and audit competitive gaps.',
+        impact: 'Sets targeting precision for the React stage campaigns.',
+        metrics: ['Entropy Score', 'Data Completeness'],
+        tasks: [
+          { title: 'Audit competitor positioning',    type: 'action'        },
+          { title: 'Map ICP signals to segments',     type: 'metric_target' },
+          { title: 'Update messaging framework',      type: 'action'        },
+          { title: 'Enable data sync trigger',        type: 'automation'    },
+          { title: 'Review demand signal report',     type: 'insight'       }
+        ],
+        cmndprompts: ['Who should I target?', 'What does my data say?', 'Explain this stage'],
+        progress: 100,
+        state: 'complete'
+      },
+      {
+        label: 'REACT',
+        stageName: 'Rapid Response',
+        desc: 'Execute targeted campaigns against the highest-leverage channels identified in ADAPT.',
+        impact: 'Drives direct pipeline from the top ICP segments identified in ADAPT.',
+        metrics: ['Relational ROI', 'Labor Deletion'],
+        tasks: [
+          { title: 'Launch email sequence — segment A', type: 'action'        },
+          { title: 'Hit 25% open rate threshold',       type: 'metric_target' },
+          { title: 'Set up retargeting automation',     type: 'automation'    },
+          { title: 'Review campaign performance data',  type: 'insight'       },
+          { title: 'A/B test subject lines',            type: 'action'        }
+        ],
+        cmndprompts: ['Draft my email subject line', 'What discount should I run?', 'Who should I contact first?'],
+        progress: 40,
+        state: 'active'
+      },
+      {
+        label: 'CONTROL',
+        stageName: 'Outcome Control',
+        desc: 'Lock in gains, measure ROI, and establish repeatable playbooks for the next sprint cycle.',
+        impact: 'Crystallises winning patterns into a reusable playbook for future sprints.',
+        metrics: ['Relational ROI', 'Entropy Score', 'Labor Deletion'],
+        tasks: [
+          { title: 'Freeze winning campaign variants',  type: 'action'        },
+          { title: 'Hit ROI target of 3.2x',            type: 'metric_target' },
+          { title: 'Document sprint playbook',          type: 'action'        },
+          { title: 'Enable reporting automation',       type: 'automation'    },
+          { title: 'Validate forecast accuracy',        type: 'metric_target' },
+          { title: 'Summarise sprint learnings',        type: 'insight'       }
+        ],
+        cmndprompts: ['Am I on track?', "What's working best?", 'Summarize my sprint results'],
+        progress: 0,
+        state: 'locked'
+      }
+    ]
+  };
+
+  var data = (window.arcSprintData && window.arcSprintData.nodes && window.arcSprintData.nodes.length === 3)
+    ? window.arcSprintData
+    : DEMO;
+
+  // ── Sprint label ──
+  document.getElementById('tpr-sprint-label').textContent = data.sprintName || 'Sprint';
+
+  // ── Build track nodes ──
+  var offsets = [72, 0, 36];
+  var track   = document.getElementById('tpr-track');
+  var nodeEls = [];
+
+  data.nodes.forEach(function (n, i) {
+    var col = document.createElement('div');
+    col.className = 'tpr-col' + (n.state === 'active' ? ' is-active' : '');
+    col.setAttribute('data-pos', i);
+    col.style.marginBottom = offsets[i] + 'px';
+
+    var nodeDiv = document.createElement('div');
+    nodeDiv.className = 'tpr-node ' + n.state;
+    nodeDiv.id = 'tpr-node-' + i;
+
+    if (n.state === 'complete') {
+      var ck = document.createElement('span');
+      ck.className = 'tpr-check';
+      ck.textContent = '✓';
+      nodeDiv.appendChild(ck);
+    } else if (n.state === 'active') {
+      var dt = document.createElement('span');
+      dt.className = 'tpr-dot';
+      nodeDiv.appendChild(dt);
+    } else {
+      var lk = document.createElement('span');
+      lk.className = 'tpr-lock';
+      lk.textContent = '⊘';
+      nodeDiv.appendChild(lk);
+    }
+
+    var lbl = document.createElement('div');
+    lbl.className = 'tpr-node-label';
+    lbl.textContent = n.label || ('Stage ' + (i + 1));
+
+    col.appendChild(nodeDiv);
+    col.appendChild(lbl);
+    track.appendChild(col);
+    nodeEls.push(col);
+  });
+
+  // ── Draw SVG connectors ──
+  requestAnimationFrame(function () {
+    var svg       = document.getElementById('tpr-svg');
+    var trackRect = track.getBoundingClientRect();
+    svg.setAttribute('viewBox', '0 0 ' + trackRect.width + ' ' + trackRect.height);
+
+    var centres = nodeEls.map(function (col) {
+      var ne = col.querySelector('.tpr-node');
+      var r  = ne.getBoundingClientRect();
+      return {
+        x: r.left - trackRect.left + r.width  / 2,
+        y: r.top  - trackRect.top  + r.height / 2
+      };
+    });
+
+    function drawLine(a, b, solid) {
+      var line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', a.x); line.setAttribute('y1', a.y);
+      line.setAttribute('x2', b.x); line.setAttribute('y2', b.y);
+      line.setAttribute('stroke', solid ? 'var(--accent,#00d4aa)' : 'var(--border,#2a2a3a)');
+      line.setAttribute('stroke-width', '2');
+      if (!solid) line.setAttribute('stroke-dasharray', '5 4');
+      line.setAttribute('opacity', solid ? '0.7' : '0.5');
+      svg.appendChild(line);
+    }
+
+    // Determine line styles based on node states
+    var s0 = data.nodes[0].state;
+    var s1 = data.nodes[1].state;
+    // Segment 0→1: solid if both complete or one is active
+    drawLine(centres[0], centres[1], s0 === 'complete' || s1 === 'active' || s0 === 'active');
+    // Segment 1→2: solid if node[1] complete
+    drawLine(centres[1], centres[2], s1 === 'complete');
+  });
+
+  // ── Populate active card ──
+  var activeNode = data.nodes.find(function (n) { return n.state === 'active'; });
+  if (!activeNode) return;
+
+  var card = document.getElementById('tpr-active-card');
+  card.style.display = 'block';
+
+  document.getElementById('tpr-card-stage').textContent = activeNode.stageName || '';
+  document.getElementById('tpr-progress-fill').style.width = (activeNode.progress || 0) + '%';
+
+  // ── Task list ──
+  var taskList = document.getElementById('tpr-task-list');
+  var tasks    = activeNode.tasks || [];
+  tasks.forEach(function (t, idx) {
+    var item = document.createElement('div');
+    item.className = 'tpr-task-item';
+    item.id = 'tpr-ti-' + idx;
+
+    var toggle = document.createElement('div');
+    toggle.className = 'tpr-task-toggle';
+    toggle.textContent = '✓';
+
+    var title = document.createElement('div');
+    title.className = 'tpr-task-title';
+    title.textContent = t.title;
+
+    var badge = document.createElement('div');
+    badge.className = 'tpr-task-badge ' + (t.type || 'action');
+    var badgeLabels = { action:'action', metric_target:'metric', automation:'auto', insight:'insight' };
+    badge.textContent = badgeLabels[t.type] || t.type;
+
+    item.appendChild(toggle);
+    item.appendChild(title);
+    item.appendChild(badge);
+    taskList.appendChild(item);
+
+    item.addEventListener('click', function () {
+      item.classList.toggle('done');
+    });
+  });
+
+  // ── Stage context block ──
+  var ctx = document.getElementById('tpr-context-block');
+
+  var goalRow = document.createElement('div');
+  goalRow.className = 'tpr-context-row';
+  goalRow.innerHTML =
+    '<span class="tpr-context-label">End goal:</span>' +
+    '<span class="tpr-context-value">' + (activeNode.desc || '') + '</span>';
+
+  var impactRow = document.createElement('div');
+  impactRow.className = 'tpr-context-row';
+  impactRow.innerHTML =
+    '<span class="tpr-context-label">Expected impact:</span>' +
+    '<span class="tpr-context-value">' + (activeNode.impact || '') + '</span>';
+
+  ctx.appendChild(goalRow);
+  ctx.appendChild(impactRow);
+
+  // ── Metrics chips ──
+  var metricsSection = document.getElementById('tpr-metrics-section');
+  var mlabel = document.createElement('div');
+  mlabel.className = 'tpr-metrics-label';
+  mlabel.textContent = 'Metrics affected';
+  metricsSection.appendChild(mlabel);
+
+  var mchips = document.createElement('div');
+  mchips.className = 'tpr-metrics-chips';
+  (activeNode.metrics || []).forEach(function (m) {
+    var chip = document.createElement('div');
+    chip.className = 'tpr-metric-chip';
+    chip.textContent = m;
+    mchips.appendChild(chip);
+  });
+  metricsSection.appendChild(mchips);
+
+  // ── CMNDR box ──
+  var cmndrBox = document.getElementById('tpr-cmndr-box');
+  var prompts  = activeNode.cmndprompts || [];
+  var chipsHtml = prompts.map(function (p) {
+    return '<button class="tpr-cmndr-chip">' + p + '</button>';
+  }).join('');
+
+  cmndrBox.innerHTML =
+    '<div class="tpr-cmndr-header">' +
+      '<span class="tpr-cmndr-dot"></span>' +
+      '<span class="tpr-cmndr-name">CMNDR</span>' +
+      '<span class="tpr-cmndr-sub">' + (activeNode.stageName || '') + '</span>' +
+    '</div>' +
+    '<div class="tpr-cmndr-body">' +
+      '<div class="tpr-cmndr-chips">' + chipsHtml + '</div>' +
+      '<input class="tpr-cmndr-input" type="text" placeholder="Ask CMNDR anything...">' +
+    '</div>';
+
+  // Chip click → fill input
+  cmndrBox.querySelectorAll('.tpr-cmndr-chip').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var inp = cmndrBox.querySelector('.tpr-cmndr-input');
+      if (inp) { inp.value = btn.textContent; inp.focus(); }
+    });
+  });
+
+  // ── Automation toggle ──
+  var cb    = document.getElementById('tpr-auto-cb');
+  var thumb = document.getElementById('tpr-sw-thumb');
+  var offEl = document.getElementById('tpr-auto-off');
+  var onEl  = document.getElementById('tpr-auto-on');
+
+  cb.addEventListener('change', function () {
+    var on = cb.checked;
+    thumb.style.left         = on ? '17px' : '3px';
+    cb.parentElement.querySelector('.tpr-sw-track').style.background =
+      on ? 'var(--accent,#00d4aa)' : 'var(--border,#2a2a3a)';
+    offEl.style.display = on ? 'none'  : 'block';
+    onEl.style.display  = on ? 'flex'  : 'none';
+  });
+})();
+</script>
