@@ -336,7 +336,7 @@ async function boot() {
       if (!r.ok) { location.href = '/login'; return; }
       const d = await r.json();
       const profile = d.profile;
-      if (!profile || !profile.role || !profile.role.startsWith('resona_')) { location.href = '/login'; return; }
+      if (!profile || !profile.role || !["admin","client","demo","resona_admin","resona_advisor","client_user","display"].includes(profile.role)) { location.href = '/login'; return; }
       const name = profile.full_name || d.user?.email || 'Advisor';
       document.getElementById('nav-avatar').textContent = name.charAt(0).toUpperCase();
     } catch { location.href = '/login'; return; }
