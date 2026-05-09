@@ -137,13 +137,11 @@
 
   const supabase = createClient(SB_URL, SB_ANON, { auth: { persistSession: true }, realtime: { enabled: false } });
 
-  function redirect(role) {
-    if (role === 'admin') {
-      window.location.href = '/workbench';
-    } else if (role === 'resona_admin' || role === 'resona_advisor') {
-      window.location.href = '/hub';
-    } else {
-      window.location.href = '/';
+function redirect(role) {
+  if (role === 'admin') {
+    window.location.href = '/workbench';
+  } else {
+    window.location.href = '/';
     }
   }
 
