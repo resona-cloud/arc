@@ -913,7 +913,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   // Get token from localStorage
   SESSION_TOKEN = localStorage.getItem('cmndr_session');
   if (!SESSION_TOKEN) {
-    window.location.href = '/login.html';
+    window.location.href = '/arc-login';
     return;
   }
 
@@ -923,17 +923,17 @@ window.addEventListener('DOMContentLoaded', async () => {
       headers: { Authorization: `Bearer ${SESSION_TOKEN}` }
     });
     if (!r.ok) {
-      window.location.href = '/login.html';
+      window.location.href = '/arc-login';
       return;
     }
     const d = await r.json();
     const profile = d.profile;
     if (!profile) {
-      window.location.href = '/login.html';
+      window.location.href = '/arc-login';
       return;
     }
     if (!profile.role || !['admin', 'resona_admin', 'resona_advisor'].includes(profile.role)) {
-      window.location.href = '/login.html';
+      window.location.href = '/arc-login';
       return;
     }
     const advisorName = profile.full_name || d.user?.email || 'Advisor';
@@ -943,7 +943,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (railAv) railAv.textContent = advisorInitial;
     if (railName) railName.textContent = advisorName;
   } catch(e) {
-    window.location.href = '/login.html';
+    window.location.href = '/arc-login';
     return;
   }
 

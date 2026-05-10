@@ -18,7 +18,7 @@ window.doSignOut = async function () {
   localStorage.removeItem('cmndr_session');
   sessionStorage.removeItem('arc_impersonate_client_id');
   sessionStorage.removeItem('arc_impersonate_client_name');
-  location.href = '/login';
+  location.href = '/arc-login';
 };
 
 async function init() {
@@ -31,7 +31,7 @@ async function init() {
 
   try {
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { location.href = '/login'; return; }
+    if (!session) { location.href = '/arc-login'; return; }
 
     // Backward compat for existing API calls using Bearer token
     localStorage.setItem('cmndr_session', session.access_token);
@@ -59,12 +59,12 @@ async function init() {
     if (role === 'admin') {
       window.ARC_ADMIN_MODE = true;
       if (['/', '/index', '/index.html'].includes(location.pathname)) {
-        location.href = '/workbench'; return;
+        location.href = '/scope'; return;
       }
     }
 
-    // Non-admin on /workbench → back to /
-    if (location.pathname.startsWith('/workbench') && role !== 'admin') {
+    // Non-admin on /scope → back to /
+    if (location.pathname.startsWith('/scope') && role !== 'admin') {
       location.href = '/'; return;
     }
 
@@ -99,14 +99,14 @@ function injectImpersonationBanner(clientName) {
   const banner = document.createElement('div');
   banner.id = 'arc-imp-banner';
   banner.style.cssText = 'position:fixed;top:56px;left:0;right:0;background:#1a1a24;border-bottom:1px solid #2a2a3a;padding:8px 20px;display:flex;align-items:center;justify-content:space-between;font-family:"DM Mono",monospace;font-size:12px;color:#8a95a3;z-index:90;height:40px;box-sizing:border-box;';
-  banner.innerHTML = `<span>ADMIN VIEW &mdash; Viewing as: <strong style="color:#e8edf5">${clientName}</strong></span><span style="color:#00d4aa;cursor:pointer;" onclick="clearImpersonation()">&larr; Back to Workbench</span>`;
+  banner.innerHTML = `<span>ADMIN VIEW &mdash; Viewing as: <strong style="color:#e8edf5">${clientName}</strong></span><span style="color:#00d4aa;cursor:pointer;" onclick="clearImpersonation()">&larr; Back to Scope</span>`;
   document.body.appendChild(banner);
   const shell = document.getElementById('shell');
   if (shell) shell.style.paddingTop = 'calc(var(--nav-h,56px) + 40px)';
   window.clearImpersonation = function () {
     sessionStorage.removeItem('arc_impersonate_client_id');
     sessionStorage.removeItem('arc_impersonate_client_name');
-    location.href = '/workbench';
+    location.href = '/scope';
   };
 }
 

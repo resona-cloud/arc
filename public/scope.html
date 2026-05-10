@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>ARC — Scope</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0c0f;--surface:#111418;--surface2:#181c22;
+  --border:#1e242d;--border2:#262d38;
+  --text:#e8edf5;--text2:#8a95a3;--text3:#4d5663;
+  --accent:#3b82f6;--accent-dim:rgba(59,130,246,0.12);
+  --green:#22c55e;--green-dim:rgba(34,197,94,0.12);
+  --amber:#f59e0b;--amber-dim:rgba(245,158,11,0.12);
+  --red:#ef4444;--red-dim:rgba(239,68,68,0.12);
+  --nav-h:56px;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;font-size:14px}
+
+/* ── NAV ── */
+#nav{position:fixed;top:0;left:0;right:0;height:var(--nav-h);background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;padding:0 20px;z-index:100}
+.logo{font-size:17px;font-weight:700;letter-spacing:-.5px;color:var(--text);display:flex;align-items:center;gap:8px;text-decoration:none}
+.arc-badge{background:var(--accent);color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px;letter-spacing:1.5px}
+.spacer{flex:1}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#fff;cursor:pointer;flex-shrink:0}
+.arc-dd-wrap{position:relative;display:flex;align-items:center}
+.arc-dd-btn{background:transparent;border:0.5px solid var(--border);border-radius:6px;color:var(--text2);font-size:12px;font-family:'DM Mono',monospace;padding:5px 11px;cursor:pointer;transition:all 150ms ease;white-space:nowrap;letter-spacing:.05em}
+.arc-dd-btn:hover{border-color:var(--border2);color:var(--text)}
+.arc-dd{position:absolute;top:calc(100% + 8px);left:0;min-width:180px;background:#13131a;border:1px solid #2a2a3a;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.4);padding:4px;z-index:1000;display:none}
+.arc-dd.open{display:block}
+.arc-dd-right{left:auto;right:0}
+.arc-dd-item{padding:10px 16px;font-family:'DM Mono',monospace;font-size:12px;color:#f0f0f0;cursor:pointer;border-radius:5px;transition:background 100ms ease,color 100ms ease;position:relative;display:flex;align-items:center;gap:8px;user-select:none}
+.arc-dd-item:hover{background:#1a1a24;color:#00d4aa}
+.arc-dd-item.has-sub{justify-content:space-between}
+.arc-dd-item.has-sub::after{content:'›';font-size:14px;opacity:.5;flex-shrink:0;margin-left:auto}
+.arc-sub{position:absolute;left:100%;top:-4px;min-width:180px;background:#13131a;border:1px solid #2a2a3a;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.4);padding:4px;display:none;z-index:1001}
+.arc-dd-item.has-sub:hover .arc-sub{display:block}
+.arc-dd-sep{border-top:1px solid #2a2a3a;margin:4px 0}
+
+/* ── SHELL ── */
+#shell{display:flex;flex-direction:column;min-height:100vh;padding-top:var(--nav-h)}
+#main{max-width:960px;margin:0 auto;padding:40px 24px;width:100%}
+
+/* ── PAGE HEADER ── */
+.pg-title{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:var(--text);letter-spacing:-.5px;margin-bottom:6px}
+.pg-sub{font-family:'DM Mono',monospace;font-size:12px;color:var(--text3);letter-spacing:.05em;margin-bottom:36px}
+
+/* ── STATS ROW ── */
+.stats-row{display:flex;gap:12px;margin-bottom:36px;flex-wrap:wrap}
+.stat-pill{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 20px;min-width:140px}
+.stat-pill-label{font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);letter-spacing:.6px;text-transform:uppercase;margin-bottom:4px}
+.stat-pill-value{font-size:20px;font-weight:700;letter-spacing:-1px}
+.col-blue{color:var(--accent)}.col-green{color:var(--green)}.col-amber{color:var(--amber)}
+
+/* ── CLIENT TABLE ── */
+.section-label{font-family:'DM Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.7px;text-transform:uppercase;color:var(--text3);margin-bottom:12px}
+.client-table{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;width:100%}
+.ct-head{display:grid;grid-template-columns:1fr 150px 110px 100px 110px;padding:10px 20px;border-bottom:1px solid var(--border);gap:12px}
+.ct-hc{font-family:'DM Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.7px;text-transform:uppercase;color:var(--text3)}
+.ct-row{display:grid;grid-template-columns:1fr 150px 110px 100px 110px;padding:16px 20px;border-bottom:1px solid var(--border);gap:12px;align-items:center;transition:background .12s}
+.ct-row:last-child{border-bottom:none}
+.ct-row:hover{background:var(--surface2)}
+.ct-name{font-size:14px;font-weight:600;color:var(--text);margin-bottom:2px}
+.ct-id{font-family:'DM Mono',monospace;font-size:10px;color:var(--text3)}
+.ct-industry{font-size:12px;color:var(--text2)}
+.ct-score{font-size:14px;font-weight:700}
+.score-green{color:var(--green)}.score-amber{color:var(--amber)}.score-red{color:var(--red)}
+.ct-badge{font-family:'DM Mono',monospace;font-size:10px;padding:2px 8px;border-radius:4px;display:inline-block;font-weight:500}
+.badge-active{background:var(--green-dim);color:var(--green)}
+.badge-demo{background:var(--accent-dim);color:var(--accent)}
+.badge-new{background:var(--amber-dim);color:var(--amber)}
+.enter-btn{background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:7px 16px;font-size:12px;font-family:'DM Mono',monospace;color:var(--text2);cursor:pointer;transition:all .15s;white-space:nowrap;letter-spacing:.04em}
+.enter-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+</head>
+<body>
+
+<nav id="nav">
+  <a class="logo" href="/scope">
+    <span class="arc-badge">ARC</span>
+    Scope
+  </a>
+  <div class="spacer"></div>
+  <div class="arc-dd-wrap">
+    <button class="arc-dd-btn" onclick="toggleDd('adapt')">ADAPT ▾</button>
+    <div class="arc-dd" id="dd-adapt-panel">
+      <div class="arc-dd-item has-sub">Visibility
+        <div class="arc-sub">
+          <div class="arc-dd-item" onclick="enterClient(currentClientId,'operations')">Operations</div>
+          <div class="arc-dd-item" onclick="enterClient(currentClientId,'finance')">Finance</div>
+          <div class="arc-dd-item" onclick="enterClient(currentClientId,'marketing')">Marketing</div>
+          <div class="arc-dd-item" onclick="enterClient(currentClientId,'yield')">Yield &amp; Efficiency</div>
+          <div class="arc-dd-item" onclick="enterClient(currentClientId,'market-scan')">Market Scan</div>
+        </div>
+      </div>
+      <div class="arc-dd-item" onclick="enterClient(currentClientId,'audit')">Audits</div>
+      <div class="arc-dd-item" onclick="enterClient(currentClientId,'digital-authority')">Digital Authority</div>
+    </div>
+  </div>
+  <div class="arc-dd-wrap">
+    <button class="arc-dd-btn" onclick="toggleDd('react')">REACT ▾</button>
+    <div class="arc-dd" id="dd-react-panel">
+      <div class="arc-dd-item" onclick="enterClient(currentClientId,'sprint')">Sprint Planner</div>
+      <div class="arc-dd-item" onclick="enterClient(currentClientId,'playbooks')">Playbooks</div>
+      <div class="arc-dd-item" onclick="enterClient(currentClientId,'wins')">Win Board</div>
+    </div>
+  </div>
+  <div class="arc-dd-wrap">
+    <button class="arc-dd-btn" onclick="toggleDd('control')">CONTROL ▾</button>
+    <div class="arc-dd" id="dd-control-panel">
+      <div class="arc-dd-item" onclick="enterClient(currentClientId,'automations')">Automations</div>
+      <div class="arc-dd-item" onclick="enterClient(currentClientId,'connections')">Connections</div>
+      <div class="arc-dd-item" onclick="enterClient(currentClientId,'archive')">Archive</div>
+    </div>
+  </div>
+  <div class="arc-dd-wrap">
+    <div class="avatar" id="nav-avatar" onclick="toggleDd('avatar')" style="cursor:pointer">A</div>
+    <div class="arc-dd arc-dd-right" id="dd-avatar-panel">
+      <div class="arc-dd-item" style="color:var(--text3);cursor:default;pointer-events:none" id="nav-email-display">—</div>
+      <div class="arc-dd-sep"></div>
+      <div class="arc-dd-item" onclick="doSignOut()">Sign Out</div>
+    </div>
+  </div>
+</nav>
+
+<div id="shell">
+  <div id="main">
+    <div class="pg-title">ARC Scope</div>
+    <div class="pg-sub">RESONA ADMIN — CLIENT MANAGEMENT</div>
+
+    <div class="stats-row">
+      <div class="stat-pill">
+        <div class="stat-pill-label">Clients</div>
+        <div class="stat-pill-value col-blue" id="stat-clients">4</div>
+      </div>
+      <div class="stat-pill">
+        <div class="stat-pill-label">Active</div>
+        <div class="stat-pill-value col-green" id="stat-active">3</div>
+      </div>
+      <div class="stat-pill">
+        <div class="stat-pill-label">Demo</div>
+        <div class="stat-pill-value col-amber" id="stat-demo">1</div>
+      </div>
+    </div>
+
+    <div class="section-label">Client Roster</div>
+    <div class="client-table">
+      <div class="ct-head">
+        <div class="ct-hc">Client</div>
+        <div class="ct-hc">Industry</div>
+        <div class="ct-hc">Health</div>
+        <div class="ct-hc">Status</div>
+        <div class="ct-hc"></div>
+      </div>
+
+      <div class="ct-row">
+        <div>
+          <div class="ct-name">Peak Flow Plumbing &amp; HVAC</div>
+          <div class="ct-id">peak-flow</div>
+        </div>
+        <div class="ct-industry">Plumbing &amp; HVAC</div>
+        <div class="ct-score score-green">82</div>
+        <div><span class="ct-badge badge-demo">DEMO</span></div>
+        <div><button class="enter-btn" onclick="enterClient('peak-flow','Peak Flow Plumbing &amp; HVAC')">Enter →</button></div>
+      </div>
+
+      <div class="ct-row">
+        <div>
+          <div class="ct-name">Acme Landscaping</div>
+          <div class="ct-id">acme-landscaping</div>
+        </div>
+        <div class="ct-industry">Landscaping</div>
+        <div class="ct-score score-green">74</div>
+        <div><span class="ct-badge badge-active">ACTIVE</span></div>
+        <div><button class="enter-btn" onclick="enterClient('acme-landscaping','Acme Landscaping')">Enter →</button></div>
+      </div>
+
+      <div class="ct-row">
+        <div>
+          <div class="ct-name">Chen Family Dental</div>
+          <div class="ct-id">chen-dental</div>
+        </div>
+        <div class="ct-industry">Dental Practice</div>
+        <div class="ct-score score-amber">61</div>
+        <div><span class="ct-badge badge-active">ACTIVE</span></div>
+        <div><button class="enter-btn" onclick="enterClient('chen-dental','Chen Family Dental')">Enter →</button></div>
+      </div>
+
+      <div class="ct-row">
+        <div>
+          <div class="ct-name">Bright &amp; Clean</div>
+          <div class="ct-id">bright-clean</div>
+        </div>
+        <div class="ct-industry">Cleaning Services</div>
+        <div class="ct-score score-amber">58</div>
+        <div><span class="ct-badge badge-new">NEW</span></div>
+        <div><button class="enter-btn" onclick="enterClient('bright-clean','Bright &amp; Clean')">Enter →</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  // ── Anti-flash ──
+  const _s = document.createElement('style');
+  _s.textContent = 'body{visibility:hidden}';
+  document.head.appendChild(_s);
+
+  const SB_URL  = 'https://fklijhgqsjdlwvmwarwh.supabase.co';
+  const SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZrbGlqaGdxc2pkbHd2bXdhcndoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2OTk0OTgsImV4cCI6MjA5MTI3NTQ5OH0.qeWgD2elcfiQt3Kth6Q5J9Jt1z_O-p-Gc2QtpFZXybA';
+  const { createClient } = window.supabase;
+  const sb = createClient(SB_URL, SB_ANON, { auth: { persistSession: true }, realtime: { enabled: false } });
+
+  window.currentClientId = null;
+
+  // ── Sign out ──
+  window.doSignOut = async function() {
+    await sb.auth.signOut();
+    localStorage.removeItem('cmndr_session');
+    sessionStorage.removeItem('arc_client_id');
+    sessionStorage.removeItem('arc_client_name');
+    location.href = '/arc-login';
+  };
+
+  // ── Enter client ──
+  window.enterClient = function(clientId, clientName) {
+    if (!clientId) return;
+    // Decode HTML entities in name
+    const d = document.createElement('div');
+    d.innerHTML = clientName;
+    const name = d.textContent || d.innerText || clientName;
+    sessionStorage.setItem('arc_client_id', clientId);
+    sessionStorage.setItem('arc_client_name', name);
+    location.href = '/';
+  };
+
+  // ── Dropdown toggle ──
+  window.toggleDd = function(key) {
+    const panel = document.getElementById('dd-' + key + '-panel');
+    if (!panel) return;
+    const isOpen = panel.classList.contains('open');
+    document.querySelectorAll('.arc-dd').forEach(d => d.classList.remove('open'));
+    if (!isOpen) panel.classList.add('open');
+  };
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.arc-dd-wrap')) {
+      document.querySelectorAll('.arc-dd').forEach(d => d.classList.remove('open'));
+    }
+  });
+
+  // ── Auth check ──
+  async function init() {
+    try {
+      const { data: { session } } = await sb.auth.getSession();
+      if (!session) { location.href = '/arc-login'; return; }
+
+      const { data: userRow, error } = await sb
+        .from('arc_users')
+        .select('role, full_name, email')
+        .eq('id', session.user.id)
+        .single();
+
+      if (error || !userRow || userRow.role !== 'admin') {
+        location.href = '/arc-login';
+        return;
+      }
+
+      localStorage.setItem('cmndr_session', session.access_token);
+
+      // Update avatar + email display
+      const name = userRow.full_name || session.user.email || 'A';
+      const av = document.getElementById('nav-avatar');
+      if (av) av.textContent = name.charAt(0).toUpperCase();
+      const emailDisplay = document.getElementById('nav-email-display');
+      if (emailDisplay) emailDisplay.textContent = session.user.email;
+
+    } catch(e) {
+      console.error('[scope] auth error:', e);
+      location.href = '/arc-login';
+    } finally {
+      _s.remove();
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
+})();
+</script>
+</body>
+</html>

@@ -486,15 +486,15 @@ async function boot() {
   if (window.location.search.includes('bypass=true') || localStorage.getItem('arc_bypass') === 'true') {
     localStorage.setItem('arc_bypass', 'true');
   } else {
-    if (!SESSION_TOKEN) { location.href = '/login'; return; }
+    if (!SESSION_TOKEN) { location.href = '/arc-login'; return; }
     try {
       const r = await fetch('/api/auth?action=me', { headers: { Authorization: `Bearer ${SESSION_TOKEN}` } });
-      if (!r.ok) { location.href = '/login'; return; }
+      if (!r.ok) { location.href = '/arc-login'; return; }
       const d = await r.json();
       const p = d.profile;
-      if (!p || !p.role || !["admin","client","demo","resona_admin","resona_advisor","client_user","display"].includes(p.role)) { location.href = '/login'; return; }
+      if (!p || !p.role || !["admin","client","demo","resona_admin","resona_advisor","client_user","display"].includes(p.role)) { location.href = '/arc-login'; return; }
       document.getElementById('nav-avatar').textContent = (p.full_name || d.user?.email || 'A').charAt(0).toUpperCase();
-    } catch { location.href = '/login'; return; }
+    } catch { location.href = '/arc-login'; return; }
   }
   initCmndrPanel();
   initTimestamps();
