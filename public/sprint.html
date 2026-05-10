@@ -266,6 +266,7 @@ window.arcSprintData = {
   }
 };
 </script>
+<script src="/js/arc-ui.js"></script>
 <script type="module" src="/js/auth.js"></script>
 </head>
 <body>
@@ -646,11 +647,14 @@ function applyCollapsed(on) { document.getElementById('cmndr-col').classList.tog
 // ── ENTROPY ───────────────────────────────────────────────────────
 async function loadEntropyScore() {
   try {
-    const r = await fetch('/api/health?action=entropy'); if (!r.ok) return;
+    const r = await fetch('/api/health?action=entropy'); if (!r.ok) throw new Error('API ' + r.status);
     const d = await r.json(); if (d.score == null) { document.getElementById('hs-entropy-sub').textContent = 'No scan yet'; return; }
     animCount('hs-entropy', d.score, '%'); animBar('bar-entropy', d.score);
     document.getElementById('hs-entropy-sub').textContent = d.score >= 80 ? 'Excellent' : d.score >= 60 ? 'Good — minor gaps' : 'Fair — action needed';
-  } catch {}
+  } catch {
+    const sub = document.getElementById('hs-entropy-sub');
+    if (sub) { sub.textContent = 'Unable to load'; sub.style.color = 'var(--red)'; }
+  }
 }
 function animCount(id, target, suf) { const el = document.getElementById(id); if (!el) return; let t0 = null; function step(ts) { if (!t0) t0 = ts; const p = Math.min((ts - t0) / 900, 1); el.textContent = Math.round(target * (1 - Math.pow(1 - p, 3))) + (suf || ''); if (p < 1) requestAnimationFrame(step); } requestAnimationFrame(step); }
 function animBar(id, pct) { const el = document.getElementById(id); if (el) setTimeout(() => el.style.width = Math.max(0, Math.min(100, pct)) + '%', 50); }

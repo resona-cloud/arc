@@ -169,6 +169,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .route-option{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;padding:8px;border:1px solid var(--border2);border-radius:6px;margin-bottom:6px}
 .route-option:hover{border-color:var(--accent)}
 </style>
+<script src="/js/arc-ui.js"></script>
 <script type="module" src="/js/auth.js"></script>
 </head>
 <body>
@@ -460,7 +461,7 @@ function toggleCmndr() { const c=document.getElementById('cmndr-col').classList.
 function applyCollapsed(on) { document.getElementById('cmndr-col').classList.toggle('collapsed',on); const pts=document.getElementById('toggle-icon')?.querySelector('polyline'); if(pts) pts.setAttribute('points',on?'9 18 15 12 9 6':'15 18 9 12 15 6'); }
 
 async function loadEntropyScore() {
-  try { const r=await fetch('/api/health?action=entropy'); if(!r.ok)return; const d=await r.json(); if(d.score==null){document.getElementById('hs-entropy-sub').textContent='No scan yet';return;} animCount('hs-entropy',d.score,'%'); animBar('bar-entropy',d.score); document.getElementById('hs-entropy-sub').textContent=d.score>=80?'Excellent':d.score>=60?'Good — minor gaps':'Fair — action needed'; } catch {}
+  try { const r=await fetch('/api/health?action=entropy'); if(!r.ok)throw new Error('API'); const d=await r.json(); if(d.score==null){document.getElementById('hs-entropy-sub').textContent='No scan yet';return;} animCount('hs-entropy',d.score,'%'); animBar('bar-entropy',d.score); document.getElementById('hs-entropy-sub').textContent=d.score>=80?'Excellent':d.score>=60?'Good — minor gaps':'Fair — action needed'; } catch { const s=document.getElementById('hs-entropy-sub'); if(s){s.textContent='Unable to load';s.style.color='var(--red)';} }
 }
 async function loadNarrative() {
   try {

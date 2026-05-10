@@ -184,6 +184,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .fin-btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border2);border-radius:6px;padding:7px 16px;font-size:12px;font-family:monospace;cursor:pointer}
 .fin-btn-ghost:hover{border-color:var(--text2)}
 </style>
+<script src="/js/arc-ui.js"></script>
 <script type="module" src="/js/auth.js"></script>
 </head>
 <body>
@@ -274,33 +275,33 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
         <div class="page-sub">Revenue &amp; Collections · Peak Flow</div>
       </div>
 
-      <div class="metric-row">
-        <div class="metric-card">
+      <div id="fin-metric-row" class="metric-row">
+        <div class="metric-card" id="fmc-rev">
           <div class="mc-label" data-info="Total revenue from invoices issued and completed this month. Includes all job types and payment methods processed through Peak Flow HVAC.">Monthly Revenue</div>
-          <div class="mc-value col-green">$67,240</div>
-          <div class="mc-sub">April 2026</div>
-          <div class="mc-trend trend-up">↑ 12% MoM</div>
+          <div class="mc-value col-green" id="fmc-rev-val">—</div>
+          <div class="mc-sub" id="fmc-rev-sub">Loading…</div>
+          <div class="mc-trend" id="fmc-rev-trend"></div>
           <span class="mc-explain" onclick="explainMetric('monthly_revenue')">Explain this →</span>
         </div>
-        <div class="metric-card">
+        <div class="metric-card" id="fmc-ar">
           <div class="mc-label" data-info="Total accounts receivable — money owed but not yet collected. Includes all open invoices regardless of due date or aging status.">Outstanding AR</div>
-          <div class="mc-value">$18,400</div>
-          <div class="mc-sub">Across 11 invoices</div>
-          <div class="mc-trend trend-warn">Needs follow-up</div>
+          <div class="mc-value" id="fmc-ar-val">—</div>
+          <div class="mc-sub" id="fmc-ar-sub">Loading…</div>
+          <div class="mc-trend" id="fmc-ar-trend"></div>
           <span class="mc-explain" onclick="explainMetric('outstanding_ar')">Explain this →</span>
         </div>
-        <div class="metric-card">
+        <div class="metric-card" id="fmc-dso">
           <div class="mc-label" data-info="Days Sales Outstanding: avg days from invoice to payment. Industry benchmark is 35 days. Your target is 21 days. Lower is better.">DSO</div>
-          <div class="mc-value col-green">28<span style="font-size:14px;font-weight:500;letter-spacing:0"> days</span></div>
-          <div class="mc-sub">Days sales outstanding</div>
-          <div class="mc-trend trend-up">↓ Healthy (under 30)</div>
+          <div class="mc-value" id="fmc-dso-val">—</div>
+          <div class="mc-sub" id="fmc-dso-sub">Loading…</div>
+          <div class="mc-trend" id="fmc-dso-trend"></div>
           <span class="mc-explain" onclick="explainMetric('dso')">Explain this →</span>
         </div>
-        <div class="metric-card">
+        <div class="metric-card" id="fmc-ov">
           <div class="mc-label" data-info="Invoices past their due date. Any balance over 30 days past due requires immediate escalation — risk of non-payment increases significantly after 45 days.">Overdue</div>
-          <div class="mc-value" style="color:var(--red)">$3,200</div>
-          <div class="mc-sub">1 invoice · 31 days past due</div>
-          <div class="mc-trend trend-dn">↑ Immediate action</div>
+          <div class="mc-value" id="fmc-ov-val">—</div>
+          <div class="mc-sub" id="fmc-ov-sub">Loading…</div>
+          <div class="mc-trend" id="fmc-ov-trend"></div>
           <span class="mc-explain" onclick="explainMetric('overdue_ar')">Explain this →</span>
         </div>
       </div>
@@ -309,56 +310,60 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 
         <!-- LEFT: Revenue chart + Invoice table -->
         <div style="display:flex;flex-direction:column;gap:16px">
-          <div class="col-card">
+          <div class="col-card" id="fin-rev-wrap">
             <div class="col-card-title">Monthly Revenue</div>
             <div id="rev-chart-container"></div>
           </div>
 
-          <div class="col-card">
+          <div class="col-card" id="fin-invoice-wrap">
             <div class="col-card-title" data-info="Breakdown of open invoices by time outstanding. Items in the 30+ day bucket are at highest collection risk and require immediate action.">Invoice Aging</div>
-            <table class="data-table">
-              <thead><tr><th style="max-width:60px">Invoice</th><th>Customer</th><th>Amount</th><th>Due Date</th><th style="max-width:40px;text-align:center">Days</th><th style="max-width:80px">Status</th><th style="min-width:160px">Actions</th></tr></thead>
-              <tbody id="invoice-tbody"></tbody>
-            </table>
+            <div id="fin-invoice-body">
+              <table class="data-table">
+                <thead><tr><th style="max-width:60px">Invoice</th><th>Customer</th><th>Amount</th><th>Due Date</th><th style="max-width:40px;text-align:center">Days</th><th style="max-width:80px">Status</th><th style="min-width:160px">Actions</th></tr></thead>
+                <tbody id="invoice-tbody"></tbody>
+              </table>
+            </div>
           </div>
         </div>
 
         <!-- RIGHT: DSO + Cash flow + Job type -->
         <div style="display:flex;flex-direction:column;gap:16px">
-          <div class="col-card">
+          <div class="col-card" id="fin-dso-wrap">
             <div class="col-card-title" data-info="Visual comparison of your current DSO against your internal target and the industry average. The gap between 'You' and 'Target' is your improvement opportunity.">DSO Analysis</div>
-            <div class="dso-gauge">
-              <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-bottom:4px">
-                <span>0</span><span>Target 21</span><span>Current 28</span><span>Industry 35</span><span>60</span>
+            <div id="fin-dso-body">
+              <div class="dso-gauge">
+                <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-bottom:4px">
+                  <span>0</span><span id="dso-label-target">Target 21</span><span id="dso-label-current">Current 28</span><span>Industry 35</span><span>60</span>
+                </div>
+                <div class="dso-track" style="margin-top:14px">
+                  <div class="dso-fill" id="dso-fill-bar" style="width:46.7%"></div>
+                  <div class="dso-marker" style="left:35%">Target</div>
+                  <div class="dso-marker" id="dso-you-marker" style="left:46.7%;color:var(--amber)">You</div>
+                  <div class="dso-marker" style="left:58.3%">Avg</div>
+                </div>
               </div>
-              <div class="dso-track" style="margin-top:14px">
-                <div class="dso-fill" style="width:46.7%"></div>
-                <div class="dso-marker" style="left:35%">Target</div>
-                <div class="dso-marker" style="left:46.7%;color:var(--amber)">You</div>
-                <div class="dso-marker" style="left:58.3%">Avg</div>
+              <div class="dso-stats" style="margin-top:18px">
+                <div class="dso-row"><span style="color:var(--text2)">Current DSO</span><span id="dso-current-val" style="color:var(--amber);font-weight:600">28 days</span></div>
+                <div class="dso-row"><span style="color:var(--text2)">Target DSO</span><span style="color:var(--green);font-weight:600">21 days</span></div>
+                <div class="dso-row"><span style="color:var(--text2)">Industry average</span><span style="font-weight:600">35 days</span></div>
               </div>
-            </div>
-            <div class="dso-stats" style="margin-top:18px">
-              <div class="dso-row"><span style="color:var(--text2)">Current DSO</span><span style="color:var(--amber);font-weight:600">28 days</span></div>
-              <div class="dso-row"><span style="color:var(--text2)">Target DSO</span><span style="color:var(--green);font-weight:600">21 days</span></div>
-              <div class="dso-row"><span style="color:var(--text2)">Industry average</span><span style="font-weight:600">35 days</span></div>
             </div>
           </div>
 
-          <div class="col-card">
+          <div class="col-card" id="fin-cf-wrap">
             <div class="col-card-title" data-info="30-day cash flow estimate based on invoice due dates and historical payment patterns. Assumes current collection rate holds.">Cash Flow Projection — Next 30 Days</div>
-            <div>
+            <div id="fin-cf-body">
               <div class="cf-row"><span class="cf-label">Week 1</span><span class="cf-val">$3,960 expected</span></div>
               <div class="cf-row"><span class="cf-label">Week 2</span><span class="cf-val">$7,240 expected</span></div>
               <div class="cf-row"><span class="cf-label">Week 3</span><span class="cf-val">$4,800 expected</span></div>
               <div class="cf-row"><span class="cf-label">Week 4</span><span class="cf-val">$2,400 expected</span></div>
-              <div class="cf-row"><span class="cf-label col-green">Total expected</span><span class="cf-val col-green">$18,400</span></div>
+              <div class="cf-row"><span class="cf-label col-green">Total expected</span><span class="cf-val col-green" id="cf-total">$18,400</span></div>
             </div>
           </div>
 
-          <div class="col-card">
+          <div class="col-card" id="fin-jt-wrap">
             <div class="col-card-title" data-info="Average revenue per completed job by category. Use to identify your highest-margin job types and prioritize scheduling accordingly.">Revenue by Job Type</div>
-            <div>
+            <div id="fin-jt-body">
               <div class="jt-row"><span style="color:var(--text2)">Emergency / Repair</span><span style="font-weight:600">$1,840 avg</span></div>
               <div class="jt-row"><span style="color:var(--text2)">Installation</span><span style="font-weight:600">$2,920 avg</span></div>
               <div class="jt-row"><span style="color:var(--text2)">Maintenance</span><span style="font-weight:600">$380 avg</span></div>
@@ -473,7 +478,190 @@ async function boot() {
     } catch { location.href = '/arc-login'; return; }
   }
   initCmndrPanel();
-  await Promise.all([loadEntropyScore(), loadNarrative()]);
+  showFinanceSkeletons();
+  await Promise.all([loadEntropyScore(), loadNarrative(), loadFinanceData()]);
+}
+
+// ── FINANCE DATA LOADING ──────────────────────────────────────────
+const DEMO_METRICS = {
+  monthly_revenue: 67240, outstanding_ar: 18400, outstanding_count: 11,
+  dso: 28, overdue_amount: 6440, overdue_count: 1,
+  monthly_chart: [
+    {month:'Jan', val:48200}, {month:'Feb', val:52800},
+    {month:'Mar', val:60100}, {month:'Apr', val:67240}
+  ],
+  revenue_by_job_type: [
+    {type:'Emergency / Repair', avg:1840}, {type:'Installation', avg:2920},
+    {type:'Maintenance', avg:380}, {type:'Commercial', avg:4200}
+  ]
+};
+
+function showFinanceSkeletons() {
+  ['fmc-rev','fmc-ar','fmc-dso','fmc-ov'].forEach(id => {
+    const mc = document.getElementById(id);
+    if (!mc) return;
+    const val = mc.querySelector('[id$="-val"]');
+    if (val) { val.className = 'mc-value skeleton'; val.style.cssText = 'height:28px;width:80px;border-radius:4px'; val.textContent = ''; }
+  });
+  if (typeof arcSkeleton === 'function') {
+    arcSkeleton('rev-chart-container', 1, 100);
+    arcSkeleton('fin-invoice-body', 3, 44);
+  }
+}
+
+async function loadFinanceData() {
+  try {
+    const r = await fetch('/api/pipeline?action=finance-data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SESSION_TOKEN}` }
+    });
+    if (!r.ok) throw new Error('API ' + r.status);
+    const d = await r.json();
+    if (d.demo) {
+      populateFinanceMetrics(DEMO_METRICS);
+    } else {
+      populateFinanceMetrics(d);
+      if (d.invoice_list && d.invoice_list.length) populateInvoicesFromAPI(d.invoice_list);
+      if (d.revenue_by_job_type && d.revenue_by_job_type.length) populateJobTypes(d.revenue_by_job_type);
+      if (d.monthly_chart && d.monthly_chart.length) generateRevenueChartFromData(d.monthly_chart);
+      if (d.dso != null) updateDSOGauge(d.dso);
+      if (d.outstanding_ar != null) updateCashFlowFromAR(d.outstanding_ar);
+    }
+  } catch (e) {
+    console.warn('[finance] loadFinanceData error:', e.message);
+    // Show error cards on hard failure, fall back to demo metrics
+    populateFinanceMetrics(DEMO_METRICS);
+    if (typeof arcError === 'function') {
+      arcError('fin-invoice-body', 'invoice data', loadFinanceData);
+    }
+  }
+  // Restore table if we used demo path (renderInvoices uses hardcoded INVOICES)
+  if (!document.getElementById('invoice-tbody')?.children?.length) renderInvoices();
+  // Restore chart if still skeleton
+  const cc = document.getElementById('rev-chart-container');
+  if (cc && cc.querySelector('.arc-skel')) generateRevenueChart();
+}
+
+function fmtMoney(n) { return '$' + Math.round(n).toLocaleString(); }
+
+function populateFinanceMetrics(d) {
+  // Monthly Revenue
+  const rev = document.getElementById('fmc-rev-val');
+  if (rev) { rev.className = 'mc-value col-green'; rev.textContent = fmtMoney(d.monthly_revenue || 0); }
+  setText('fmc-rev-sub', new Date().toLocaleString('default',{month:'long',year:'numeric'}));
+  setText('fmc-rev-trend', '↑ Loading trend…');
+  setClass('fmc-rev-trend', 'mc-trend trend-up');
+
+  // Outstanding AR
+  const ar = document.getElementById('fmc-ar-val');
+  if (ar) { ar.className = 'mc-value'; ar.textContent = fmtMoney(d.outstanding_ar || 0); }
+  setText('fmc-ar-sub', 'Across ' + (d.outstanding_count || 0) + ' invoices');
+  setText('fmc-ar-trend', 'Needs follow-up');
+  setClass('fmc-ar-trend', 'mc-trend trend-warn');
+
+  // DSO
+  const dsoEl = document.getElementById('fmc-dso-val');
+  const dso = d.dso || 28;
+  const dsoGood = dso < 30;
+  if (dsoEl) { dsoEl.className = 'mc-value ' + (dsoGood ? 'col-green' : 'col-amber'); dsoEl.innerHTML = dso + '<span style="font-size:14px;font-weight:500;letter-spacing:0"> days</span>'; }
+  setText('fmc-dso-sub', 'Days sales outstanding');
+  setText('fmc-dso-trend', dsoGood ? '↓ Healthy (under 30)' : '↑ Above target');
+  setClass('fmc-dso-trend', 'mc-trend ' + (dsoGood ? 'trend-up' : 'trend-warn'));
+
+  // Overdue
+  const ov = document.getElementById('fmc-ov-val');
+  if (ov) { ov.className = 'mc-value'; ov.style.color = 'var(--red)'; ov.textContent = fmtMoney(d.overdue_amount || 0); }
+  setText('fmc-ov-sub', (d.overdue_count || 0) + ' invoice' + (d.overdue_count !== 1 ? 's' : '') + ' overdue');
+  setText('fmc-ov-trend', '↑ Immediate action');
+  setClass('fmc-ov-trend', 'mc-trend trend-dn');
+}
+
+function setText(id, txt) { const el = document.getElementById(id); if (el) el.textContent = txt; }
+function setClass(id, cls) { const el = document.getElementById(id); if (el) el.className = cls; }
+
+function populateInvoicesFromAPI(list) {
+  const tbody = document.getElementById('invoice-tbody');
+  if (!tbody) return;
+  const now = Date.now();
+  tbody.innerHTML = list.map(inv => {
+    const days = inv.days_outstanding || 0;
+    const isOverdue = inv.status === 'overdue' || days > 30;
+    const isWarn = !isOverdue && days > 14;
+    const badge = isOverdue ? '<span class="badge badge-red">OVERDUE</span>'
+      : isWarn ? '<span class="badge badge-amber">Pending</span>'
+      : '<span class="badge badge-blue">Pending</span>';
+    const amt = typeof inv.amount === 'number' ? fmtMoney(inv.amount) : (inv.amount || '—');
+    const due = inv.due_date ? new Date(inv.due_date).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '—';
+    const actions = isOverdue
+      ? `<span class="action-link" style="color:#0066ff;font-size:11px;font-family:monospace;cursor:pointer" onclick="openCollectionModal('${inv.id}')">Send collection →</span>`
+      : `<span class="action-link" style="color:#0066ff;font-size:11px;font-family:monospace;cursor:pointer" onclick="openReminderModal('${inv.id}')">Send reminder →</span>`;
+    return `<tr class="${isOverdue?'overdue':''}">
+      <td style="max-width:60px">${esc(String(inv.id))}</td>
+      <td>${isOverdue?'<strong>':''}${esc(inv.customer)}${isOverdue?'</strong>':''}</td>
+      <td>${isOverdue?'<strong>':''}${amt}${isOverdue?'</strong>':''}</td>
+      <td>${due}</td>
+      <td style="max-width:40px;text-align:center">${isOverdue?'<strong>':''}${days}${isOverdue?'</strong>':''}</td>
+      <td style="max-width:80px">${badge}</td>
+      <td style="padding:12px 8px;vertical-align:middle">${actions}</td>
+    </tr>`;
+  }).join('');
+}
+
+function populateJobTypes(types) {
+  const body = document.getElementById('fin-jt-body');
+  if (!body) return;
+  body.innerHTML = types.map(t =>
+    `<div class="jt-row"><span style="color:var(--text2)">${esc(t.type)}</span><span style="font-weight:600">${fmtMoney(t.avg)} avg</span></div>`
+  ).join('');
+}
+
+function updateDSOGauge(dso) {
+  const pct = Math.min(100, (dso / 60) * 100);
+  const fill = document.getElementById('dso-fill-bar');
+  if (fill) fill.style.width = pct.toFixed(1) + '%';
+  const marker = document.getElementById('dso-you-marker');
+  if (marker) marker.style.left = pct.toFixed(1) + '%';
+  setText('dso-label-current', 'Current ' + dso);
+  const valEl = document.getElementById('dso-current-val');
+  if (valEl) { valEl.textContent = dso + ' days'; valEl.style.color = dso < 30 ? 'var(--green)' : 'var(--amber)'; }
+}
+
+function updateCashFlowFromAR(totalAR) {
+  setText('cf-total', fmtMoney(totalAR));
+}
+
+function generateRevenueChartFromData(chartData) {
+  const maxVal = Math.max(...chartData.map(d => d.val), 1);
+  const W=400, H=160, padL=30, padBot=30, padTop=20;
+  const chartH = H - padBot - padTop;
+  const bw = 56;
+  const chartW = W - padL - 20;
+  const gap = chartData.length > 1 ? (chartW - chartData.length * bw) / (chartData.length - 1) : 0;
+  const bottom = H - padBot;
+  const bars = chartData.map((d, i) => {
+    const x = padL + i * (bw + gap);
+    const barH = Math.round((d.val / maxVal) * chartH);
+    const y = bottom - barH;
+    const isLast = i === chartData.length - 1;
+    const fill = isLast ? '#00d4aa' : '#1e2430';
+    const textFill = isLast ? '#00d4aa' : '#4d5663';
+    const valText = '$' + (d.val/1000).toFixed(1) + 'K';
+    return `<rect x="${x.toFixed(1)}" y="${y}" width="${bw}" height="${barH}" rx="3" fill="${fill}"/>
+<text x="${(x+bw/2).toFixed(1)}" y="${y-5}" text-anchor="middle" font-size="10" fill="${textFill}" font-family="DM Mono,monospace">${valText}</text>
+<text x="${(x+bw/2).toFixed(1)}" y="${bottom+15}" text-anchor="middle" font-size="10" fill="${isLast?'#8a95a3':'#4d5663'}" font-family="DM Mono,monospace">${d.month}</text>`;
+  }).join('');
+  const gridlines = [25,50,75].map(pct => {
+    const y = bottom - Math.round((pct/100)*chartH);
+    return `<line x1="${padL}" y1="${y}" x2="${W-20}" y2="${y}" stroke="#1e242d" stroke-width="0.5"/>`;
+  }).join('');
+  const prev = chartData[chartData.length - 2];
+  const last = chartData[chartData.length - 1];
+  const momDiff = last && prev ? last.val - prev.val : 0;
+  const momPct = prev && prev.val ? ((momDiff / prev.val) * 100).toFixed(1) : '0';
+  const svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" xmlns="http://www.w3.org/2000/svg">${gridlines}${bars}</svg>`;
+  const mom = `<div style="font-size:11px;font-family:'DM Mono',monospace;color:#00d4aa;margin-top:6px">↑ $${Math.abs(momDiff).toLocaleString()} (+${momPct}%) vs last month</div>`;
+  const container = document.getElementById('rev-chart-container');
+  if (container) container.innerHTML = svg + mom;
 }
 
 function initCmndrPanel() { if (localStorage.getItem('arc_cmndr_open') === 'false') applyCollapsed(true); }
@@ -481,7 +669,7 @@ function toggleCmndr() { const c=document.getElementById('cmndr-col').classList.
 function applyCollapsed(on) { document.getElementById('cmndr-col').classList.toggle('collapsed',on); const pts=document.getElementById('toggle-icon')?.querySelector('polyline'); if(pts) pts.setAttribute('points',on?'9 18 15 12 9 6':'15 18 9 12 15 6'); }
 
 async function loadEntropyScore() {
-  try { const r=await fetch('/api/health?action=entropy'); if(!r.ok)return; const d=await r.json(); if(d.score==null){document.getElementById('hs-entropy-sub').textContent='No scan yet';return;} animCount('hs-entropy',d.score,'%'); animBar('bar-entropy',d.score); document.getElementById('hs-entropy-sub').textContent=d.score>=80?'Excellent':d.score>=60?'Good — minor gaps':'Fair — action needed'; } catch {}
+  try { const r=await fetch('/api/health?action=entropy'); if(!r.ok)throw new Error('API'); const d=await r.json(); if(d.score==null){document.getElementById('hs-entropy-sub').textContent='No scan yet';return;} animCount('hs-entropy',d.score,'%'); animBar('bar-entropy',d.score); document.getElementById('hs-entropy-sub').textContent=d.score>=80?'Excellent':d.score>=60?'Good — minor gaps':'Fair — action needed'; } catch { const s=document.getElementById('hs-entropy-sub'); if(s){s.textContent='Unable to load';s.style.color='var(--red)';} }
 }
 async function loadNarrative() {
   try {

@@ -673,6 +673,130 @@ module.exports = async function handler(req, res) {
     }
   }
 
+  // ── POST: Finance data for client ────────────────────────────────────
+  if (req.method === 'POST' && action === 'finance-data') {
+    const token = (req.headers.authorization || '').replace('Bearer ', '');
+    if (!token) return res.status(401).json({ error: 'Unauthorized' });
+
+    try {
+      // Verify JWT and get user id
+      const userRes = await fetch(`${SB_URL}/auth/v1/user`, {
+        headers: { apikey: SB_KEY, Authorization: `Bearer ${token}` }
+      });
+      if (!userRes.ok) return res.status(401).json({ error: 'Invalid token' });
+      const user = await userRes.json();
+
+      // Get client_id from arc_users
+      const arcRes = await fetch(
+        `${SB_URL}/rest/v1/arc_users?id=eq.${user.id}&select=role,client_id`,
+        { headers: HEADERS }
+      );
+      const arcRows = await arcRes.json();
+      const arcUser = Array.isArray(arcRows) ? arcRows[0] : null;
+
+      let clientId = arcUser?.client_id;
+      if (arcUser?.role === 'demo') clientId = 'peak-flow';
+      if (!clientId) return res.status(400).json({ error: 'No client for user' });
+
+      // Query invoices table — return demo:true if table missing or empty
+      try {
+        const invRes = await fetch(
+          `${SB_URL}/rest/v1/invoices?client_id=eq.${clientId}&order=created_at.desc&limit=50`,
+          { headers: HEADERS }
+        );
+        if (!invRes.ok) return res.status(200).json({ demo: true, client_id: clientId });
+        const invoices = await invRes.json();
+        if (!Array.isArray(invoices) || !invoices.length) {
+          return res.status(200).json({ demo: true, client_id: clientId });
+        }
+
+        const now = new Date();
+        const pending = invoices.filter(i => i.status === 'pending' || i.status === 'pending_warn');
+        const overdue = invoices.filter(i => i.status === 'overdue');
+        const paid    = invoices.filter(i => i.status === 'paid');
+
+        // Monthly revenue — current calendar month
+        const thisMonth = now.toISOString().slice(0, 7);
+        const monthlyRevenue = paid
+          .filter(i => (i.paid_at || i.updated_at || '').slice(0, 7) === thisMonth)
+          .reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
+
+        // Outstanding AR
+        const outstandingAR    = [...pending, ...overdue].reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
+        const outstandingCount = pending.length + overdue.length;
+
+        // DSO — avg days invoice_date → paid_at for paid invoices
+        const dsoVals = paid
+          .filter(i => i.invoice_date && i.paid_at)
+          .map(i => Math.round((new Date(i.paid_at) - new Date(i.invoice_date)) / 86400000));
+        const dso = dsoVals.length
+          ? Math.round(dsoVals.reduce((a, b) => a + b, 0) / dsoVals.length)
+          : null;
+
+        // Overdue
+        const overdueAmount = overdue.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
+
+        // Invoice list (recent 20)
+        const invoiceList = invoices.slice(0, 20).map(i => ({
+          id: i.invoice_number || i.id,
+          customer: i.customer_name || i.customer || 'Unknown',
+          amount: parseFloat(i.amount) || 0,
+          due_date: i.due_date,
+          days_outstanding: i.due_date
+            ? Math.round((now - new Date(i.due_date)) / 86400000)
+            : null,
+          status: i.status
+        }));
+
+        // Revenue by job type
+        const byType = {};
+        paid.forEach(i => {
+          const t = i.job_type || 'Other';
+          if (!byType[t]) byType[t] = { total: 0, count: 0 };
+          byType[t].total += parseFloat(i.amount) || 0;
+          byType[t].count++;
+        });
+        const revenueByJobType = Object.entries(byType).map(([type, d]) => ({
+          type, avg: d.count ? Math.round(d.total / d.count) : 0,
+          total: Math.round(d.total), count: d.count
+        }));
+
+        // 6-month revenue chart
+        const monthlyChart = [];
+        for (let i = 5; i >= 0; i--) {
+          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          const ym = d.toISOString().slice(0, 7);
+          const label = d.toLocaleString('default', { month: 'short' });
+          const total = paid
+            .filter(inv => (inv.paid_at || inv.updated_at || '').slice(0, 7) === ym)
+            .reduce((s, inv) => s + (parseFloat(inv.amount) || 0), 0);
+          monthlyChart.push({ month: label, val: Math.round(total), ym });
+        }
+
+        return res.status(200).json({
+          demo: false,
+          client_id: clientId,
+          monthly_revenue: Math.round(monthlyRevenue),
+          outstanding_ar: Math.round(outstandingAR),
+          outstanding_count: outstandingCount,
+          dso,
+          overdue_amount: Math.round(overdueAmount),
+          overdue_count: overdue.length,
+          invoice_list: invoiceList,
+          revenue_by_job_type: revenueByJobType,
+          monthly_chart: monthlyChart
+        });
+
+      } catch (tableErr) {
+        console.log('[finance-data] invoices table unavailable:', tableErr.message);
+        return res.status(200).json({ demo: true, client_id: clientId });
+      }
+
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
   // ── GET: Scenario health (resona only) ────────────────────────────────
   if (req.method === 'GET') {
     if (!(await verifyResona(req))) return res.status(403).json({ error: 'Forbidden' });

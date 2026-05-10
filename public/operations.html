@@ -164,6 +164,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .mod-overlay.open{display:flex}
 .mod-modal{background:var(--surface);border:1px solid var(--border2);border-radius:12px;padding:24px;width:440px;max-width:92vw;max-height:82vh;overflow-y:auto}
 </style>
+<script src="/js/arc-ui.js"></script>
 <script type="module" src="/js/auth.js"></script>
 </head>
 <body>
@@ -471,11 +472,14 @@ function applyCollapsed(on) { document.getElementById('cmndr-col').classList.tog
 
 async function loadEntropyScore() {
   try {
-    const r = await fetch('/api/health?action=entropy'); if (!r.ok) return;
+    const r = await fetch('/api/health?action=entropy'); if (!r.ok) throw new Error('API ' + r.status);
     const d = await r.json(); if (d.score == null) { document.getElementById('hs-entropy-sub').textContent='No scan yet'; return; }
     animCount('hs-entropy', d.score, '%'); animBar('bar-entropy', d.score);
     document.getElementById('hs-entropy-sub').textContent = d.score>=80?'Excellent':d.score>=60?'Good — minor gaps':'Fair — action needed';
-  } catch {}
+  } catch {
+    const sub = document.getElementById('hs-entropy-sub');
+    if (sub) { sub.textContent = 'Unable to load'; sub.style.color = 'var(--red)'; }
+  }
 }
 
 async function loadNarrative() {

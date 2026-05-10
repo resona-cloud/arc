@@ -245,6 +245,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .rb-generate-btn:disabled{opacity:.5;cursor:default}
 .rb-status{font-size:12px;font-family:'DM Mono',monospace;color:var(--text3);margin-top:8px;text-align:center;min-height:18px}
 </style>
+<script src="/js/arc-ui.js"></script>
 <script type="module" src="/js/auth.js"></script>
 </head>
 <body>
@@ -523,14 +524,19 @@ function applyCollapsed(on) {
 async function loadEntropyScore() {
   try {
     const r = await fetch('/api/health?action=entropy');
-    if (!r.ok) return;
+    if (!r.ok) throw new Error('API ' + r.status);
     const d = await r.json();
     if (d.score == null) { document.getElementById('hs-entropy-sub').textContent = 'No scan yet'; return; }
     entropyData = d;
     animCount('hs-entropy', d.score, '%');
     animBar('bar-entropy', d.score);
     document.getElementById('hs-entropy-sub').textContent = scoreLabel(d.score);
-  } catch {}
+  } catch {
+    const sub = document.getElementById('hs-entropy-sub');
+    if (sub) { sub.textContent = 'Unable to load'; sub.style.color = 'var(--red)'; }
+    const val = document.getElementById('hs-entropy');
+    if (val) { val.textContent = '—'; val.style.cursor = 'pointer'; val.title = 'Click to retry'; val.onclick = loadEntropyScore; }
+  }
 }
 function scoreLabel(s) {
   return s >= 80 ? 'Excellent data health' : s >= 60 ? 'Good — minor gaps' : s >= 40 ? 'Fair — action needed' : 'Poor — attention required';
@@ -561,13 +567,26 @@ async function loadExceptions() {
         messages: [{ role:'user', content:'Analyze Peak Flow HVAC and return JSON with two keys:\n1. "exceptions": array of 3 objects with: severity (critical|warning|info), icon (emoji), title (max 8 words), description (1-2 sentences), module (Operations|Marketing|Finance|Yield), action_primary (label), action_secondary (optional label), age (e.g. "2 days").\n2. "narrative": 2-3 sentence executive summary for an HVAC company entering summer. Focus on: technician capacity, job completion, lead conversion, revenue.' }]
       })
     });
-    if (!r.ok) throw new Error();
+    if (!r.ok) throw new Error('API ' + r.status);
     const d = await r.json();
     const parsed = extractJSON(d.content?.[0]?.text || d.text || '');
     if (parsed?.exceptions?.length) { renderExceptions(parsed.exceptions); renderNarrative(parsed.narrative || DEMO_NARRATIVE); return; }
-  } catch {}
-  renderExceptions(DEMO_EXCEPTIONS);
-  renderNarrative(DEMO_NARRATIVE);
+    // Parsed but no exceptions — use demo
+    renderExceptions(DEMO_EXCEPTIONS);
+    renderNarrative(DEMO_NARRATIVE);
+  } catch (e) {
+    // Network / auth error — show error card with retry, then fall back to demo after 3s
+    if (typeof arcError === 'function') {
+      arcError('exception-feed', 'exceptions', loadExceptions);
+      setTimeout(() => {
+        const feed = document.getElementById('exception-feed');
+        if (feed && feed.querySelector('.arc-err')) { renderExceptions(DEMO_EXCEPTIONS); renderNarrative(DEMO_NARRATIVE); }
+      }, 3000);
+    } else {
+      renderExceptions(DEMO_EXCEPTIONS);
+      renderNarrative(DEMO_NARRATIVE);
+    }
+  }
 }
 
 function excIdFromTitle(title) {

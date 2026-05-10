@@ -73,6 +73,7 @@ async function init() {
     if (av) av.textContent = (window.ARC_USER.full_name || window.ARC_USER.email || 'A').charAt(0).toUpperCase();
 
     if (window.ARC_DEMO_MODE) injectDemoBanner();
+    if (window.ARC_DEMO_MODE && typeof arcDemoGuard === 'function') arcDemoGuard();
 
     const impId = sessionStorage.getItem('arc_impersonate_client_id');
     const impName = sessionStorage.getItem('arc_impersonate_client_name');
