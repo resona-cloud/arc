@@ -673,6 +673,116 @@ module.exports = async function handler(req, res) {
     }
   }
 
+  // ── POST: Sprint load ────────────────────────────────────────────────
+  if (req.method === 'POST' && action === 'sprint-load') {
+    const { client_id } = req.body || {};
+    if (!client_id) return res.status(400).json({ error: 'client_id required' });
+    try {
+      const sprintRes = await fetch(
+        `${SB_URL}/rest/v1/sprints?client_id=eq.${client_id}&status=eq.active&limit=1&select=id,name,current_stage_order,status`,
+        { headers: HEADERS }
+      );
+      const sprints = await sprintRes.json();
+      if (!Array.isArray(sprints) || !sprints.length) return res.status(200).json({ sprint: null });
+      const sprint = sprints[0];
+
+      const stagesRes = await fetch(
+        `${SB_URL}/rest/v1/sprint_stages?sprint_id=eq.${sprint.id}&order=stage_order.asc&select=id,stage_order,arc_section,name,description,status`,
+        { headers: HEADERS }
+      );
+      const stages = await stagesRes.json();
+      if (!Array.isArray(stages) || !stages.length) return res.status(200).json({ sprint: { ...sprint, stages: [] } });
+
+      const stageIds = stages.map(s => s.id).join(',');
+      const tasksRes = await fetch(
+        `${SB_URL}/rest/v1/sprint_tasks?stage_id=in.(${stageIds})&order=task_order.asc&select=id,stage_id,title,task_type,status,task_order`,
+        { headers: HEADERS }
+      );
+      const tasks = await tasksRes.json();
+      const tasksArr = Array.isArray(tasks) ? tasks : [];
+
+      return res.status(200).json({
+        sprint: {
+          ...sprint,
+          stages: stages.map(stage => ({ ...stage, tasks: tasksArr.filter(t => t.stage_id === stage.id) }))
+        }
+      });
+    } catch(e) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
+  // ── POST: Task complete ───────────────────────────────────────────────
+  if (req.method === 'POST' && action === 'task-complete') {
+    const { task_id, status } = req.body || {};
+    if (!task_id) return res.status(400).json({ error: 'task_id required' });
+    try {
+      await fetch(`${SB_URL}/rest/v1/sprint_tasks?id=eq.${task_id}`, {
+        method: 'PATCH',
+        headers: { ...HEADERS, Prefer: 'return=minimal' },
+        body: JSON.stringify({ status: status || 'complete', updated_at: new Date().toISOString() })
+      });
+
+      if (status !== 'complete') return res.status(200).json({ success: true });
+
+      // Get task's stage_id
+      const taskRes = await fetch(
+        `${SB_URL}/rest/v1/sprint_tasks?id=eq.${task_id}&select=stage_id`,
+        { headers: HEADERS }
+      );
+      const taskRows = await taskRes.json();
+      if (!Array.isArray(taskRows) || !taskRows.length) return res.status(200).json({ success: true });
+      const stageId = taskRows[0].stage_id;
+
+      // Check if all tasks in this stage are complete
+      const stageTasksRes = await fetch(
+        `${SB_URL}/rest/v1/sprint_tasks?stage_id=eq.${stageId}&select=status`,
+        { headers: HEADERS }
+      );
+      const stageTasks = await stageTasksRes.json();
+      if (!Array.isArray(stageTasks) || !stageTasks.every(t => t.status === 'complete')) {
+        return res.status(200).json({ success: true });
+      }
+
+      // Mark stage complete
+      await fetch(`${SB_URL}/rest/v1/sprint_stages?id=eq.${stageId}`, {
+        method: 'PATCH',
+        headers: { ...HEADERS, Prefer: 'return=minimal' },
+        body: JSON.stringify({ status: 'complete', completed_at: new Date().toISOString() })
+      });
+
+      // Get stage_order + sprint_id
+      const stageRes = await fetch(
+        `${SB_URL}/rest/v1/sprint_stages?id=eq.${stageId}&select=stage_order,sprint_id`,
+        { headers: HEADERS }
+      );
+      const stageRows = await stageRes.json();
+      if (!Array.isArray(stageRows) || !stageRows.length) return res.status(200).json({ success: true, stage_completed: true });
+      const { stage_order, sprint_id } = stageRows[0];
+
+      const nextOrder = stage_order + 1;
+      if (nextOrder <= 3) {
+        await fetch(`${SB_URL}/rest/v1/sprint_stages?sprint_id=eq.${sprint_id}&stage_order=eq.${nextOrder}`, {
+          method: 'PATCH', headers: { ...HEADERS, Prefer: 'return=minimal' },
+          body: JSON.stringify({ status: 'active' })
+        });
+        await fetch(`${SB_URL}/rest/v1/sprints?id=eq.${sprint_id}`, {
+          method: 'PATCH', headers: { ...HEADERS, Prefer: 'return=minimal' },
+          body: JSON.stringify({ current_stage_order: nextOrder })
+        });
+      } else {
+        await fetch(`${SB_URL}/rest/v1/sprints?id=eq.${sprint_id}`, {
+          method: 'PATCH', headers: { ...HEADERS, Prefer: 'return=minimal' },
+          body: JSON.stringify({ status: 'milestone_reached', milestone_reached_at: new Date().toISOString() })
+        });
+      }
+
+      return res.status(200).json({ success: true, stage_completed: true });
+    } catch(e) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
   // ── POST: Playbook rank ───────────────────────────────────────────────
   if (req.method === 'POST' && action === 'playbook-rank') {
     const { scores } = req.body || {};

@@ -359,14 +359,6 @@ window.arcSprintData = {
         <div class="page-sub">Track your active strategic sprint</div>
       </div>
 
-      <!-- Active Playbook Sprint -->
-      <div id="active-playbook-section">
-        <div class="section-hd" style="margin-bottom:12px">Active Playbook Sprint
-          <span id="pb-sprint-clear" style="font-size:10px;color:var(--text3);cursor:pointer;font-weight:400;letter-spacing:0;text-transform:none" onclick="clearPlaybookSprint()">Clear ✕</span>
-        </div>
-        <div id="pb-sprint-content"></div>
-      </div>
-
       <!-- Active sprint -->
       <div>
         <div class="section-hd">Active Sprint</div>
@@ -465,18 +457,26 @@ window.arcSprintData = {
   </div>
 </div>
 
-<!-- 3PR COMPONENT IIFE — runs immediately after component HTML exists in DOM -->
+<!-- 3PR COMPONENT — named function so it can be called after API load -->
 <script>
-(function () {
+function initTPR() {
   var data = (window.arcSprintData && window.arcSprintData.nodes && window.arcSprintData.nodes.length === 3)
-    ? window.arcSprintData
-    : null;
+    ? window.arcSprintData : null;
   if (!data) return;
+
+  // Clear previous render
+  var track = document.getElementById('tpr-track');
+  Array.from(track.querySelectorAll('.tpr-col')).forEach(function(el) { el.remove(); });
+  document.getElementById('tpr-svg').innerHTML = '';
+  document.getElementById('tpr-task-list').innerHTML = '';
+  document.getElementById('tpr-context-block').innerHTML = '';
+  document.getElementById('tpr-metrics-section').innerHTML = '';
+  document.getElementById('tpr-cmndr-box').innerHTML = '';
+  document.getElementById('tpr-active-card').style.display = 'none';
 
   document.getElementById('tpr-sprint-label').textContent = data.sprintName || 'Sprint';
 
   var offsets = [72, 0, 36];
-  var track   = document.getElementById('tpr-track');
   var nodeEls = [];
 
   data.nodes.forEach(function (n, i) {
@@ -542,10 +542,13 @@ window.arcSprintData = {
   document.getElementById('tpr-card-stage').textContent = activeNode.stageName || '';
   document.getElementById('tpr-progress-fill').style.width = (activeNode.progress || 0) + '%';
 
-  // Task list
+  // Task list — with Supabase fire-and-forget + SprintContext update
   var taskList = document.getElementById('tpr-task-list');
   (activeNode.tasks || []).forEach(function (t, idx) {
-    var item = document.createElement('div'); item.className = 'tpr-task-item'; item.id = 'tpr-ti-' + idx;
+    var isDone = t.status === 'complete';
+    var item = document.createElement('div');
+    item.className = 'tpr-task-item' + (isDone ? ' done' : '');
+    item.id = 'tpr-ti-' + idx;
     var toggle = document.createElement('div'); toggle.className = 'tpr-task-toggle'; toggle.textContent = '✓';
     var title = document.createElement('div'); title.className = 'tpr-task-title'; title.textContent = t.title;
     var badge = document.createElement('div'); badge.className = 'tpr-task-badge ' + (t.type || 'action');
@@ -553,17 +556,35 @@ window.arcSprintData = {
     badge.textContent = labels[t.type] || t.type;
     item.appendChild(toggle); item.appendChild(title); item.appendChild(badge);
     taskList.appendChild(item);
-    toggle.addEventListener('click', function(e) { e.stopPropagation(); item.classList.toggle('done'); });
+    toggle.addEventListener('click', function(e) {
+      e.stopPropagation();
+      item.classList.toggle('done');
+      var nowDone = item.classList.contains('done');
+      // Persist to Supabase if real task id
+      if (t.taskId) {
+        fetch('/api/pipeline?action=task-complete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + SESSION_TOKEN },
+          body: JSON.stringify({ task_id: t.taskId, status: nowDone ? 'complete' : 'pending' })
+        }).catch(function(){});
+      }
+      // Update SprintContext
+      var sc = SprintContext.get() || {};
+      var completed = sc.completed_play_indices ? sc.completed_play_indices.slice() : [];
+      if (nowDone) { if (completed.indexOf(idx) < 0) completed.push(idx); }
+      else { completed = completed.filter(function(x) { return x !== idx; }); }
+      SprintContext.update({ completed_play_indices: completed, current_play_index: completed.length ? Math.max.apply(null, completed) : 0 });
+    });
     title.addEventListener('click', function() { openTaskDrawer(t, activeNode ? activeNode.stageName : ''); });
   });
 
   // Context block
-  var ctx = document.getElementById('tpr-context-block');
+  var ctxBlock = document.getElementById('tpr-context-block');
   var goalRow = document.createElement('div'); goalRow.className = 'tpr-context-row';
   goalRow.innerHTML = '<span class="tpr-context-label">End goal:</span><span class="tpr-context-value">' + (activeNode.desc || '') + '</span>';
   var impactRow = document.createElement('div'); impactRow.className = 'tpr-context-row';
   impactRow.innerHTML = '<span class="tpr-context-label">Expected impact:</span><span class="tpr-context-value">' + (activeNode.impact || '') + '</span>';
-  ctx.appendChild(goalRow); ctx.appendChild(impactRow);
+  ctxBlock.appendChild(goalRow); ctxBlock.appendChild(impactRow);
 
   // Metrics chips
   var ms = document.getElementById('tpr-metrics-section');
@@ -594,19 +615,30 @@ window.arcSprintData = {
     });
   });
 
-  // Automation toggle
+  // Automation toggle — reset state on re-render
   var cb = document.getElementById('tpr-auto-cb');
   var thumb = document.getElementById('tpr-sw-thumb');
   var offEl = document.getElementById('tpr-auto-off');
   var onEl  = document.getElementById('tpr-auto-on');
-  cb.addEventListener('change', function () {
-    var on = cb.checked;
-    thumb.style.left = on ? '17px' : '3px';
-    cb.parentElement.querySelector('.tpr-sw-track').style.background = on ? '#00d4aa' : '#1e242d';
-    offEl.style.display = on ? 'none'  : 'block';
-    onEl.style.display  = on ? 'flex'  : 'none';
-  });
-})();
+  if (cb) {
+    cb.checked = false;
+    thumb.style.left = '3px';
+    cb.parentElement.querySelector('.tpr-sw-track').style.background = '#1e242d';
+    offEl.style.display = 'block';
+    onEl.style.display = 'none';
+    var cbClone = cb.cloneNode(true); cb.parentNode.replaceChild(cbClone, cb); // remove old listeners
+    cbClone.addEventListener('change', function () {
+      var on = cbClone.checked;
+      thumb.style.left = on ? '17px' : '3px';
+      cbClone.parentElement.querySelector('.tpr-sw-track').style.background = on ? '#00d4aa' : '#1e242d';
+      offEl.style.display = on ? 'none'  : 'block';
+      onEl.style.display  = on ? 'flex'  : 'none';
+    });
+  }
+}
+
+// Initial render from demo data
+initTPR();
 </script>
 
 <!-- ARC shell JS -->
@@ -654,59 +686,75 @@ async function boot() {
   }
   initCmndrPanel();
   loadEntropyScore();
-  renderPlaybookSprint();
+  loadActiveSprint();
 }
 
-function renderPlaybookSprint() {
-  var ctx = SprintContext.get();
-  var section = document.getElementById('pb-sprint-content');
-  var clearBtn = document.getElementById('pb-sprint-clear');
-  if (!section) return;
-  if (!ctx) {
-    if (clearBtn) clearBtn.style.display = 'none';
-    section.innerHTML = '<div class="empty-state-card"><div class="es-icon">📋</div><div class="es-title">No active playbook sprint</div>Go to Playbooks and click "Open Playbook →" to start one.</div>';
-    return;
+// ── SPRINT LOAD FROM SUPABASE ──────────────────────────────────────
+function defaultPromptsForSection(section) {
+  if (section === 'adapt')   return ['What should I focus on?', 'What does my data say?', 'Explain this stage'];
+  if (section === 'react')   return ['Draft my next action', 'Who should I contact first?', 'Am I on track?'];
+  if (section === 'control') return ['Summarize my sprint', "What's working best?", 'Am I on track?'];
+  return ['What should I focus on?', 'Am I on track?', 'Summarize my sprint'];
+}
+
+async function loadActiveSprint() {
+  try {
+    const r = await fetch('/api/pipeline?action=sprint-load', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SESSION_TOKEN}` },
+      body: JSON.stringify({ client_id: 'peak-flow' })
+    });
+    if (!r.ok) return;
+    const d = await r.json();
+    if (!d.sprint) return; // no active sprint — keep demo data
+
+    const sprint = d.sprint;
+    const sortedStages = (sprint.stages || []).slice().sort((a, b) => a.stage_order - b.stage_order);
+
+    window.arcSprintData = {
+      sprintName: sprint.name,
+      sprintId: sprint.id,
+      nodes: sortedStages.map(stage => {
+        const tasks = (stage.tasks || []).slice().sort((a, b) => (a.task_order || 0) - (b.task_order || 0));
+        const doneTasks = tasks.filter(t => t.status === 'complete').length;
+        const progress = tasks.length ? Math.round(doneTasks / tasks.length * 100) : 0;
+        return {
+          label: (stage.arc_section || '').toUpperCase(),
+          stageName: stage.name,
+          state: stage.status,
+          progress,
+          desc: stage.description || '',
+          impact: '',
+          metrics: [],
+          cmndprompts: defaultPromptsForSection(stage.arc_section),
+          tasks: tasks.map(t => ({ title: t.title, type: t.task_type, taskId: t.id, status: t.status }))
+        };
+      })
+    };
+
+    initTPR();
+
+    // Update SprintContext with live sprint data
+    const allTasks = sortedStages.flatMap(s => (s.tasks || []));
+    const completedIndices = allTasks.reduce((acc, t, i) => { if (t.status === 'complete') acc.push(i); return acc; }, []);
+    const activeStage = sortedStages.find(s => s.status === 'active');
+    SprintContext.set({
+      playbook_name: sprint.name,
+      sprint_id: sprint.id,
+      started_at: new Date().toISOString(),
+      total_plays: allTasks.length,
+      current_play_index: completedIndices.length,
+      completed_play_indices: completedIndices,
+      client_id: 'peak-flow',
+      current_stage: activeStage ? activeStage.arc_section : null,
+      current_stage_name: activeStage ? activeStage.name : null,
+      scores: window.arcSprintData.scores || {}
+    });
+
+  } catch(e) {
+    console.error('[sprint-load]', e.message);
+    // Keep demo data silently
   }
-  if (clearBtn) clearBtn.style.display = '';
-  var completedSet = new Set(ctx.completed_play_indices || []);
-  var totalPlays = ctx.total_plays || 0;
-  var doneCount = completedSet.size;
-  var pct = totalPlays ? Math.round(doneCount / totalPlays * 100) : 0;
-  var catClass = { MARKETING:'cat-marketing', FINANCE:'cat-finance', OPERATIONS:'cat-operations', GROWTH:'cat-growth' }[ctx.category] || '';
-  var stepsHtml = '';
-  for (var i = 0; i < totalPlays; i++) {
-    var done = completedSet.has(i);
-    stepsHtml += '<div class="tpr-task-item' + (done ? ' done' : '') + '" id="pb-play-' + i + '" data-idx="' + i + '" style="cursor:pointer" onclick="togglePlay(' + i + ')">' +
-      '<div class="tpr-task-toggle">' + (done ? '✓' : '') + '</div>' +
-      '<div class="tpr-task-title">Step ' + (i + 1) + '</div>' +
-    '</div>';
-  }
-  section.innerHTML =
-    '<div style="background:#13131a;border:1px solid #2a2a3a;border-radius:8px;padding:18px 20px">' +
-      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">' +
-        '<span class="pb-cat-badge ' + catClass + '">' + (ctx.category || '') + '</span>' +
-        '<span style="font-size:15px;font-weight:700;letter-spacing:-.3px;color:var(--text);font-family:\'Syne\',sans-serif">' + esc(ctx.playbook_name || '') + '</span>' +
-      '</div>' +
-      '<div class="tpr-progress-track" style="margin-bottom:14px"><div class="tpr-progress-fill" style="width:' + pct + '%;background:linear-gradient(90deg,#00d4aa,#00b090)"></div></div>' +
-      '<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--text3);margin-bottom:10px">' + doneCount + ' / ' + totalPlays + ' steps complete</div>' +
-      '<div class="tpr-task-list">' + stepsHtml + '</div>' +
-      (pct === 100 ? '<div style="margin-top:14px;font-family:\'DM Mono\',monospace;font-size:12px;color:var(--teal);text-align:center">✓ Playbook complete! <span style="cursor:pointer;text-decoration:underline" onclick="clearPlaybookSprint()">Clear sprint</span></div>' : '') +
-    '</div>';
-}
-
-function togglePlay(idx) {
-  var ctx = SprintContext.get();
-  if (!ctx) return;
-  var arr = ctx.completed_play_indices || [];
-  var pos = arr.indexOf(idx);
-  if (pos >= 0) { arr.splice(pos, 1); } else { arr.push(idx); }
-  SprintContext.update({ completed_play_indices: arr, current_play_index: arr.length ? Math.max(...arr) : 0 });
-  renderPlaybookSprint();
-}
-
-function clearPlaybookSprint() {
-  SprintContext.clear();
-  renderPlaybookSprint();
 }
 
 // ── CMNDR PANEL ───────────────────────────────────────────────────
