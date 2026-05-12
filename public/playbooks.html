@@ -163,6 +163,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
 ::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
 </style>
+<script src="/js/arc-ui.js"></script>
 <script type="module" src="/js/auth.js"></script>
 </head>
 <body>
@@ -258,11 +259,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',
           <div class="page-title">Playbooks</div>
           <div class="page-sub">Quick tactical sequences for common business scenarios</div>
         </div>
-        <div class="cmndr-ready-badge">
-          <span class="cmndr-ready-dot"></span>
-          <span>CMNDR READY</span>
-          <span style="color:var(--text3)">·</span>
-          <span>Customizes on open</span>
+        <div id="cmndr-reason-bar" style="display:flex;align-items:center;gap:8px;background:#0f1a17;border:1px solid rgba(0,212,170,0.25);border-left:3px solid var(--teal);border-radius:6px;padding:8px 14px;max-width:340px">
+          <span style="width:7px;height:7px;border-radius:50%;background:var(--teal);flex-shrink:0;animation:blink 2.2s ease-in-out infinite;display:inline-block"></span>
+          <span id="cmndr-reason-text" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text2);line-height:1.4">Ranking playbooks…</span>
         </div>
       </div>
 
@@ -440,14 +439,31 @@ const CAT_CLASS = { MARKETING:'cat-marketing', FINANCE:'cat-finance', OPERATIONS
 let currentFilter = 'ALL';
 let drawerSteps = [];
 let stepDone = {};
+let _rankedIds = [];  // ranked order from API
+
+// ── SPRINT CONTEXT ──────────────────────────────────────────────────────
+var SprintContext = {
+  _key: 'arc_sprint_context',
+  set: function(ctx) { localStorage.setItem(this._key, JSON.stringify(ctx)); },
+  get: function() { try { return JSON.parse(localStorage.getItem(this._key)); } catch { return null; } },
+  clear: function() { localStorage.removeItem(this._key); },
+  update: function(patch) { var c = this.get() || {}; this.set(Object.assign(c, patch)); }
+};
 
 // ── RENDER GRID ─────────────────────────────────────────────────────────
-function renderGrid() {
-  const filtered = currentFilter === 'ALL' ? PLAYBOOKS : PLAYBOOKS.filter(p => p.category === currentFilter);
-  document.getElementById('pb-grid').innerHTML = filtered.map(p => `
+function renderGrid(rankedList) {
+  // Use ranked order if available, otherwise default PLAYBOOKS order
+  var ordered = rankedList || PLAYBOOKS;
+  var filtered = currentFilter === 'ALL' ? ordered : ordered.filter(p => p.category === currentFilter);
+  document.getElementById('pb-grid').innerHTML = filtered.map((p, idx) => {
+    const isPick = _rankedIds.length && _rankedIds[0] === p.id && currentFilter === 'ALL';
+    const matchPct = p.relevance != null ? `<span class="pb-meta-item" style="color:var(--teal);font-weight:600">Match: ${p.relevance}%</span>` : '';
+    const pickBadge = isPick ? `<span style="font-family:'DM Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.7px;background:rgba(0,212,170,0.15);border:1px solid var(--teal);color:var(--teal);border-radius:3px;padding:2px 8px;white-space:nowrap">CMNDR PICK</span>` : '';
+    return `
     <div class="pb-card" onclick="openDrawer('${p.id}')">
       <div class="pb-card-top">
         <span class="pb-cat-badge ${CAT_CLASS[p.category]}">${p.category}</span>
+        ${pickBadge}
       </div>
       <div class="pb-card-name">${p.name}</div>
       <div class="pb-card-desc">${p.desc}</div>
@@ -455,17 +471,67 @@ function renderGrid() {
         <div class="pb-meta-left">
           <span class="pb-meta-item">${p.steps} steps</span>
           <span class="pb-meta-item">~${p.time} min</span>
+          ${matchPct}
         </div>
-        <span class="pb-open-link">Open Playbook →</span>
+        <span class="pb-open-link" onclick="event.stopPropagation();startSprint('${p.id}')">Open Playbook →</span>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 function setFilter(cat, el) {
   currentFilter = cat;
   document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
   el.classList.add('active');
-  renderGrid();
+  renderGrid(_rankedPlaybooks);
+}
+
+// ── PLAYBOOK RANK API ────────────────────────────────────────────────────
+var _rankedPlaybooks = null;
+async function loadPlaybookRank() {
+  try {
+    const scores = window._arcScores || null;
+    const r = await fetch('/api/pipeline?action=playbook-rank', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SESSION_TOKEN}` },
+      body: JSON.stringify({ scores })
+    });
+    if (!r.ok) throw new Error('API ' + r.status);
+    const d = await r.json();
+    if (!d.success) throw new Error('rank failed');
+    _rankedIds = d.playbooks.map(p => p.id);
+    // Merge relevance scores into PLAYBOOKS data
+    _rankedPlaybooks = d.playbooks.map(ranked => {
+      const pb = PLAYBOOKS.find(p => p.id === ranked.id);
+      return pb ? { ...pb, relevance: ranked.relevance, recommended: ranked.recommended } : null;
+    }).filter(Boolean);
+    // Update CMNDR reason bar
+    const reasonEl = document.getElementById('cmndr-reason-text');
+    if (reasonEl) reasonEl.textContent = d.cmndr_reason;
+    renderGrid(_rankedPlaybooks);
+  } catch(e) {
+    const reasonEl = document.getElementById('cmndr-reason-text');
+    if (reasonEl) reasonEl.textContent = 'Playbooks ranked by category';
+    renderGrid();
+  }
+}
+
+// ── START SPRINT (Open Playbook →) ───────────────────────────────────────
+function startSprint(id) {
+  const pb = PLAYBOOKS.find(p => p.id === id);
+  if (!pb) return;
+  SprintContext.set({
+    playbook_id: pb.id,
+    playbook_name: pb.name,
+    category: pb.category,
+    started_at: new Date().toISOString(),
+    total_plays: pb.steps,
+    current_play_index: 0,
+    completed_play_indices: [],
+    client_id: window._arcClientId || null,
+    scores: window._arcScores || null
+  });
+  location.href = '/sprint';
 }
 
 // ── DRAWER ───────────────────────────────────────────────────────────────
@@ -610,6 +676,7 @@ async function boot() {
     } catch { location.href = '/arc-login'; return; }
   }
   renderGrid();
+  loadPlaybookRank();
   initCmndrPanel();
 }
 
@@ -628,7 +695,7 @@ async function sendMessage() {
   addMsg('user', text); history.push({ role: 'user', content: text });
   const tid = addMsg('ai', '', true);
   try {
-    const r = await fetch('/api/ask', { method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${SESSION_TOKEN}`}, body:JSON.stringify({ system:PAGE_SYSTEM, messages:history }) });
+    const r = await fetch('/api/ask', { method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${SESSION_TOKEN}`}, body:JSON.stringify({ system:PAGE_SYSTEM, messages:history, sprint_context:SprintContext.get() }) });
     let reply = 'Unable to reach CMNDR.';
     if (r.ok) { const d = await r.json(); reply = d.content?.[0]?.text || d.text || reply; }
     updMsg(tid, reply); history.push({ role:'assistant', content:reply });

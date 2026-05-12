@@ -359,6 +359,14 @@ window.arcSprintData = {
         <div class="page-sub">Track your active strategic sprint</div>
       </div>
 
+      <!-- Active Playbook Sprint -->
+      <div id="active-playbook-section">
+        <div class="section-hd" style="margin-bottom:12px">Active Playbook Sprint
+          <span id="pb-sprint-clear" style="font-size:10px;color:var(--text3);cursor:pointer;font-weight:400;letter-spacing:0;text-transform:none" onclick="clearPlaybookSprint()">Clear ✕</span>
+        </div>
+        <div id="pb-sprint-content"></div>
+      </div>
+
       <!-- Active sprint -->
       <div>
         <div class="section-hd">Active Sprint</div>
@@ -606,6 +614,15 @@ window.arcSprintData = {
 const SESSION_TOKEN = localStorage.getItem('cmndr_session');
 const PAGE_SYSTEM = 'You are CMNDR, Resona sprint intelligence. Help users understand sprint progress, tasks, and strategic alignment. Be concise and action-oriented. Max 3 sentences unless asked for detail.';
 
+// ── SPRINT CONTEXT ──────────────────────────────────────────────
+var SprintContext = {
+  _key: 'arc_sprint_context',
+  set: function(ctx) { localStorage.setItem(this._key, JSON.stringify(ctx)); },
+  get: function() { try { return JSON.parse(localStorage.getItem(this._key)); } catch { return null; } },
+  clear: function() { localStorage.removeItem(this._key); },
+  update: function(patch) { var c = this.get() || {}; this.set(Object.assign(c, patch)); }
+};
+
 // ── ARC NAV DROPDOWNS ─────────────────────────────────────────────
 function toggleDd(id) {
   const target = document.getElementById('dd-' + id + '-panel');
@@ -637,6 +654,59 @@ async function boot() {
   }
   initCmndrPanel();
   loadEntropyScore();
+  renderPlaybookSprint();
+}
+
+function renderPlaybookSprint() {
+  var ctx = SprintContext.get();
+  var section = document.getElementById('pb-sprint-content');
+  var clearBtn = document.getElementById('pb-sprint-clear');
+  if (!section) return;
+  if (!ctx) {
+    if (clearBtn) clearBtn.style.display = 'none';
+    section.innerHTML = '<div class="empty-state-card"><div class="es-icon">📋</div><div class="es-title">No active playbook sprint</div>Go to Playbooks and click "Open Playbook →" to start one.</div>';
+    return;
+  }
+  if (clearBtn) clearBtn.style.display = '';
+  var completedSet = new Set(ctx.completed_play_indices || []);
+  var totalPlays = ctx.total_plays || 0;
+  var doneCount = completedSet.size;
+  var pct = totalPlays ? Math.round(doneCount / totalPlays * 100) : 0;
+  var catClass = { MARKETING:'cat-marketing', FINANCE:'cat-finance', OPERATIONS:'cat-operations', GROWTH:'cat-growth' }[ctx.category] || '';
+  var stepsHtml = '';
+  for (var i = 0; i < totalPlays; i++) {
+    var done = completedSet.has(i);
+    stepsHtml += '<div class="tpr-task-item' + (done ? ' done' : '') + '" id="pb-play-' + i + '" data-idx="' + i + '" style="cursor:pointer" onclick="togglePlay(' + i + ')">' +
+      '<div class="tpr-task-toggle">' + (done ? '✓' : '') + '</div>' +
+      '<div class="tpr-task-title">Step ' + (i + 1) + '</div>' +
+    '</div>';
+  }
+  section.innerHTML =
+    '<div style="background:#13131a;border:1px solid #2a2a3a;border-radius:8px;padding:18px 20px">' +
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">' +
+        '<span class="pb-cat-badge ' + catClass + '">' + (ctx.category || '') + '</span>' +
+        '<span style="font-size:15px;font-weight:700;letter-spacing:-.3px;color:var(--text);font-family:\'Syne\',sans-serif">' + esc(ctx.playbook_name || '') + '</span>' +
+      '</div>' +
+      '<div class="tpr-progress-track" style="margin-bottom:14px"><div class="tpr-progress-fill" style="width:' + pct + '%;background:linear-gradient(90deg,#00d4aa,#00b090)"></div></div>' +
+      '<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--text3);margin-bottom:10px">' + doneCount + ' / ' + totalPlays + ' steps complete</div>' +
+      '<div class="tpr-task-list">' + stepsHtml + '</div>' +
+      (pct === 100 ? '<div style="margin-top:14px;font-family:\'DM Mono\',monospace;font-size:12px;color:var(--teal);text-align:center">✓ Playbook complete! <span style="cursor:pointer;text-decoration:underline" onclick="clearPlaybookSprint()">Clear sprint</span></div>' : '') +
+    '</div>';
+}
+
+function togglePlay(idx) {
+  var ctx = SprintContext.get();
+  if (!ctx) return;
+  var arr = ctx.completed_play_indices || [];
+  var pos = arr.indexOf(idx);
+  if (pos >= 0) { arr.splice(pos, 1); } else { arr.push(idx); }
+  SprintContext.update({ completed_play_indices: arr, current_play_index: arr.length ? Math.max(...arr) : 0 });
+  renderPlaybookSprint();
+}
+
+function clearPlaybookSprint() {
+  SprintContext.clear();
+  renderPlaybookSprint();
 }
 
 // ── CMNDR PANEL ───────────────────────────────────────────────────
@@ -667,7 +737,7 @@ async function sendMessage() {
   const inp = document.getElementById('cmndr-input'); const text = inp.value.trim(); if (!text) return;
   inp.value = ''; addMsg('user', text); history.push({ role: 'user', content: text }); const tid = addMsg('ai', '', true);
   try {
-    const r = await fetch('/api/ask', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SESSION_TOKEN}` }, body: JSON.stringify({ system: PAGE_SYSTEM, messages: history }) });
+    const r = await fetch('/api/ask', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SESSION_TOKEN}` }, body: JSON.stringify({ system: PAGE_SYSTEM, messages: history, sprint_context: SprintContext.get() }) });
     let reply = 'Unable to reach CMNDR.';
     if (r.ok) { const d = await r.json(); reply = d.content?.[0]?.text || d.text || reply; }
     updMsg(tid, reply); history.push({ role: 'assistant', content: reply });

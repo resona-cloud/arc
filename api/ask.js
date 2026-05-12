@@ -151,7 +151,7 @@ ${actionHistory.map(a => `• ${a.client_id} — ${a.action_title} [${a.page}] �
   }
 
   // ── POST (default) — CMNDR Chat (client-facing) ──────────────
-  const { client_id, page, question } = req.body || {};
+  const { client_id, page, question, sprint_context } = req.body || {};
   if (!client_id || !question) {
     return res.status(400).json({ error: 'client_id and question required' });
   }
@@ -299,6 +299,7 @@ ROADMAP DATA:
 You are helping a business owner understand their performance data and make better decisions.
 ${clientGoal ? `Their primary business goal: "${clientGoal}"` : ''}
 Current dashboard section: ${pageLabel}
+${sprint_context ? `\nACTIVE PLAYBOOK SPRINT:\nPlaybook: ${sprint_context.playbook_name || '—'} (${sprint_context.category || '—'})\nProgress: play ${(sprint_context.current_play_index || 0) + 1} of ${sprint_context.total_plays || '—'}\nCompleted plays: ${(sprint_context.completed_play_indices || []).length}\nStarted: ${sprint_context.started_at ? new Date(sprint_context.started_at).toLocaleDateString() : '—'}` : ''}
 
 Rules:
 - Be direct, specific, and actionable — never generic

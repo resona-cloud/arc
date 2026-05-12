@@ -462,6 +462,14 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 const SESSION_TOKEN = localStorage.getItem('cmndr_session');
 const PAGE_SYSTEM = "You are CMNDR, Resona's AI operations intelligence. Be concise and direct. Max 3 sentences unless asked for detail.";
 
+var SprintContext = {
+  _key: 'arc_sprint_context',
+  set: function(ctx) { localStorage.setItem(this._key, JSON.stringify(ctx)); },
+  get: function() { try { return JSON.parse(localStorage.getItem(this._key)); } catch { return null; } },
+  clear: function() { localStorage.removeItem(this._key); },
+  update: function(patch) { var c = this.get() || {}; this.set(Object.assign(c, patch)); }
+};
+
 const excData = {};
 const cmndrActionData = {};
 let entropyData = null;
@@ -683,7 +691,7 @@ async function sendMessage() {
   addMsg('user', text); history.push({role:'user',content:text});
   const tid = addMsg('ai','',true);
   try {
-    const r = await fetch('/api/ask', { method:'POST', headers:{'Content-Type':'application/json',Authorization:`Bearer ${SESSION_TOKEN}`}, body:JSON.stringify({system:PAGE_SYSTEM + getActionMemoryContext(),messages:history}) });
+    const r = await fetch('/api/ask', { method:'POST', headers:{'Content-Type':'application/json',Authorization:`Bearer ${SESSION_TOKEN}`}, body:JSON.stringify({system:PAGE_SYSTEM + getActionMemoryContext(),messages:history,sprint_context:SprintContext.get()}) });
     let reply = 'Unable to reach CMNDR.';
     if (r.ok) { const d=await r.json(); reply=d.content?.[0]?.text||d.text||reply; }
     updMsg(tid, reply); history.push({role:'assistant',content:reply});

@@ -673,6 +673,49 @@ module.exports = async function handler(req, res) {
     }
   }
 
+  // ── POST: Playbook rank ───────────────────────────────────────────────
+  if (req.method === 'POST' && action === 'playbook-rank') {
+    const { scores } = req.body || {};
+    const s = scores || { completeness_score: 58, variance_score: 71, fragmentation_score: 44, enrichment_score: 63 };
+
+    const PB_DIMS = [
+      { id: 'cold-lead-reactivation',         name: 'Cold Lead Reactivation',         primary: 'completeness',  secondary: 'enrichment'    },
+      { id: 'review-request-sequence',        name: 'Review Request Sequence',        primary: 'completeness',  secondary: 'fragmentation' },
+      { id: 'seasonal-promotion-launch',      name: 'Seasonal Promotion Launch',      primary: 'variance',      secondary: 'completeness'  },
+      { id: 'referral-program-activation',    name: 'Referral Program Activation',    primary: 'enrichment',    secondary: 'completeness'  },
+      { id: 'overdue-invoice-recovery',       name: 'Overdue Invoice Recovery',       primary: 'fragmentation', secondary: 'variance'      },
+      { id: 'cash-flow-gap-bridge',           name: 'Cash Flow Gap Bridge',           primary: 'variance',      secondary: 'fragmentation' },
+      { id: 'margin-audit',                   name: 'Margin Audit',                   primary: 'enrichment',    secondary: 'variance'      },
+      { id: 'capacity-optimization',          name: 'Capacity Optimization',          primary: 'fragmentation', secondary: 'completeness'  },
+      { id: 'lead-response-time-fix',         name: 'Lead Response Time Fix',         primary: 'completeness',  secondary: 'variance'      },
+      { id: 'client-onboarding-sequence',     name: 'Client Onboarding Sequence',     primary: 'enrichment',    secondary: 'fragmentation' },
+      { id: 'competitive-positioning-sprint', name: 'Competitive Positioning Sprint', primary: 'variance',      secondary: 'enrichment'    },
+      { id: 'authority-content-push',         name: 'Authority Content Push',         primary: 'enrichment',    secondary: 'completeness'  }
+    ];
+
+    const DIM_LABELS = {
+      completeness:  'data completeness',
+      variance:      'revenue variance',
+      fragmentation: 'operational fragmentation',
+      enrichment:    'contact enrichment'
+    };
+
+    function dimScore(dim) { return 100 - (s[dim + '_score'] || 50); }
+
+    const ranked = PB_DIMS.map(p => ({
+      ...p,
+      relevance: Math.round(dimScore(p.primary) * 0.7 + dimScore(p.secondary) * 0.3)
+    })).sort((a, b) => b.relevance - a.relevance);
+
+    ranked[0].recommended = true;
+
+    const dims = ['completeness', 'variance', 'fragmentation', 'enrichment'];
+    const lowestDim = dims.reduce((a, b) => (s[a + '_score'] || 50) < (s[b + '_score'] || 50) ? a : b);
+    const cmndr_reason = `Your ${DIM_LABELS[lowestDim]} score is ${s[lowestDim + '_score'] || 50}/100 — the lowest area. Playbooks targeting this dimension are ranked highest.`;
+
+    return res.status(200).json({ success: true, cmndr_reason, recommended_id: ranked[0].id, playbooks: ranked });
+  }
+
   // ── POST: Finance data for client ────────────────────────────────────
   if (req.method === 'POST' && action === 'finance-data') {
     const token = (req.headers.authorization || '').replace('Bearer ', '');
